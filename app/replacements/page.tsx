@@ -1,0 +1,62 @@
+import { requireUser } from '@/lib/require-user'
+import { createReplacementOrder } from '@/lib/actions'
+import { date, num } from '@/lib/format'
+
+export default async function ReplacementsPage() {
+  const { supabase } = await requireUser()
+  const { data: variations } = await supabase
+    .from('product_variations')
+    .select('id, variation_name, internal_sku, products(name)')
+    .order('internal_sku')
+  const { data: replacements } = await supabase
+    .from('replacement_orders')
+    .select('*, product_variations(internal_sku, variation_name, products(name))')
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  return (
+    <>
+      <h1>Replacement Orders</h1>
+      <p className="muted">Replacements consume inventory like normal orders so stock does not quietly disappear.</p>
+
+      <div className="card">
+        <h2>Add replacement</h2>
+        <form className="stack" action={createReplacementOrder}>
+          <div className="form-row">
+            <label>Original order reference<input name="original_order_reference" placeholder="Etsy #12345" /></label>
+            <label>Variation
+              <select name="variation_id" required>
+                <option value="">Choose variation</option>
+                {(variations || []).map((v: any) => (
+                  <option key={v.id} value={v.id}>{v.internal_sku} - {v.products?.name} - {v.variation_name}</option>
+                ))}
+              </select>
+            </label>
+            <label>Replacement qty<input name="quantity" type="number" step="0.01" defaultValue="1" required /></label>
+          </div>
+          <div className="form-row">
+            <label>Reason<input name="reason" required placeholder="Broken in shipping, wrong item, etc." /></label>
+            <label>Approved by<input name="approved_by" placeholder="Nathan" /></label>
+          </div>
+          <label>Notes<textarea name="notes" /></label>
+          <button type="submit">Create replacement and consume BOM parts</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h2>Recent replacements</h2>
+        <table>
+          <thead><tr><th>Date</th><th>Original order</th><th>Variation</th><th>Qty</th><th>Reason</th><th>Approved by</th></tr></thead>
+          <tbody>
+            {(replacements || []).map((r: any) => (
+              <tr key={r.id}>
+                <td>{date(r.created_at)}</td><td>{r.original_order_reference}</td><td>{r.product_variations?.internal_sku} - {r.product_variations?.variation_name}</td><td>{num(r.quantity)}</td><td>{r.reason}</td><td>{r.approved_by}</td>
+              </tr>
+            ))}
+            {(replacements || []).length === 0 && <tr><td colSpan={6}>No replacements yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
