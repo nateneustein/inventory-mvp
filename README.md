@@ -110,3 +110,25 @@ These should come later:
 - Full order management / employee assignment system
 - Shipping label buttons
 - Push inventory back to marketplaces
+
+
+## V5 changes
+
+Run this SQL after 0004:
+
+```text
+supabase/migrations/0005_inventory_workflow_fixes.sql
+```
+
+V5 adds/fixes:
+- Mapping rules now save correctly and can map rows to **Ignore / void line**.
+- Active mapping rules are applied during CSV import.
+- Button to apply mapping rules to existing unmapped rows.
+- Imported rows store normalized dates and Sunday week starts.
+- Usage page now has Sunday-to-Saturday timeline like the spreadsheet.
+- Manual products produced/sold entry for bulk orders.
+- BOM page is now a spreadsheet-style editable grid.
+- Receiving damaged items now creates a damage report, dashboard notification, and Slack alert if configured.
+- Damaged/missing received shipment quantities reduce projected incoming inventory.
+- Part pages include an Add Supplier form.
+```

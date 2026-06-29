@@ -209,3 +209,18 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
   .topbar { position: relative; align-items: flex-start; flex-direction: column; }
   .details-grid { grid-template-columns: 1fr; }
 }
+
+.bom-grid th, .bom-grid td,
+.prediction-grid th, .prediction-grid td,
+.usage-grid th, .usage-grid td { white-space: nowrap; font-size: 12px; }
+.tiny-input { min-width: 72px; padding: 7px 8px; border-radius: 8px; font-size: 12px; }
+.sticky-col { position: sticky; left: 0; z-index: 2; background: #ffffff; box-shadow: 1px 0 0 var(--border); }
+th.sticky-col { z-index: 3; background: #f8fafc; }
+.product-col { min-width: 260px; max-width: 320px; white-space: normal !important; }
+.date-col { min-width: 150px; }
+.prediction-label-col { min-width: 180px; }
+.section-row td { background: #eff6ff; font-weight: 750; }
+.spacer-row td { padding: 7px; background: #f8fafc; }
+.cell-danger { background: #fee4e2; color: #b42318; font-weight: 800; }
+.cell-warning { background: #fef0c7; color: #b54708; font-weight: 800; }
+.mini-details { margin-top: 12px; }

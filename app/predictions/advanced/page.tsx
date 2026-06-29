@@ -16,7 +16,7 @@ export default async function AdvancedPredictionPage({ searchParams }: { searchP
   let d7 = 0, d30 = 0, d90 = 0, lastYearComparable = 0, largestAbsoluteWeek = 0, largestPercentJump = 0
   const now = Date.now(); const weekly = new Map<string, number>()
   for (const m of movements || []) {
-    const dt = new Date(m.created_at); const age = (now - dt.getTime()) / 86400000; const qty = Math.abs(Number(m.quantity || 0))
+    const dt = new Date(m.movement_date || m.created_at); const age = (now - dt.getTime()) / 86400000; const qty = Math.abs(Number(m.quantity || 0))
     if (age <= 7) d7 += qty; if (age <= 30) d30 += qty; if (age <= 90) d90 += qty; if (age >= 335 && age <= 380) lastYearComparable += qty
     const week = `${dt.getFullYear()}-${Math.ceil((((dt.getTime() - new Date(dt.getFullYear(),0,1).getTime()) / 86400000) + new Date(dt.getFullYear(),0,1).getDay() + 1) / 7)}`
     weekly.set(week, (weekly.get(week) || 0) + qty)

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { createManualAdjustment, reportZeroStock, reportDamage, updatePart, archivePart } from '@/lib/actions'
+import { createManualAdjustment, reportZeroStock, reportDamage, updatePart, archivePart, createSupplier } from '@/lib/actions'
 import { date, num } from '@/lib/format'
 
 export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,6 +81,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <div><dt>Buffer</dt><dd>{num(details.safety_stock_days)} days</dd></div>
             <div><dt>Order qty</dt><dd>{num(details.default_order_quantity)}</dd></div>
           </dl>
+          <details className="mini-details"><summary className="button small-btn secondary">Add a supplier</summary><form className="stack card flat" action={createSupplier}><label>Supplier name<input name="name" required /></label><div className="form-row"><label>Contact<input name="contact_name" /></label><label>Email<input name="email" /></label></div><label>Website<input name="website" /></label><label>Notes<textarea name="notes" /></label><button type="submit">Create supplier</button><p className="muted small">After adding, refresh/select the supplier in the edit part form and save this part.</p></form></details>
           <hr />
           <h2>Warehouse quick actions</h2>
           <form className="stack" action={reportZeroStock}>

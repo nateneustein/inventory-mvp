@@ -27,6 +27,32 @@ function numberFromText(raw: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function parseDateValue(raw: unknown) {
+  const text = clean(raw)
+  if (!text) return null
+
+  const mmddyy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/)
+  if (mmddyy) {
+    const month = Number(mmddyy[1])
+    const day = Number(mmddyy[2])
+    let year = Number(mmddyy[3])
+    if (year < 100) year += 2000
+    return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+  }
+
+  const d = new Date(text)
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+  return null
+}
+
+function weekStartSundayFromDate(dateText: string | null) {
+  if (!dateText) return null
+  const d = new Date(`${dateText}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  d.setDate(d.getDate() - d.getDay())
+  return d.toISOString().slice(0, 10)
+}
+
 async function currentUserId() {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -88,9 +114,13 @@ function parseCsv(text: string): CsvRow[] {
 
 function normalizeImportedRow(platform: string, row: CsvRow) {
   if (platform === 'etsy') {
+    const orderDate = clean(row['Sale Date'] || row['Date Paid'])
+    const parsedDate = parseDateValue(orderDate)
     return {
-      platform_order_id: clean(row['Order ID']),
-      order_date: clean(row['Sale Date'] || row['Date Paid']),
+      platform_order_id: clean(row['Order ID'] || row['Transaction ID']),
+      order_date: orderDate,
+      order_date_parsed: parsedDate,
+      week_start: weekStartSundayFromDate(parsedDate),
       item_name: clean(row['Item Name']),
       platform_sku: clean(row['SKU']),
       variation_text: clean(row['Variations']),
@@ -101,9 +131,13 @@ function normalizeImportedRow(platform: string, row: CsvRow) {
   }
 
   if (platform === 'amazon') {
+    const orderDate = clean(row['purchase-date'])
+    const parsedDate = parseDateValue(orderDate)
     return {
       platform_order_id: clean(row['amazon-order-id'] || row['merchant-order-id']),
-      order_date: clean(row['purchase-date']),
+      order_date: orderDate,
+      order_date_parsed: parsedDate,
+      week_start: weekStartSundayFromDate(parsedDate),
       item_name: clean(row['product-name']),
       platform_sku: clean(row['sku']),
       variation_text: clean(row['asin']),
@@ -114,9 +148,13 @@ function normalizeImportedRow(platform: string, row: CsvRow) {
   }
 
   if (platform === 'tiktok') {
+    const orderDate = clean(row['Created Time'] || row['Paid Time'])
+    const parsedDate = parseDateValue(orderDate)
     return {
       platform_order_id: clean(row['Order ID']),
-      order_date: clean(row['Created Time'] || row['Paid Time']),
+      order_date: orderDate,
+      order_date_parsed: parsedDate,
+      week_start: weekStartSundayFromDate(parsedDate),
       item_name: clean(row['Product Name']),
       platform_sku: clean(row['Seller SKU'] || row['SKU ID']),
       variation_text: clean(row['Variation']),
@@ -126,9 +164,13 @@ function normalizeImportedRow(platform: string, row: CsvRow) {
     }
   }
 
+  const orderDate = clean(row['Created at'] || row['Paid at'])
+  const parsedDate = parseDateValue(orderDate)
   return {
     platform_order_id: clean(row['Id'] || row['Name']),
-    order_date: clean(row['Created at'] || row['Paid at']),
+    order_date: orderDate,
+    order_date_parsed: parsedDate,
+    week_start: weekStartSundayFromDate(parsedDate),
     item_name: clean(row['Lineitem name']),
     platform_sku: clean(row['Lineitem sku']),
     variation_text: clean(row['Variant'] || row['Option'] || row['Lineitem name']),
@@ -137,6 +179,52 @@ function normalizeImportedRow(platform: string, row: CsvRow) {
     order_status: clean(row['Fulfillment Status'] || row['Financial Status']),
   }
 }
+
+type MappingRule = {
+  platform: string
+  account_name: string | null
+  match_type: string
+  match_field: string
+  match_value: string
+  map_action?: string
+  variation_id: string | null
+  demand_variation_id: string | null
+  priority: number
+}
+
+function importedFieldValue(row: any, field: string) {
+  if (field === 'sku') return clean(row.platform_sku)
+  if (field === 'item_name') return clean(row.item_name)
+  if (field === 'variation') return clean(row.variation_text)
+  if (field === 'customization') return clean(row.customization_text)
+  return ''
+}
+
+function ruleMatchesImportedRow(rule: MappingRule, row: any) {
+  if (rule.platform !== 'all' && rule.platform !== row.platform) return false
+  if (rule.account_name && rule.account_name !== row.account_name) return false
+  const haystack = importedFieldValue(row, rule.match_field).toLowerCase()
+  const needle = clean(rule.match_value).toLowerCase()
+  if (!needle) return false
+  if (rule.match_type === 'equals') return haystack === needle
+  if (rule.match_type === 'starts_with') return haystack.startsWith(needle)
+  return haystack.includes(needle)
+}
+
+function applyMappingRules(row: any, rules: MappingRule[]) {
+  const rule = rules.find((r) => ruleMatchesImportedRow(r, row))
+  if (!rule) return row
+  if ((rule.map_action || 'map') === 'ignore') {
+    return { ...row, mapping_status: 'ignored', mapped_variation_id: null, demand_variation_id: null }
+  }
+  return {
+    ...row,
+    mapping_status: 'mapped',
+    mapped_variation_id: rule.variation_id,
+    demand_variation_id: rule.demand_variation_id || rule.variation_id,
+  }
+}
+
 
 export async function signIn(formData: FormData) {
   const supabase = await createClient()
@@ -180,18 +268,27 @@ export async function importOrderCsv(formData: FormData) {
 
   if (batchError || !batch) throw new Error(batchError?.message || 'Could not create upload batch')
 
+  const { data: rules } = await supabase
+    .from('product_mapping_rules')
+    .select('platform, account_name, match_type, match_field, match_value, map_action, variation_id, demand_variation_id, priority')
+    .eq('active', true)
+    .order('priority')
+
   const rowsToInsert = parsedRows.slice(0, 10000).map((row, index) => {
     const normalized = normalizeImportedRow(platform, row)
-    return {
+    const baseRow = {
       upload_batch_id: batch.id,
       platform,
       account_name: accountName,
       source_row_number: index + 2,
       raw_data: row,
       mapping_status: 'unmapped',
+      mapped_variation_id: null,
+      demand_variation_id: null,
       created_by: userId,
       ...normalized,
     }
+    return applyMappingRules(baseRow, (rules || []) as MappingRule[])
   })
 
   const { error: rowsError } = await supabase.from('imported_order_rows').insert(rowsToInsert)
@@ -204,21 +301,59 @@ export async function importOrderCsv(formData: FormData) {
 
 export async function createMappingRule(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const mapAction = value(formData, 'map_action') || 'map'
+  const variationId = value(formData, 'variation_id') || null
+  if (mapAction === 'map' && !variationId) throw new Error('Choose a variation, or choose Ignore / void line.')
+
   const { error } = await supabase.from('product_mapping_rules').insert({
     platform: value(formData, 'platform'),
     account_name: value(formData, 'account_name') || null,
     match_type: value(formData, 'match_type'),
     match_field: value(formData, 'match_field'),
     match_value: value(formData, 'match_value'),
-    variation_id: value(formData, 'variation_id'),
-    demand_variation_id: value(formData, 'demand_variation_id') || null,
+    map_action: mapAction,
+    variation_id: variationId,
+    demand_variation_id: mapAction === 'ignore' ? null : (value(formData, 'demand_variation_id') || null),
     priority: num(formData, 'priority', 100),
     notes: value(formData, 'notes') || null,
     created_by: userId,
   })
   if (error) throw new Error(error.message)
   revalidatePath('/mapping-rules')
+  redirect('/mapping-rules')
 }
+
+export async function applyMappingRulesToUnmappedRows() {
+  const { supabase } = await currentUserId()
+  const { data: rules, error: rulesError } = await supabase
+    .from('product_mapping_rules')
+    .select('platform, account_name, match_type, match_field, match_value, map_action, variation_id, demand_variation_id, priority')
+    .eq('active', true)
+    .order('priority')
+  if (rulesError) throw new Error(rulesError.message)
+
+  const { data: rows, error: rowsError } = await supabase
+    .from('imported_order_rows')
+    .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text')
+    .in('mapping_status', ['unmapped', 'needs_review'])
+    .limit(5000)
+  if (rowsError) throw new Error(rowsError.message)
+
+  for (const row of rows || []) {
+    const updated = applyMappingRules(row, (rules || []) as MappingRule[])
+    if (updated.mapping_status !== row.mapping_status) {
+      const { error } = await supabase.from('imported_order_rows').update({
+        mapping_status: updated.mapping_status,
+        mapped_variation_id: updated.mapped_variation_id,
+        demand_variation_id: updated.demand_variation_id,
+      }).eq('id', row.id)
+      if (error) throw new Error(error.message)
+    }
+  }
+  revalidatePath('/mapping-rules')
+  revalidatePath('/imported-orders')
+}
+
 
 export async function createSupplier(formData: FormData) {
   const { supabase, userId } = await currentUserId()
@@ -235,6 +370,7 @@ export async function createSupplier(formData: FormData) {
 
   if (error) throw new Error(error.message)
   revalidatePath('/suppliers')
+  revalidatePath('/parts')
 }
 
 export async function createPart(formData: FormData) {
@@ -373,13 +509,13 @@ export async function receivePurchaseOrderItem(formData: FormData) {
 
   const { data: item, error: itemError } = await supabase
     .from('purchase_order_items')
-    .select('id, purchase_order_id, part_id, quantity_received')
+    .select('id, purchase_order_id, part_id, quantity_received, quantity_accounted')
     .eq('id', itemId)
     .single()
 
   if (itemError || !item) throw new Error(itemError?.message || 'PO item not found')
 
-  const { error: receiveError } = await supabase.from('receiving_events').insert({
+  const { data: receiveEvent, error: receiveError } = await supabase.from('receiving_events').insert({
     purchase_order_id: item.purchase_order_id,
     purchase_order_item_id: item.id,
     part_id: item.part_id,
@@ -388,8 +524,8 @@ export async function receivePurchaseOrderItem(formData: FormData) {
     quantity_missing: qtyMissing,
     notes: value(formData, 'notes') || null,
     created_by: userId,
-  })
-  if (receiveError) throw new Error(receiveError.message)
+  }).select('id').single()
+  if (receiveError || !receiveEvent) throw new Error(receiveError?.message || 'Could not create receiving event')
 
   if (qtyReceived > 0) {
     const { error: movementError } = await supabase.from('inventory_movements').insert({
@@ -405,9 +541,44 @@ export async function receivePurchaseOrderItem(formData: FormData) {
     if (movementError) throw new Error(movementError.message)
   }
 
+  if (qtyDamaged > 0) {
+    const { data: damageReport, error: damageError } = await supabase.from('damage_reports').insert({
+      part_id: item.part_id,
+      quantity: qtyDamaged,
+      reason: 'supplier_damaged',
+      order_reference: item.purchase_order_id,
+      notes: value(formData, 'notes') || 'Damaged during receiving',
+      created_by: userId,
+    }).select('id').single()
+    if (damageError || !damageReport) throw new Error(damageError?.message || 'Could not create damage report')
+
+    await supabase.from('notifications').insert({
+      level: 'warning',
+      title: 'Damaged inventory received',
+      message: `${qtyDamaged} damaged item(s) were reported during receiving.`,
+      source_type: 'damage_report',
+      source_id: damageReport.id,
+      created_by: userId,
+    })
+
+    const webhook = process.env.SLACK_WEBHOOK_URL
+    if (webhook) {
+      await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `Inventory alert: ${qtyDamaged} damaged item(s) reported during receiving.` }),
+      }).catch(() => null)
+    }
+  }
+
+  const accountedAlready = Number(item.quantity_accounted ?? item.quantity_received ?? 0)
+  const accountedNow = qtyReceived + qtyDamaged + qtyMissing
   const { error: updateError } = await supabase
     .from('purchase_order_items')
-    .update({ quantity_received: Number(item.quantity_received || 0) + qtyReceived })
+    .update({
+      quantity_received: Number(item.quantity_received || 0) + qtyReceived,
+      quantity_accounted: accountedAlready + accountedNow,
+    })
     .eq('id', item.id)
 
   if (updateError) throw new Error(updateError.message)
@@ -415,6 +586,7 @@ export async function receivePurchaseOrderItem(formData: FormData) {
   revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
   revalidatePath('/parts')
+  revalidatePath('/damage')
   revalidatePath('/dashboard')
 }
 
@@ -486,7 +658,7 @@ export async function createReplacementOrder(formData: FormData) {
   if (bomError) throw new Error(bomError.message)
   if (!bomItems || bomItems.length === 0) throw new Error('This variation has no BOM items yet. Add the BOM first.')
 
-  const movements = bomItems.map((item) => ({
+  const movements = bomItems.map((item: any) => ({
     part_id: item.part_id,
     movement_type: 'replacement_order',
     quantity: -Number(item.quantity_per_unit) * qty,
@@ -619,6 +791,84 @@ export async function createInventorySwitch(formData: FormData) {
   revalidatePath('/parts')
   revalidatePath('/dashboard')
 }
+
+export async function createManualUnitsSold(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const variationId = value(formData, 'variation_id')
+  const qty = num(formData, 'quantity', 0)
+  const saleDate = value(formData, 'sale_date') || new Date().toISOString().slice(0, 10)
+  if (!variationId) throw new Error('Choose a finished product / variation.')
+  if (qty <= 0) throw new Error('Quantity must be above zero.')
+
+  const { data: sale, error: saleError } = await supabase.from('manual_units_sold').insert({
+    variation_id: variationId,
+    quantity: qty,
+    sale_date: saleDate,
+    week_start: weekStartSundayFromDate(saleDate),
+    order_reference: value(formData, 'order_reference') || null,
+    reason: value(formData, 'reason') || 'bulk_order_manual_entry',
+    notes: value(formData, 'notes') || null,
+    created_by: userId,
+  }).select('id').single()
+  if (saleError || !sale) throw new Error(saleError?.message || 'Could not add manual sold units')
+
+  const { data: bomItems, error: bomError } = await supabase
+    .from('bom_items')
+    .select('part_id, quantity_per_unit')
+    .eq('variation_id', variationId)
+  if (bomError) throw new Error(bomError.message)
+  if (!bomItems || bomItems.length === 0) throw new Error('This variation has no BOM yet.')
+
+  const movements = bomItems.map((item: any) => ({
+    part_id: item.part_id,
+    movement_type: 'order_consumption',
+    quantity: -Number(item.quantity_per_unit) * qty,
+    source_type: 'manual_units_sold',
+    source_id: sale.id,
+    reason: 'Manual units sold / produced entry',
+    notes: value(formData, 'notes') || null,
+    created_by: userId,
+    movement_date: saleDate,
+  }))
+  const { error: movementError } = await supabase.from('inventory_movements').insert(movements)
+  if (movementError) throw new Error(movementError.message)
+
+  revalidatePath('/usage')
+  revalidatePath('/adjustments')
+  revalidatePath('/predictions/basic')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+}
+
+export async function saveBomMatrix(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const entries = Array.from(formData.entries())
+    .filter(([key]) => key.startsWith('bom__'))
+    .map(([key, rawValue]) => {
+      const [, variationId, partId] = key.split('__')
+      const qty = Number(String(rawValue || '').trim() || 0)
+      return { variationId, partId, qty: Number.isFinite(qty) ? qty : 0 }
+    })
+
+  for (const entry of entries) {
+    if (!entry.variationId || !entry.partId) continue
+    if (entry.qty > 0) {
+      const { error } = await supabase.from('bom_items').upsert({
+        variation_id: entry.variationId,
+        part_id: entry.partId,
+        quantity_per_unit: entry.qty,
+        created_by: userId,
+      }, { onConflict: 'variation_id,part_id' })
+      if (error) throw new Error(error.message)
+    } else {
+      const { error } = await supabase.from('bom_items').delete().eq('variation_id', entry.variationId).eq('part_id', entry.partId)
+      if (error) throw new Error(error.message)
+    }
+  }
+
+  revalidatePath('/boms')
+}
+
 
 export async function reportZeroStock(formData: FormData) {
   const { supabase, userId } = await currentUserId()
@@ -828,14 +1078,19 @@ export async function deleteBomItem(formData: FormData) {
 export async function updateMappingRule(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const mapAction = value(formData, 'map_action') || 'map'
+  const variationId = value(formData, 'variation_id') || null
+  if (mapAction === 'map' && !variationId) throw new Error('Choose a variation, or choose Ignore / void line.')
+
   const { error } = await supabase.from('product_mapping_rules').update({
     platform: value(formData, 'platform'),
     account_name: value(formData, 'account_name') || null,
     match_type: value(formData, 'match_type'),
     match_field: value(formData, 'match_field'),
     match_value: value(formData, 'match_value'),
-    variation_id: value(formData, 'variation_id'),
-    demand_variation_id: value(formData, 'demand_variation_id') || null,
+    map_action: mapAction,
+    variation_id: variationId,
+    demand_variation_id: mapAction === 'ignore' ? null : (value(formData, 'demand_variation_id') || null),
     priority: num(formData, 'priority', 100),
     active: value(formData, 'active') !== 'off',
     notes: value(formData, 'notes') || null,

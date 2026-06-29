@@ -18,7 +18,7 @@ export default async function ImportedOrderRowPage({ params }: { params: Promise
       <div className="grid two">
         <div className="card">
           <h2>Order details</h2>
-          <dl className="detail-list"><div><dt>Order ID</dt><dd>{row.platform_order_id}</dd></div><div><dt>Date</dt><dd>{date(row.order_date)}</dd></div><div><dt>SKU</dt><dd>{row.platform_sku}</dd></div><div><dt>Qty</dt><dd>{num(row.quantity)}</dd></div><div><dt>Item</dt><dd>{row.item_name}</dd></div><div><dt>Variation</dt><dd>{row.variation_text}</dd></div><div><dt>Customization</dt><dd>{row.customization_text}</dd></div><div><dt>Status</dt><dd>{row.order_status}</dd></div><div><dt>File</dt><dd>{row.upload_batches?.file_name}</dd></div></dl>
+          <dl className="detail-list"><div><dt>Order ID</dt><dd>{row.platform_order_id}</dd></div><div><dt>Date</dt><dd>{date(row.order_date_parsed || row.order_date)}</dd></div><div><dt>Week start</dt><dd>{date(row.week_start)}</dd></div><div><dt>SKU</dt><dd>{row.platform_sku}</dd></div><div><dt>Qty</dt><dd>{num(row.quantity)}</dd></div><div><dt>Item</dt><dd>{row.item_name}</dd></div><div><dt>Variation</dt><dd>{row.variation_text}</dd></div><div><dt>Customization</dt><dd>{row.customization_text}</dd></div><div><dt>Status</dt><dd>{row.order_status}</dd></div><div><dt>File</dt><dd>{row.upload_batches?.file_name}</dd></div></dl>
         </div>
         <div className="card">
           <h2>Mapping / review</h2>

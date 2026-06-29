@@ -1,55 +1,42 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { createBomItem, updateBomItem, deleteBomItem } from '@/lib/actions'
+import { saveBomMatrix } from '@/lib/actions'
 import { num } from '@/lib/format'
 
-function match(b:any, q:string) {
-  const v = b.product_variations
-  return `${v?.internal_sku||''} ${v?.variation_name||''} ${v?.products?.name||''} ${b.parts?.sku||''} ${b.parts?.name||''}`.toLowerCase().includes(q.toLowerCase())
+function variationLabel(v:any) {
+  return `${v.products?.name || ''} · ${v.variation_name || ''} · ${v.internal_sku || ''}`
 }
 
 export default async function BomsPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
   const params = searchParams ? await searchParams : {}
-  const q = params.q || ''
+  const q = (params.q || '').toLowerCase()
   const { supabase } = await requireUser()
-  const { data: variations } = await supabase.from('product_variations').select('id, variation_name, internal_sku, product_id, products(name)').order('internal_sku')
-  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sku')
-  const { data: allBomItems } = await supabase.from('bom_items').select('*, parts(name, sku), product_variations(id, internal_sku, variation_name, product_id, products(name))').order('created_at', { ascending: false })
-  const bomItems = (allBomItems || []).filter((b:any) => !q || match(b, q))
+  const { data: allVariations } = await supabase.from('product_variations').select('id, variation_name, internal_sku, product_id, active, products(name)').order('internal_sku')
+  const { data: allParts } = await supabase.from('parts').select('id, name, sku, active').order('sku')
+  const { data: allBomItems } = await supabase.from('bom_items').select('variation_id, part_id, quantity_per_unit')
+
+  const parts = (allParts || []).filter((p:any) => p.active !== false)
+  const variations = (allVariations || []).filter((v:any) => v.active !== false && (!q || variationLabel(v).toLowerCase().includes(q)))
+  const bomMap = new Map<string, number>()
+  for (const item of allBomItems || []) bomMap.set(`${item.variation_id}__${item.part_id}`, Number(item.quantity_per_unit || 0))
 
   return (
     <>
-      <div className="page-head"><div><h1>BOM / Master File</h1><p className="muted">The recipe sheet: how much of each part is used for each finished product variation.</p></div><Link className="button secondary" href="/products">Products</Link></div>
-      <div className="card"><form className="filter-bar" action="/boms"><label>Search BOM<input name="q" defaultValue={q} placeholder="Product, variation, SKU, part" /></label><button type="submit">Filter</button><Link className="button ghost" href="/boms">Clear</Link></form></div>
+      <div className="page-head"><div><h1>BOM / Master File</h1><p className="muted">Spreadsheet-style recipe sheet. Rows are finished products/variations, columns are parts. Edit quantities and click save.</p></div><Link className="button secondary" href="/products">Products</Link></div>
+      <div className="card"><form className="filter-bar" action="/boms"><label>Search finished products<input name="q" defaultValue={params.q || ''} placeholder="Product, variation, internal SKU" /></label><button type="submit">Filter</button><Link className="button ghost" href="/boms">Clear</Link></form></div>
 
-      <div className="card">
-        <h2>Add BOM item</h2>
-        <form className="stack" action={createBomItem}>
-          <div className="form-row">
-            <label>Finished product / variation<select name="variation_id" required><option value="">Choose variation</option>{(variations || []).map((v:any) => <option key={v.id} value={v.id}>{v.internal_sku} · {v.products?.name} · {v.variation_name}</option>)}</select></label>
-            <label>Part used<select name="part_id" required><option value="">Choose part</option>{(parts || []).map((p:any) => <option key={p.id} value={p.id}>{p.sku} · {p.name}</option>)}</select></label>
-            <label>Qty used per unit<input name="quantity_per_unit" type="number" step="0.0001" required defaultValue="1" /></label>
-          </div>
-          <label>Notes<textarea name="notes" /></label>
-          <button type="submit">Add BOM item</button>
-        </form>
-      </div>
-
-      <div className="card table-card">
-        <div className="table-head"><h2>BOM sheet</h2><span className="badge info">{bomItems.length} rows</span></div>
-        <div className="wide-table"><table>
-          <thead><tr><th>Product</th><th>Variation</th><th>Internal SKU</th><th>Part</th><th>Part SKU</th><th>Qty per unit</th><th>Notes</th><th>Actions</th></tr></thead>
-          <tbody>
-            {bomItems.map((b:any) => (
-              <tr key={b.id}>
-                <td><Link className="link" href={`/products/${b.product_variations?.product_id}`}>{b.product_variations?.products?.name}</Link></td><td>{b.product_variations?.variation_name}</td><td>{b.product_variations?.internal_sku}</td><td><Link className="link" href={`/parts/${b.part_id}`}>{b.parts?.name}</Link></td><td>{b.parts?.sku}</td><td>{num(b.quantity_per_unit)}</td><td>{b.notes}</td>
-                <td><details><summary className="button small-btn secondary">Edit</summary><form className="stack card flat" action={updateBomItem}><input type="hidden" name="id" value={b.id}/><label>Variation<select name="variation_id" defaultValue={b.variation_id}>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.internal_sku} · {v.variation_name}</option>)}</select></label><label>Part<select name="part_id" defaultValue={b.part_id}>{(parts || []).map((p:any)=><option key={p.id} value={p.id}>{p.sku} · {p.name}</option>)}</select></label><label>Qty<input name="quantity_per_unit" type="number" step="0.0001" defaultValue={b.quantity_per_unit}/></label><label>Notes<textarea name="notes" defaultValue={b.notes || ''}/></label><button type="submit">Save</button></form><form action={deleteBomItem}><input type="hidden" name="id" value={b.id}/><button className="danger small-btn" type="submit">Delete</button></form></details></td>
-              </tr>
-            ))}
-            {bomItems.length === 0 && <tr><td colSpan={8}><div className="empty-state">No BOM rows match this search.</div></td></tr>}
-          </tbody>
-        </table></div>
-      </div>
+      <form action={saveBomMatrix}>
+        <div className="card table-card">
+          <div className="table-head"><div><h2>Master BOM grid</h2><p className="muted small">Blank or 0 means this part is not used. Quantities can be decimals like 0.08 or 1.08.</p></div><button type="submit">Save BOM sheet</button></div>
+          <div className="wide-table bom-grid"><table>
+            <thead><tr><th className="sticky-col product-col">Finished product / variation</th>{parts.map((p:any)=><th key={p.id} title={`${p.sku} · ${p.name}`}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
+            <tbody>
+              {variations.map((v:any) => <tr key={v.id}><td className="sticky-col product-col"><Link className="link" href={`/products/${v.product_id}`}>{v.products?.name}</Link><br/><strong>{v.variation_name}</strong><br/><span className="muted small">{v.internal_sku}</span></td>{parts.map((p:any) => { const current = bomMap.get(`${v.id}__${p.id}`) || 0; return <td key={p.id}><input className="tiny-input" name={`bom__${v.id}__${p.id}`} type="number" step="0.0001" min="0" defaultValue={current ? num(current, 4) : ''} /></td> })}</tr>)}
+              {variations.length === 0 && <tr><td colSpan={parts.length + 1}><div className="empty-state">No variations match this search.</div></td></tr>}
+            </tbody>
+          </table></div>
+        </div>
+      </form>
     </>
   )
 }
