@@ -334,7 +334,7 @@ export async function applyMappingRulesToUnmappedRows() {
 
   const { data: rows, error: rowsError } = await supabase
     .from('imported_order_rows')
-    .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text')
+    .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text, mapping_status')
     .in('mapping_status', ['unmapped', 'needs_review'])
     .limit(5000)
   if (rowsError) throw new Error(rowsError.message)
