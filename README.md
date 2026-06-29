@@ -1,136 +1,112 @@
-# Inventory MVP
+# Inventory MVP v2
 
-This is the first MVP for an internal business inventory system.
+This is the updated MVP for your inventory program. It is built to match the way your current spreadsheet works, while adding stricter tracking for shipments, usage, zero reports, switches, and Slack alerts.
 
-It is built with:
+Stack:
 
 - Next.js App Router
 - Vercel hosting
 - Supabase Postgres database
 - Supabase Auth employee login
 
-## What this first MVP does
+## What changed in this version
 
-This version includes:
+The first version was a simple inventory tracker. This version adds the spreadsheet workflow:
 
-- Suppliers
-- Parts / supplies
-- Products and variations
-- BOM recipes
-- Purchase orders / incoming shipments
-- Receiving confirmation
-- Damage / scrap tracking
-- Replacement orders that consume BOM parts
-- Cycle counts / inventory count adjustments
-- Reorder dashboard
-- Inventory movement history
+- Upload Etsy, Amazon, TikTok Shop, and Shopify CSV files
+- See all imported order rows in one table
+- Add product mapping rules so platform variations map to internal finished products
+- Keep finished products and BOM logic like the MASTER FILE tab
+- Track shipments/purchases like the Purchases area in the spreadsheet
+- Track manual adjustments and inventory switches
+- Separate forced switches from voluntary customer changes
+- Track actual warehouse zero events
+- Show weekly/monthly usage
+- Add basic prediction similar to the spreadsheet PREDICTION tab
+- Add advanced reorder calculation per part
+- Add part QR/card pages for warehouse scanning
+- Add Slack notification setup placeholder
 
-It does **not** yet include Etsy, Amazon, TikTok, or Shopify syncing. Those should come after the internal inventory system is working.
+## Database setup
 
-## Important inventory rule
+Run these SQL files in Supabase SQL Editor, in this order:
 
-Inventory is not stored as one editable number.
+1. `supabase/migrations/0001_inventory_mvp.sql`
+2. `supabase/migrations/0002_inventory_sheet_imports_predictions.sql`
 
-Every change is stored in `inventory_movements`, like:
+If you already ran `0001`, only run `0002`.
 
-- `+500 supplier_received`
-- `-1 replacement_order`
-- `-2 damage`
-- `+12 cycle_count_adjustment`
+## Environment variables in Vercel
 
-This makes it possible to see why inventory changed.
-
-## Setup steps
-
-### 1. Create a Supabase project
-
-Go to Supabase and create a new project.
-
-### 2. Run the database migration
-
-In Supabase:
-
-1. Open your project
-2. Go to **SQL Editor**
-3. Open `supabase/migrations/0001_inventory_mvp.sql`
-4. Copy the full SQL
-5. Paste it into Supabase SQL Editor
-6. Click **Run**
-
-### 3. Create your first employee login
-
-In Supabase:
-
-1. Go to **Authentication**
-2. Go to **Users**
-3. Click **Add user**
-4. Add your email and password
-5. Confirm the user
-
-For the MVP, every logged-in user can access the full system. Later we can add Admin / Manager / Warehouse roles.
-
-### 4. Add environment variables
-
-Create a file named `.env.local` in the project root.
-
-Use `.env.example` as the template:
+Required:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-or-anon-key
 ```
 
-You find these in Supabase under:
-
-**Project Settings → API**
-
-### 5. Run locally
+Optional for Slack testing:
 
 ```bash
-npm install
-npm run dev
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
-Open:
+Do not upload `.env.local` to GitHub.
 
-```bash
-http://localhost:3000
-```
+## Main pages
 
-### 6. Deploy to Vercel
+- `/dashboard` - alerts, low stock, overdue shipments, imported order issues
+- `/uploads` - CSV uploads now, API connections later
+- `/imported-orders` - all imported rows from all platforms
+- `/mapping-rules` - rules for how imported variations become internal products
+- `/products` - finished products and variations
+- `/boms` - BOM/master-file logic
+- `/parts` - parts/components and supplier/order settings
+- `/shipments` - incoming inventory and purchase orders
+- `/receiving` - confirm actual received quantities
+- `/adjustments` - manual adjustments and inventory switches
+- `/usage` - weekly/monthly inventory usage
+- `/predictions/basic` - spreadsheet-style prediction
+- `/predictions/advanced` - safe reorder calculator per part
+- `/zero` - report actual warehouse stockout
+- `/reports` - zero events, dead stock, forced switches, overdue shipments
+- `/scanner` - part URLs for QR cards
+- `/slack` - Slack alert settings and test button
 
-1. Push this folder to GitHub
-2. In Vercel, click **Add New Project**
-3. Import the GitHub repo
-4. Add the same environment variables from `.env.local`
-5. Deploy
+## First real testing flow
 
-## First testing flow
+1. Add suppliers.
+2. Add parts/components.
+3. Add starting inventory through Counts.
+4. Add finished products and variations.
+5. Add BOMs.
+6. Upload CSV files from Etsy/Amazon/TikTok/Shopify.
+7. Check Imported Orders.
+8. Add mapping rules.
+9. Add shipments/purchases.
+10. Receive shipments.
+11. Test zero reports, manual adjustments, and switches.
+12. Check Basic Prediction and Advanced Prediction.
 
-Use this order when testing:
+## Important logic
 
-1. Add suppliers
-2. Add parts
-3. Go to **Counts** and enter starting inventory for each part
-4. Add products
-5. Add product variations
-6. Add BOM recipes
-7. Add purchase orders
-8. Add PO items
-9. Receive shipments
-10. Add a damage report
-11. Add a replacement order
-12. Check Dashboard and Reports
+For forced switches, the system should count demand separately from actual usage.
 
-## What to build next
+Example: customer ordered white passport holder, but we ran out and forced them to switch to cream.
 
-Recommended next upgrades:
+- White still counts as demand for prediction.
+- Cream counts as actual inventory usage.
 
-1. Employee roles: Admin / Manager / Warehouse
-2. Better reorder calculation based on daily usage and lead time
-3. Daily marketplace order import
-4. Order consumption from Etsy/Amazon/TikTok/Shopify
-5. Platform inventory sync back
-6. Damage photos
-7. Supplier performance report
-8. Christmas forecast report
+This version creates the switch table and UI for that. The next build step should connect imported order mapping to BOM consumption automatically.
+
+## Not included yet
+
+These should come later:
+
+- Direct Etsy API connection
+- Veeqo API connection
+- Automatic BOM consumption from imported orders
+- AI reorder analysis button
+- Full order management / employee assignment system
+- Shipping label buttons
+- Push inventory back to marketplaces

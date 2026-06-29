@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { createPart } from '@/lib/actions'
 import { num } from '@/lib/format'
@@ -53,7 +54,7 @@ export default async function PartsPage() {
           <tbody>
             {(parts || []).map((p: any) => (
               <tr key={p.part_id}>
-                <td>{p.name}</td><td>{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td>{num(p.reorder_point)}</td><td>{num(p.target_stock)}</td>
+                <td><Link href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td>{num(p.reorder_point)}</td><td>{num(p.target_stock)}</td>
                 <td><span className={`badge ${p.stock_status === 'ok' ? 'ok' : p.stock_status === 'out' ? 'danger' : 'warning'}`}>{p.stock_status}</span></td>
               </tr>
             ))}

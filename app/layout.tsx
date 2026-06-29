@@ -20,16 +20,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {user && (
               <>
                 <Link href="/dashboard">Dashboard</Link>
+                <Link href="/uploads">Uploads</Link>
+                <Link href="/imported-orders">Imported Orders</Link>
+                <Link href="/mapping-rules">Mapping</Link>
+                <Link href="/products">Finished Products</Link>
+                <Link href="/boms">BOM</Link>
                 <Link href="/parts">Parts</Link>
-                <Link href="/suppliers">Suppliers</Link>
-                <Link href="/products">Products</Link>
-                <Link href="/boms">BOMs</Link>
-                <Link href="/purchase-orders">POs</Link>
-                <Link href="/receiving">Receiving</Link>
-                <Link href="/damage">Damage</Link>
-                <Link href="/replacements">Replacements</Link>
-                <Link href="/counts">Counts</Link>
+                <Link href="/shipments">Shipments</Link>
+                <Link href="/adjustments">Adjustments</Link>
+                <Link href="/usage">Usage</Link>
+                <Link href="/predictions/basic">Basic Prediction</Link>
+                <Link href="/predictions/advanced">Advanced Prediction</Link>
+                <Link href="/zero">Report Zero</Link>
                 <Link href="/reports">Reports</Link>
+                <Link href="/scanner">Scanner</Link>
+                <Link href="/slack">Slack</Link>
                 <Link href="/auth/signout">Sign out</Link>
               </>
             )}
