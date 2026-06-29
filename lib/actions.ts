@@ -686,3 +686,267 @@ export async function sendTestSlackNotification() {
   revalidatePath('/slack')
   revalidatePath('/dashboard')
 }
+
+export async function updateSupplier(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('suppliers').update({
+    name: value(formData, 'name'),
+    contact_name: value(formData, 'contact_name') || null,
+    email: value(formData, 'email') || null,
+    phone: value(formData, 'phone') || null,
+    website: value(formData, 'website') || null,
+    notes: value(formData, 'notes') || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/suppliers')
+  revalidatePath(`/suppliers/${id}`)
+}
+
+export async function deleteSupplier(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('suppliers').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/suppliers')
+  redirect('/suppliers')
+}
+
+export async function updatePart(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('parts').update({
+    name: value(formData, 'name'),
+    sku: value(formData, 'sku'),
+    category: value(formData, 'category') || null,
+    supplier_id: value(formData, 'supplier_id') || null,
+    supplier_part_number: value(formData, 'supplier_part_number') || null,
+    unit: value(formData, 'unit') || 'each',
+    lead_time_days_min: num(formData, 'lead_time_days_min', 0),
+    lead_time_days_max: num(formData, 'lead_time_days_max', 0),
+    safety_stock_days: num(formData, 'safety_stock_days', 30),
+    reorder_point: num(formData, 'reorder_point', 0),
+    target_stock: num(formData, 'target_stock', 0),
+    default_order_quantity: num(formData, 'default_order_quantity', 0),
+    critical: value(formData, 'critical') === 'on',
+    active: value(formData, 'active') !== 'off',
+    notes: value(formData, 'notes') || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/parts')
+  revalidatePath(`/parts/${id}`)
+  revalidatePath('/dashboard')
+}
+
+export async function archivePart(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const active = value(formData, 'active') === 'true'
+  const { error } = await supabase.from('parts').update({ active, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/parts')
+  revalidatePath(`/parts/${id}`)
+}
+
+export async function updateProduct(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('products').update({
+    name: value(formData, 'name'),
+    sku: value(formData, 'sku') || null,
+    notes: value(formData, 'notes') || null,
+    active: value(formData, 'active') !== 'off',
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/products')
+  revalidatePath(`/products/${id}`)
+}
+
+export async function archiveProduct(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const active = value(formData, 'active') === 'true'
+  const { error } = await supabase.from('products').update({ active, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/products')
+  revalidatePath(`/products/${id}`)
+}
+
+export async function updateVariation(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const productId = value(formData, 'product_id')
+  const { error } = await supabase.from('product_variations').update({
+    product_id: productId,
+    variation_name: value(formData, 'variation_name'),
+    internal_sku: value(formData, 'internal_sku'),
+    notes: value(formData, 'notes') || null,
+    active: value(formData, 'active') !== 'off',
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/products')
+  revalidatePath(`/products/${productId}`)
+  revalidatePath('/boms')
+}
+
+export async function archiveVariation(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const productId = value(formData, 'product_id')
+  const active = value(formData, 'active') === 'true'
+  const { error } = await supabase.from('product_variations').update({ active, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/products')
+  revalidatePath(`/products/${productId}`)
+}
+
+export async function updateBomItem(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('bom_items').update({
+    variation_id: value(formData, 'variation_id'),
+    part_id: value(formData, 'part_id'),
+    quantity_per_unit: num(formData, 'quantity_per_unit', 1),
+    notes: value(formData, 'notes') || null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/boms')
+}
+
+export async function deleteBomItem(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('bom_items').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/boms')
+}
+
+export async function updateMappingRule(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('product_mapping_rules').update({
+    platform: value(formData, 'platform'),
+    account_name: value(formData, 'account_name') || null,
+    match_type: value(formData, 'match_type'),
+    match_field: value(formData, 'match_field'),
+    match_value: value(formData, 'match_value'),
+    variation_id: value(formData, 'variation_id'),
+    demand_variation_id: value(formData, 'demand_variation_id') || null,
+    priority: num(formData, 'priority', 100),
+    active: value(formData, 'active') !== 'off',
+    notes: value(formData, 'notes') || null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/mapping-rules')
+}
+
+export async function deleteMappingRule(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('product_mapping_rules').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/mapping-rules')
+}
+
+export async function updateImportedOrderRow(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('imported_order_rows').update({
+    mapping_status: value(formData, 'mapping_status'),
+    mapped_variation_id: value(formData, 'mapped_variation_id') || null,
+    demand_variation_id: value(formData, 'demand_variation_id') || null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/imported-orders')
+  revalidatePath(`/imported-orders/${id}`)
+}
+
+export async function deleteImportedOrderRow(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('imported_order_rows').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/imported-orders')
+  redirect('/imported-orders')
+}
+
+export async function updatePurchaseOrder(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'purchase_order_id') || value(formData, 'id')
+  const { error } = await supabase.from('purchase_orders').update({
+    po_number: value(formData, 'po_number'),
+    supplier_id: value(formData, 'supplier_id'),
+    status: value(formData, 'status') || 'ordered',
+    order_date: value(formData, 'order_date') || null,
+    expected_date: value(formData, 'expected_date') || null,
+    tracking_number: value(formData, 'tracking_number') || null,
+    notes: value(formData, 'notes') || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/shipments')
+  revalidatePath(`/shipments/${id}`)
+  revalidatePath('/purchase-orders')
+  revalidatePath('/dashboard')
+}
+
+export async function deletePurchaseOrder(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('purchase_orders').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/shipments')
+  revalidatePath('/purchase-orders')
+  redirect('/shipments')
+}
+
+export async function updatePurchaseOrderItem(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const poId = value(formData, 'purchase_order_id')
+  const { error } = await supabase.from('purchase_order_items').update({
+    part_id: value(formData, 'part_id'),
+    quantity_ordered: num(formData, 'quantity_ordered', 0),
+    unit_cost: num(formData, 'unit_cost', 0),
+    notes: value(formData, 'notes') || null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/shipments')
+  revalidatePath(`/shipments/${poId}`)
+  revalidatePath('/receiving')
+  revalidatePath('/dashboard')
+}
+
+export async function deletePurchaseOrderItem(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const poId = value(formData, 'purchase_order_id')
+  const { error } = await supabase.from('purchase_order_items').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/shipments')
+  revalidatePath(`/shipments/${poId}`)
+  revalidatePath('/receiving')
+}
+
+export async function acknowledgeNotification(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('notifications').update({ acknowledged_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function deleteUploadBatch(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  await supabase.from('imported_order_rows').delete().eq('upload_batch_id', id)
+  const { error } = await supabase.from('upload_batches').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/uploads')
+  revalidatePath('/imported-orders')
+  redirect('/uploads')
+}

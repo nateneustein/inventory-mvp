@@ -1,47 +1,43 @@
+import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
+import { updateImportedOrderRow, deleteImportedOrderRow } from '@/lib/actions'
 import { date, num } from '@/lib/format'
 
-export default async function ImportedOrdersPage({ searchParams }: { searchParams?: Promise<{ platform?: string, status?: string }> }) {
-  const params = searchParams ? await searchParams : {}
-  const { supabase } = await requireUser()
+function rowMatch(r:any, q:string) {
+  return `${r.platform_order_id||''} ${r.platform_sku||''} ${r.item_name||''} ${r.variation_text||''} ${r.customization_text||''} ${r.account_name||''}`.toLowerCase().includes(q.toLowerCase())
+}
 
-  let query = supabase.from('imported_order_rows').select('*').order('created_at', { ascending: false }).limit(300)
+export default async function ImportedOrdersPage({ searchParams }: { searchParams?: Promise<{ platform?: string, status?: string, q?: string }> }) {
+  const params = searchParams ? await searchParams : {}
+  const q = params.q || ''
+  const { supabase } = await requireUser()
+  const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').order('internal_sku')
+
+  let query = supabase.from('imported_order_rows').select('*, mapped:product_variations!imported_order_rows_mapped_variation_id_fkey(internal_sku, variation_name), demand:product_variations!imported_order_rows_demand_variation_id_fkey(internal_sku, variation_name)').order('created_at', { ascending: false }).limit(500)
   if (params.platform) query = query.eq('platform', params.platform)
   if (params.status) query = query.eq('mapping_status', params.status)
-  const { data: rows } = await query
+  const { data: allRows } = await query
+  const rows = (allRows || []).filter((r:any) => !q || rowMatch(r, q))
 
   return (
     <>
-      <h1>Imported Orders</h1>
-      <p className="muted">Raw imported order rows from Etsy, Amazon, TikTok, and Shopify. This is the audit table before orders are mapped to finished products.</p>
+      <div className="page-head"><div><h1>Imported Orders</h1><p className="muted">Raw order rows from Etsy, Amazon, TikTok, and Shopify before they become inventory demand/usage.</p></div><Link className="button" href="/uploads">Upload CSV</Link></div>
+      <div className="card"><form className="filter-bar" action="/imported-orders"><label>Search<input name="q" defaultValue={q} placeholder="Order ID, SKU, item, variation, customization" /></label><label className="compact">Platform<select name="platform" defaultValue={params.platform || ''}><option value="">All</option><option value="etsy">Etsy</option><option value="amazon">Amazon</option><option value="tiktok">TikTok</option><option value="shopify">Shopify</option></select></label><label className="compact">Mapping<select name="status" defaultValue={params.status || ''}><option value="">All</option><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label><button type="submit">Filter</button><Link className="button ghost" href="/imported-orders">Clear</Link></form></div>
 
-      <div className="card">
-        <div className="toolbar">
-          <a className="button secondary" href="/imported-orders">All</a>
-          <a className="button secondary" href="/imported-orders?status=unmapped">Unmapped</a>
-          <a className="button secondary" href="/imported-orders?platform=etsy">Etsy</a>
-          <a className="button secondary" href="/imported-orders?platform=amazon">Amazon</a>
-          <a className="button secondary" href="/imported-orders?platform=tiktok">TikTok</a>
-          <a className="button secondary" href="/imported-orders?platform=shopify">Shopify</a>
-        </div>
-      </div>
-
-      <div className="card wide-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Source</th><th>Account</th><th>Order ID</th><th>Date</th><th>SKU</th><th>Qty</th><th>Item</th><th>Variation</th><th>Customization</th><th>Status</th><th>Mapping</th>
-            </tr>
-          </thead>
+      <div className="card table-card">
+        <div className="table-head"><h2>Imported rows</h2><span className="badge info">{rows.length} shown</span></div>
+        <div className="wide-table"><table>
+          <thead><tr><th>Source</th><th>Account</th><th>Order ID</th><th>Date</th><th>SKU</th><th>Qty</th><th>Item</th><th>Variation</th><th>Customization</th><th>Status</th><th>Mapping</th><th>Actions</th></tr></thead>
           <tbody>
-            {(rows || []).map((r: any) => (
+            {rows.map((r:any) => (
               <tr key={r.id}>
-                <td>{r.platform}</td><td>{r.account_name}</td><td>{r.platform_order_id}</td><td>{date(r.order_date)}</td><td>{r.platform_sku}</td><td>{num(r.quantity)}</td><td>{r.item_name}</td><td>{r.variation_text}</td><td>{r.customization_text}</td><td>{r.order_status}</td><td><span className={`badge ${r.mapping_status === 'mapped' ? 'ok' : 'warning'}`}>{r.mapping_status}</span></td>
+                <td>{r.platform}</td><td>{r.account_name}</td><td><Link className="link" href={`/imported-orders/${r.id}`}>{r.platform_order_id}</Link></td><td>{date(r.order_date)}</td><td>{r.platform_sku}</td><td>{num(r.quantity)}</td><td>{r.item_name}</td><td>{r.variation_text}</td><td>{r.customization_text}</td><td>{r.order_status}</td><td><span className={`badge ${r.mapping_status}`}>{r.mapping_status}</span><br/><span className="small muted">{r.mapped?.internal_sku}</span></td>
+                <td><details><summary className="button small-btn secondary">Edit</summary><form className="stack card flat" action={updateImportedOrderRow}><input type="hidden" name="id" value={r.id}/><label>Mapping status<select name="mapping_status" defaultValue={r.mapping_status}><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label><label>Actual variation<select name="mapped_variation_id" defaultValue={r.mapped_variation_id || ''}><option value="">None</option>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.internal_sku} · {v.products?.name} · {v.variation_name}</option>)}</select></label><label>Demand variation<select name="demand_variation_id" defaultValue={r.demand_variation_id || ''}><option value="">Same/none</option>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.internal_sku} · {v.products?.name} · {v.variation_name}</option>)}</select></label><button type="submit">Save mapping</button></form><form action={deleteImportedOrderRow}><input type="hidden" name="id" value={r.id}/><button className="danger small-btn" type="submit">Delete row</button></form></details></td>
               </tr>
             ))}
-            {(rows || []).length === 0 && <tr><td colSpan={11}>No imported order rows yet.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={12}><div className="empty-state">No imported rows match this filter.</div></td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   )
