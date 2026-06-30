@@ -808,8 +808,21 @@ export async function createManualUnitsSold(formData: FormData) {
   const variationId = value(formData, 'variation_id')
   const qty = num(formData, 'quantity', 0)
   const saleDate = value(formData, 'sale_date') || new Date().toISOString().slice(0, 10)
-  if (!variationId) throw new Error('Choose a finished product / variation.')
-  if (qty <= 0) throw new Error('Quantity must be above zero.')
+  const notes = value(formData, 'notes') || null
+
+  function fail(message: string) {
+    redirect(`/usage?error=${encodeURIComponent(message)}`)
+  }
+
+  if (!variationId) fail('Choose a finished product / variation.')
+  if (qty <= 0) fail('Quantity must be above zero.')
+
+  const { data: bomItems, error: bomError } = await supabase
+    .from('bom_items')
+    .select('part_id, quantity_per_unit')
+    .eq('variation_id', variationId)
+  if (bomError) fail(bomError.message)
+  if (!bomItems || bomItems.length === 0) fail('This variation has no BOM yet. Add the BOM first, then enter manual units sold.')
 
   const { data: sale, error: saleError } = await supabase.from('manual_units_sold').insert({
     variation_id: variationId,
@@ -818,17 +831,10 @@ export async function createManualUnitsSold(formData: FormData) {
     week_start: weekStartSundayFromDate(saleDate),
     order_reference: value(formData, 'order_reference') || null,
     reason: value(formData, 'reason') || 'bulk_order_manual_entry',
-    notes: value(formData, 'notes') || null,
+    notes,
     created_by: userId,
   }).select('id').single()
-  if (saleError || !sale) throw new Error(saleError?.message || 'Could not add manual sold units')
-
-  const { data: bomItems, error: bomError } = await supabase
-    .from('bom_items')
-    .select('part_id, quantity_per_unit')
-    .eq('variation_id', variationId)
-  if (bomError) throw new Error(bomError.message)
-  if (!bomItems || bomItems.length === 0) throw new Error('This variation has no BOM yet.')
+  if (saleError || !sale) fail(saleError?.message || 'Could not add manual sold units')
 
   const movements = bomItems.map((item: any) => ({
     part_id: item.part_id,
@@ -837,18 +843,19 @@ export async function createManualUnitsSold(formData: FormData) {
     source_type: 'manual_units_sold',
     source_id: sale.id,
     reason: 'Manual units sold / produced entry',
-    notes: value(formData, 'notes') || null,
+    notes,
     created_by: userId,
     movement_date: saleDate,
   }))
   const { error: movementError } = await supabase.from('inventory_movements').insert(movements)
-  if (movementError) throw new Error(movementError.message)
+  if (movementError) fail(movementError.message)
 
   revalidatePath('/usage')
   revalidatePath('/adjustments')
   revalidatePath('/predictions/basic')
   revalidatePath('/parts')
   revalidatePath('/dashboard')
+  redirect('/usage?notice=Manual%20sold%2Fproduced%20units%20were%20added')
 }
 
 export async function saveBomMatrix(formData: FormData) {

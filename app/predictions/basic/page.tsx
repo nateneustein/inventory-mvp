@@ -21,10 +21,23 @@ const projectionPeriods = [
   { label: 'Stock 5 Weeks', days: 35 },
 ]
 
-export default async function BasicPredictionPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string }> }) {
+function zoomValue(raw?: string) {
+  const allowed = ['80', '90', '100', '110', '125', '150']
+  return allowed.includes(raw || '') ? raw || '100' : '100'
+}
+function predictionHref(params:any, zoom:string) {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  if (params.status) query.set('status', params.status)
+  query.set('zoom', zoom)
+  return `/predictions/basic?${query.toString()}`
+}
+
+export default async function BasicPredictionPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string, zoom?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const statusFilter = params.status || ''
+  const zoom = zoomValue(params.zoom)
   const { supabase } = await requireUser()
   const { data: status } = await supabase.from('inventory_status').select('*').order('name')
   const { data: movements } = await supabase.from('inventory_movements').select('part_id, quantity, created_at, movement_date').lt('quantity', 0).gte('created_at', daysAgo(130)).limit(50000)
@@ -53,8 +66,8 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
       <div className="card"><form className="filter-bar" action="/predictions/basic"><label>Search parts<input name="q" defaultValue={q} placeholder="SKU, part, category" /></label><label className="compact">Status<select name="status" defaultValue={statusFilter}><option value="">All</option><option value="out">Out</option><option value="reorder_now">Reorder now</option><option value="getting_low">Getting low</option><option value="ok">OK</option></select></label><button type="submit">Filter</button><Link className="button ghost" href="/predictions/basic">Clear</Link></form></div>
 
       <div className="card table-card">
-        <div className="table-head"><div><h2>Prediction sheet</h2><p className="muted small">Today: {date(isoDate(today))}. Negative numbers mean projected stockout.</p></div><span className="badge info">{parts.length} parts</span></div>
-        <div className="wide-table prediction-grid"><table>
+        <div className="table-head"><div><h2>Prediction sheet</h2><p className="muted small">Today: {date(isoDate(today))}. Negative numbers mean projected stockout.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={predictionHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{parts.length} parts</span></div></div>
+        <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} prediction-grid`}><table>
           <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Days</th>{parts.map((p:any)=><th key={p.part_id}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
           <tbody>
             {usagePeriods.map((period) => {

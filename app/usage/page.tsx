@@ -22,9 +22,21 @@ function weekNumber(d: Date) {
 function monthName(d: Date) { return d.toLocaleString('en-US', { month: 'long' }) }
 function variationLabel(v:any) { return `${v.internal_sku} · ${v.products?.name} · ${v.variation_name}` }
 
-export default async function UsagePage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+function zoomValue(raw?: string) {
+  const allowed = ['80', '90', '100', '110', '125', '150']
+  return allowed.includes(raw || '') ? raw || '100' : '100'
+}
+function usageHref(params:any, zoom:string) {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  query.set('zoom', zoom)
+  return `/usage?${query.toString()}`
+}
+
+export default async function UsagePage({ searchParams }: { searchParams?: Promise<{ q?: string, zoom?: string, error?: string, notice?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = (params.q || '').toLowerCase()
+  const zoom = zoomValue(params.zoom)
   const { supabase } = await requireUser()
   const { data: status } = await supabase.from('inventory_status').select('*').order('name')
   const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').eq('active', true).order('internal_sku')
@@ -58,6 +70,8 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
   return (
     <>
       <div className="page-head"><div><h1>Inventory Usage</h1><p className="muted">Sunday-to-Saturday usage timeline. This is the replacement for the weekly usage section in the spreadsheet.</p></div></div>
+      {params.error && <div className="card danger-soft"><strong>Manual usage was not added:</strong> {params.error}</div>}
+      {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
 
       <div className="card">
         <h2>Add manual products produced / sold</h2>
@@ -73,8 +87,8 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
       <div className="card"><form className="filter-bar" action="/usage"><label>Filter parts<input name="q" defaultValue={params.q || ''} placeholder="Part name, SKU, category" /></label><button type="submit">Filter</button><Link className="button ghost" href="/usage">Clear</Link></form></div>
 
       <div className="card table-card">
-        <div className="table-head"><div><h2>Weekly usage timeline</h2><p className="muted small">Each row is one Sunday-to-Saturday week. Columns are parts/components.</p></div><span className="badge info">{weeks.length} weeks</span></div>
-        <div className="wide-table usage-grid"><table>
+        <div className="table-head"><div><h2>Weekly usage timeline</h2><p className="muted small">Each row is one Sunday-to-Saturday week. Columns are parts/components.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={usageHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{weeks.length} weeks</span></div></div>
+        <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} usage-grid`}><table>
           <thead><tr><th className="sticky-col date-col">Week range</th><th>Week #</th><th>Month</th><th>Year</th>{parts.map((p:any)=><th key={p.part_id}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
           <tbody>{weeks.map((w) => { const weekKey = iso(w); const weekMap = usageByWeek.get(weekKey) || new Map<string, number>(); return <tr key={weekKey}><td className="sticky-col date-col"><strong>{date(weekKey)}</strong><br/><span className="muted small">to {date(iso(addDays(w, 6)))}</span></td><td>{weekNumber(w)}</td><td>{monthName(w)}</td><td>{w.getFullYear()}</td>{parts.map((p:any)=><td key={p.part_id}>{num(weekMap.get(p.part_id) || 0)}</td>)}</tr> })}</tbody>
         </table></div>
