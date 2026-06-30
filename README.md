@@ -136,3 +136,7 @@ V5 adds/fixes:
 
 ## v5 fixed3
 Mapping rule creation now shows the exact Supabase error on screen instead of silently blinking.
+
+
+## v9 simple zoom
+Restored v7 layout, removed extra Spreadsheet tools cards, and added 50/60/70% zoom options to the existing sheet header controls.

@@ -228,110 +228,63 @@ th.sticky-col { z-index: 3; background: #f8fafc; }
 .success-soft { border-color: rgba(22, 163, 74, 0.35); background: rgba(22, 163, 74, 0.08); color: #14532d; }
 .danger-soft { border-color: rgba(220, 38, 38, 0.35); background: rgba(220, 38, 38, 0.08); color: #7f1d1d; }
 
-/* Spreadsheet controls - timeline-style zoom */
-.zoom-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.zoom-controls span {
-  color: var(--muted);
-  font-weight: 800;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.zoom-controls .button.small-btn { min-width: 44px; }
+/* Spreadsheet controls */
+.zoom-controls { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.zoom-controls span { color: var(--muted); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.sheet-scroll { max-height: calc(100vh - 260px); overflow: auto; border-top: 1px solid var(--border); }
+.sheet-sticky-head thead th { position: sticky; top: 0; z-index: 4; box-shadow: 0 1px 0 var(--border); }
+.sheet-sticky-head thead th.sticky-col { z-index: 8; }
+.sheet-sticky-head .sticky-col { z-index: 3; }
+.sheet-zoom-50 th, .sheet-zoom-50 td { font-size: 7px !important; padding: 3px 4px; line-height: 1.05; }
+.sheet-zoom-60 th, .sheet-zoom-60 td { font-size: 8px !important; padding: 4px 5px; line-height: 1.08; }
+.sheet-zoom-70 th, .sheet-zoom-70 td { font-size: 9px !important; padding: 5px 6px; line-height: 1.12; }
+.sheet-zoom-80 th, .sheet-zoom-80 td { font-size: 10px !important; padding: 7px 8px; }
+.sheet-zoom-90 th, .sheet-zoom-90 td { font-size: 11px !important; padding: 9px 10px; }
+.sheet-zoom-100 th, .sheet-zoom-100 td { font-size: 12px !important; }
+.sheet-zoom-110 th, .sheet-zoom-110 td { font-size: 13px !important; padding: 13px 15px; }
+.sheet-zoom-125 th, .sheet-zoom-125 td { font-size: 15px !important; padding: 15px 17px; }
+.sheet-zoom-150 th, .sheet-zoom-150 td { font-size: 18px !important; padding: 18px 20px; }
+.sheet-zoom-50 .tiny-input { min-width: 34px; font-size: 7px; padding: 2px 3px; }
+.sheet-zoom-60 .tiny-input { min-width: 40px; font-size: 8px; padding: 3px 4px; }
+.sheet-zoom-70 .tiny-input { min-width: 47px; font-size: 9px; padding: 4px 5px; }
+.sheet-zoom-80 .tiny-input { min-width: 54px; font-size: 10px; padding: 5px 6px; }
+.sheet-zoom-90 .tiny-input { min-width: 62px; font-size: 11px; padding: 6px 7px; }
+.sheet-zoom-110 .tiny-input { min-width: 82px; font-size: 13px; padding: 8px 9px; }
+.sheet-zoom-125 .tiny-input { min-width: 96px; font-size: 15px; padding: 9px 10px; }
+.sheet-zoom-150 .tiny-input { min-width: 118px; font-size: 18px; padding: 11px 12px; }
 .card.flat { margin-top: 10px; box-shadow: none; }
 
-/* Keep the sheet feeling like the team timeline app: full-page vertical scroll, horizontal sheet scroll. */
+/* More obvious spreadsheet controls */
+.spreadsheet-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-left: 5px solid #6366f1;
+  background: linear-gradient(135deg, #eef2ff, #ffffff);
+}
+.zoom-controls.big .button { min-width: 52px; }
 .sheet-scroll {
   position: relative;
-  overflow-x: auto;
-  overflow-y: visible;
-  border-top: 1px solid var(--border);
-  max-height: none;
-  min-height: 0;
+  max-height: calc(100vh - 300px);
+  min-height: 420px;
+  overflow: auto;
 }
-.sheet-scroll table {
-  width: max-content;
-  min-width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
+.sheet-sticky-head table { border-collapse: separate; border-spacing: 0; }
+.sheet-sticky-head thead { position: sticky; top: 0; z-index: 20; }
 .sheet-sticky-head thead th {
   position: sticky !important;
-  top: 73px !important;
-  z-index: 25 !important;
+  top: 0 !important;
+  z-index: 21 !important;
   background: #eef2ff !important;
-  box-shadow: 0 1px 0 var(--border), 0 8px 16px rgba(15,23,42,.06);
 }
 .sheet-sticky-head thead th.sticky-col {
   left: 0;
-  z-index: 40 !important;
+  z-index: 30 !important;
 }
 .sheet-sticky-head td.sticky-col {
   position: sticky !important;
   left: 0 !important;
-  z-index: 12 !important;
-  background: #ffffff !important;
+  z-index: 10 !important;
 }
-.sheet-sticky-head tbody tr:hover td.sticky-col { background: #f8fbff !important; }
-
-/* Base spreadsheet sizing */
-.bom-grid th:not(.sticky-col), .bom-grid td:not(.sticky-col),
-.prediction-grid th:not(.sticky-col), .prediction-grid td:not(.sticky-col),
-.usage-grid th:not(.sticky-col), .usage-grid td:not(.sticky-col) {
-  min-width: 120px;
-  max-width: 180px;
-}
-.bom-grid th, .bom-grid td,
-.prediction-grid th, .prediction-grid td,
-.usage-grid th, .usage-grid td {
-  transition: padding .12s ease, font-size .12s ease, min-width .12s ease, max-width .12s ease;
-}
-
-/* Strong zoom levels. These change the entire sheet density, not just browser text size. */
-.sheet-zoom-50 th, .sheet-zoom-50 td { font-size: 7px !important; padding: 3px 4px !important; line-height: 1.12; }
-.sheet-zoom-60 th, .sheet-zoom-60 td { font-size: 8px !important; padding: 4px 5px !important; line-height: 1.15; }
-.sheet-zoom-70 th, .sheet-zoom-70 td { font-size: 9px !important; padding: 5px 6px !important; line-height: 1.18; }
-.sheet-zoom-80 th, .sheet-zoom-80 td { font-size: 10px !important; padding: 6px 7px !important; line-height: 1.2; }
-.sheet-zoom-90 th, .sheet-zoom-90 td { font-size: 11px !important; padding: 8px 9px !important; line-height: 1.25; }
-.sheet-zoom-100 th, .sheet-zoom-100 td { font-size: 12px !important; padding: 12px 14px !important; }
-.sheet-zoom-125 th, .sheet-zoom-125 td { font-size: 15px !important; padding: 16px 18px !important; }
-.sheet-zoom-150 th, .sheet-zoom-150 td { font-size: 18px !important; padding: 20px 22px !important; }
-
-.sheet-zoom-50 th:not(.sticky-col), .sheet-zoom-50 td:not(.sticky-col) { min-width: 58px !important; max-width: 78px !important; }
-.sheet-zoom-60 th:not(.sticky-col), .sheet-zoom-60 td:not(.sticky-col) { min-width: 68px !important; max-width: 92px !important; }
-.sheet-zoom-70 th:not(.sticky-col), .sheet-zoom-70 td:not(.sticky-col) { min-width: 78px !important; max-width: 108px !important; }
-.sheet-zoom-80 th:not(.sticky-col), .sheet-zoom-80 td:not(.sticky-col) { min-width: 90px !important; max-width: 128px !important; }
-.sheet-zoom-90 th:not(.sticky-col), .sheet-zoom-90 td:not(.sticky-col) { min-width: 104px !important; max-width: 150px !important; }
-.sheet-zoom-125 th:not(.sticky-col), .sheet-zoom-125 td:not(.sticky-col) { min-width: 150px !important; max-width: 220px !important; }
-.sheet-zoom-150 th:not(.sticky-col), .sheet-zoom-150 td:not(.sticky-col) { min-width: 185px !important; max-width: 275px !important; }
-
-.sheet-zoom-50 .product-col { min-width: 120px !important; max-width: 145px !important; }
-.sheet-zoom-60 .product-col { min-width: 145px !important; max-width: 170px !important; }
-.sheet-zoom-70 .product-col { min-width: 165px !important; max-width: 195px !important; }
-.sheet-zoom-80 .product-col { min-width: 190px !important; max-width: 230px !important; }
-.sheet-zoom-90 .product-col { min-width: 225px !important; max-width: 270px !important; }
-.sheet-zoom-125 .product-col { min-width: 330px !important; max-width: 390px !important; }
-.sheet-zoom-150 .product-col { min-width: 400px !important; max-width: 470px !important; }
-
-.sheet-zoom-50 .date-col, .sheet-zoom-50 .prediction-label-col { min-width: 88px !important; max-width: 112px !important; }
-.sheet-zoom-60 .date-col, .sheet-zoom-60 .prediction-label-col { min-width: 104px !important; max-width: 130px !important; }
-.sheet-zoom-70 .date-col, .sheet-zoom-70 .prediction-label-col { min-width: 118px !important; max-width: 150px !important; }
-.sheet-zoom-80 .date-col, .sheet-zoom-80 .prediction-label-col { min-width: 132px !important; max-width: 170px !important; }
-.sheet-zoom-90 .date-col, .sheet-zoom-90 .prediction-label-col { min-width: 150px !important; max-width: 190px !important; }
-.sheet-zoom-125 .date-col, .sheet-zoom-125 .prediction-label-col { min-width: 220px !important; max-width: 280px !important; }
-.sheet-zoom-150 .date-col, .sheet-zoom-150 .prediction-label-col { min-width: 270px !important; max-width: 340px !important; }
-
-.sheet-zoom-50 .tiny-input { min-width: 34px !important; font-size: 7px !important; padding: 2px 3px !important; }
-.sheet-zoom-60 .tiny-input { min-width: 40px !important; font-size: 8px !important; padding: 3px 4px !important; }
-.sheet-zoom-70 .tiny-input { min-width: 46px !important; font-size: 9px !important; padding: 4px 5px !important; }
-.sheet-zoom-80 .tiny-input { min-width: 52px !important; font-size: 10px !important; padding: 5px 6px !important; }
-.sheet-zoom-90 .tiny-input { min-width: 62px !important; font-size: 11px !important; padding: 6px 7px !important; }
-.sheet-zoom-100 .tiny-input { min-width: 72px !important; font-size: 12px !important; padding: 7px 8px !important; }
-.sheet-zoom-125 .tiny-input { min-width: 96px !important; font-size: 15px !important; padding: 9px 10px !important; }
-.sheet-zoom-150 .tiny-input { min-width: 118px !important; font-size: 18px !important; padding: 11px 12px !important; }
-
