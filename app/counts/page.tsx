@@ -23,7 +23,7 @@ export default async function CountsPage() {
             <label>Part
               <select name="part_id" required>
                 <option value="">Choose part</option>
-                {(parts || []).map((p: any) => <option key={p.part_id} value={p.part_id}>{p.sku} - {p.name} - system says {num(p.on_hand)}</option>)}
+                {(parts || []).map((p: any) => <option key={p.part_id} value={p.part_id}>{p.name} - {p.sku} - system says {num(p.on_hand)}</option>)}
               </select>
             </label>
             <label>Actual counted quantity<input name="counted_quantity" type="number" step="0.01" required /></label>
@@ -40,7 +40,7 @@ export default async function CountsPage() {
           <tbody>
             {(counts || []).map((c: any) => (
               <tr key={c.id}>
-                <td>{date(c.created_at)}</td><td>{c.parts?.sku} - {c.parts?.name}</td><td>{num(c.system_quantity_at_count)}</td><td>{num(c.counted_quantity)}</td><td>{num(c.difference)}</td><td>{c.notes}</td>
+                <td>{date(c.created_at)}</td><td><span className="entity-name">{c.parts?.name}</span><br/><span className="sku-small">{c.parts?.sku}</span></td><td>{num(c.system_quantity_at_count)}</td><td>{num(c.counted_quantity)}</td><td>{num(c.difference)}</td><td>{c.notes}</td>
               </tr>
             ))}
             {(counts || []).length === 0 && <tr><td colSpan={6}>No counts yet.</td></tr>}

@@ -24,15 +24,15 @@ export default async function ReportsPage() {
         <h2>Actual warehouse zero events</h2>
         <table>
           <thead><tr><th>Date</th><th>Part</th><th>System qty then</th><th>Notes</th></tr></thead>
-          <tbody>{(zeroReports || []).map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td>{r.parts?.sku} · {r.parts?.name}</td><td>{num(r.system_quantity_at_report)}</td><td>{r.notes}</td></tr>)}</tbody>
+          <tbody>{(zeroReports || []).map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td><span className="entity-name">{r.parts?.name}</span><br/><span className="sku-small">{r.parts?.sku}</span></td><td>{num(r.system_quantity_at_report)}</td><td>{r.notes}</td></tr>)}</tbody>
         </table>
       </div>
 
       <div className="card">
         <h2>Dead stock / slow stock</h2>
         <table>
-          <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Last used</th><th>Status</th></tr></thead>
-          <tbody>{(deadStock || []).map((r: any) => <tr key={r.part_id}><td>{r.name}</td><td>{r.sku}</td><td>{num(r.on_hand)}</td><td>{date(r.last_used_at)}</td><td>{r.dead_stock_status}</td></tr>)}</tbody>
+          <thead><tr><th>Part</th><th className="sku-col">SKU</th><th>On hand</th><th>Last used</th><th>Status</th></tr></thead>
+          <tbody>{(deadStock || []).map((r: any) => <tr key={r.part_id}><td><span className="entity-name">{r.name}</span></td><td className="sku-col">{r.sku}</td><td>{num(r.on_hand)}</td><td>{date(r.last_used_at)}</td><td>{r.dead_stock_status}</td></tr>)}</tbody>
         </table>
       </div>
 
@@ -40,7 +40,7 @@ export default async function ReportsPage() {
         <h2>Forced switches because we ran out</h2>
         <table>
           <thead><tr><th>Date</th><th>Original demand</th><th>Actual used</th><th>Qty</th><th>Order</th><th>Notes</th></tr></thead>
-          <tbody>{(switches || []).map((s: any) => <tr key={s.id}><td>{date(s.created_at)}</td><td>{s.from_part?.sku} · {s.from_part?.name}</td><td>{s.to_part?.sku} · {s.to_part?.name}</td><td>{num(s.quantity)}</td><td>{s.order_reference}</td><td>{s.notes}</td></tr>)}</tbody>
+          <tbody>{(switches || []).map((s: any) => <tr key={s.id}><td>{date(s.created_at)}</td><td><span className="entity-name">{s.from_part?.name}</span><br/><span className="sku-small">{s.from_part?.sku}</span></td><td><span className="entity-name">{s.to_part?.name}</span><br/><span className="sku-small">{s.to_part?.sku}</span></td><td>{num(s.quantity)}</td><td>{s.order_reference}</td><td>{s.notes}</td></tr>)}</tbody>
         </table>
       </div>
     </>

@@ -25,8 +25,8 @@ export default async function ImportedOrderRowPage({ params }: { params: Promise
           <form className="stack" action={updateImportedOrderRow}>
             <input type="hidden" name="id" value={id}/>
             <label>Mapping status<select name="mapping_status" defaultValue={row.mapping_status}><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label>
-            <label>Actual variation used<select name="mapped_variation_id" defaultValue={row.mapped_variation_id || ''}><option value="">None</option>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.internal_sku} · {v.products?.name} · {v.variation_name}</option>)}</select></label>
-            <label>Demand variation<select name="demand_variation_id" defaultValue={row.demand_variation_id || ''}><option value="">Same/none</option>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.internal_sku} · {v.products?.name} · {v.variation_name}</option>)}</select></label>
+            <label>Actual variation used<select name="mapped_variation_id" defaultValue={row.mapped_variation_id || ''}><option value="">None</option>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.products?.name} · {v.variation_name} · {v.internal_sku}</option>)}</select></label>
+            <label>Demand variation<select name="demand_variation_id" defaultValue={row.demand_variation_id || ''}><option value="">Same/none</option>{(variations || []).map((v:any)=><option key={v.id} value={v.id}>{v.products?.name} · {v.variation_name} · {v.internal_sku}</option>)}</select></label>
             <button type="submit">Save mapping</button>
           </form>
           <form action={deleteImportedOrderRow}><input type="hidden" name="id" value={id}/><button className="danger" type="submit">Delete imported row</button></form>

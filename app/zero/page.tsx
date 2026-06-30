@@ -15,7 +15,7 @@ export default async function ZeroPage() {
       <div className="card">
         <h2>Report actual zero</h2>
         <form className="stack" action={reportZeroStock}>
-          <label>Part<select name="part_id" required><option value="">Choose part</option>{(parts || []).map((p: any) => <option key={p.part_id} value={p.part_id}>{p.sku} · {p.name} · system: {num(p.on_hand)}</option>)}</select></label>
+          <label>Part<select name="part_id" required><option value="">Choose part</option>{(parts || []).map((p: any) => <option key={p.part_id} value={p.part_id}>{p.name} · {p.sku} · system: {num(p.on_hand)}</option>)}</select></label>
           <label>Order reference, optional<input name="order_reference" /></label>
           <label>What happened?<textarea name="notes" placeholder="Warehouse scanned card and says there are none left, order waiting, etc." /></label>
           <button type="submit">Report zero</button>
@@ -27,7 +27,7 @@ export default async function ZeroPage() {
         <table>
           <thead><tr><th>Date</th><th>Part</th><th>System qty at report</th><th>Order</th><th>Notes</th></tr></thead>
           <tbody>
-            {(reports || []).map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td>{r.parts?.sku} · {r.parts?.name}</td><td>{num(r.system_quantity_at_report)}</td><td>{r.order_reference}</td><td>{r.notes}</td></tr>)}
+            {(reports || []).map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td><span className="entity-name">{r.parts?.name}</span><br/><span className="sku-small">{r.parts?.sku}</span></td><td>{num(r.system_quantity_at_report)}</td><td>{r.order_reference}</td><td>{r.notes}</td></tr>)}
             {(reports || []).length === 0 && <tr><td colSpan={5}>No zero reports yet.</td></tr>}
           </tbody>
         </table>
