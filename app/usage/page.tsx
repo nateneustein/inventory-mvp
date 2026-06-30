@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { createManualUnitsSold } from '@/lib/actions'
+import { ManualUsageRows } from '@/components/manual-usage-actions'
 import { date, num } from '@/lib/format'
 
 const DAY = 86400000
@@ -40,8 +41,8 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
   const { supabase } = await requireUser()
   const { data: status } = await supabase.from('inventory_status').select('*').order('name')
   const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').eq('active', true).order('internal_sku')
-  const { data: movements } = await supabase.from('inventory_movements').select('part_id, quantity, created_at, movement_date, movement_type').lt('quantity', 0).order('created_at', { ascending: true }).limit(50000)
-  const { data: manualRows } = await supabase.from('manual_units_sold').select('*, product_variations(internal_sku, variation_name, products(name))').order('sale_date', { ascending: false }).limit(100)
+  const { data: movements } = await supabase.from('inventory_movements').select('part_id, quantity, created_at, movement_date, movement_type').lt('quantity', 0).is('archived_at', null).order('created_at', { ascending: true }).limit(50000)
+  const { data: manualRows } = await supabase.from('manual_units_sold').select('*, product_variations(internal_sku, variation_name, products(name))').is('archived_at', null).order('sale_date', { ascending: false }).limit(100)
 
   const parts = (status || []).filter((p:any) => !q || `${p.name || ''} ${p.sku || ''} ${p.category || ''}`.toLowerCase().includes(q))
 
@@ -70,7 +71,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
   return (
     <>
       <div className="page-head"><div><h1>Inventory Usage</h1><p className="muted">Sunday-to-Saturday usage timeline. This is the replacement for the weekly usage section in the spreadsheet.</p></div></div>
-      {params.error && <div className="card danger-soft"><strong>Manual usage was not added:</strong> {params.error}</div>}
+      {params.error && <div className="card danger-soft"><strong>Manual usage was not saved:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
 
       <div className="card">
@@ -94,14 +95,11 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
         </table></div>
       </div>
 
-      <div className="card table-card">
-        <div className="table-head"><h2>Current stock summary</h2></div>
-        <div className="wide-table"><table><thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Status</th></tr></thead><tbody>{parts.map((p: any) => <tr key={p.part_id}><td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td></tr>)}</tbody></table></div>
-      </div>
+      <div className="card table-card"><div className="table-head"><h2>Current stock summary</h2></div><div className="wide-table"><table><thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Status</th></tr></thead><tbody>{parts.map((p: any) => <tr key={p.part_id}><td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td></tr>)}</tbody></table></div></div>
 
       <div className="card table-card">
         <div className="table-head"><h2>Recent manual sold/produced entries</h2></div>
-        <div className="wide-table"><table><thead><tr><th>Date</th><th>Week start</th><th>Variation</th><th>Qty</th><th>Reference</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(manualRows || []).map((r:any)=><tr key={r.id}><td>{date(r.sale_date)}</td><td>{date(r.week_start)}</td><td>{r.product_variations?.internal_sku} · {r.product_variations?.variation_name}</td><td>{num(r.quantity)}</td><td>{r.order_reference}</td><td>{r.reason}</td><td>{r.notes}</td></tr>)}{(manualRows || []).length === 0 && <tr><td colSpan={7}><div className="empty-state">No manual sold/produced entries yet.</div></td></tr>}</tbody></table></div>
+        <div className="wide-table"><table><thead><tr><th>Date</th><th>Week start</th><th>Variation</th><th>Qty</th><th>Reference</th><th>Reason</th><th>Notes</th><th>Actions</th></tr></thead><tbody><ManualUsageRows rows={manualRows || []} variations={variations || []} />{(manualRows || []).length === 0 && <tr><td colSpan={8}><div className="empty-state">No manual sold/produced entries yet.</div></td></tr>}</tbody></table></div>
       </div>
     </>
   )
