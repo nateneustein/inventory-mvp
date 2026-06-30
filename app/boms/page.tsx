@@ -8,7 +8,7 @@ function variationLabel(v:any) {
 }
 
 function zoomValue(raw?: string) {
-  const allowed = ['80', '90', '100', '110', '125', '150']
+  const allowed = ['50', '60', '70', '80', '90', '100', '125', '150']
   return allowed.includes(raw || '') ? raw || '100' : '100'
 }
 function bomsHref(params:any, zoom:string) {
@@ -36,11 +36,10 @@ export default async function BomsPage({ searchParams }: { searchParams?: Promis
     <>
       <div className="page-head"><div><h1>BOM / Master File</h1><p className="muted">Spreadsheet-style recipe sheet. Rows are finished products/variations, columns are parts. Edit quantities and click save.</p></div><Link className="button secondary" href="/products">Products</Link></div>
       <div className="card"><form className="filter-bar" action="/boms"><label>Search finished products<input name="q" defaultValue={params.q || ''} placeholder="Product, variation, internal SKU" /></label><button type="submit">Filter</button><Link className="button ghost" href="/boms">Clear</Link></form></div>
-      <div className="card spreadsheet-toolbar"><strong>Spreadsheet tools</strong><div className="zoom-controls big"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={bomsHref(params, z)}>{z}%</Link>)}</div><span className="muted small">The header row and first column stay sticky while you scroll inside the sheet.</span></div>
 
       <form action={saveBomMatrix}>
         <div className="card table-card">
-          <div className="table-head"><div><h2>Master BOM grid</h2><p className="muted small">Blank or 0 means this part is not used. Quantities can be decimals like 0.08 or 1.08.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={bomsHref(params, z)}>{z}%</Link>)}</div><button type="submit">Save BOM sheet</button></div></div>
+          <div className="table-head"><div><h2>Master BOM grid</h2><p className="muted small">Blank or 0 means this part is not used. Quantities can be decimals like 0.08 or 1.08.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['50','60','70','80','90','100','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={bomsHref(params, z)}>{z}%</Link>)}</div><button type="submit">Save BOM sheet</button></div></div>
           <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} bom-grid`}><table>
             <thead><tr><th className="sticky-col product-col">Finished product / variation</th>{parts.map((p:any)=><th key={p.id} title={`${p.sku} · ${p.name}`}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
             <tbody>
