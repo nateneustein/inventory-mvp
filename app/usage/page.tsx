@@ -85,6 +85,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
       </div>
 
       <div className="card"><form className="filter-bar" action="/usage"><label>Filter parts<input name="q" defaultValue={params.q || ''} placeholder="Part name, SKU, category" /></label><button type="submit">Filter</button><Link className="button ghost" href="/usage">Clear</Link></form></div>
+      <div className="card spreadsheet-toolbar"><strong>Spreadsheet tools</strong><div className="zoom-controls big"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={usageHref(params, z)}>{z}%</Link>)}</div><span className="muted small">The header row and first column stay sticky while you scroll inside the sheet.</span></div>
 
       <div className="card table-card">
         <div className="table-head"><div><h2>Weekly usage timeline</h2><p className="muted small">Each row is one Sunday-to-Saturday week. Columns are parts/components.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={usageHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{weeks.length} weeks</span></div></div>

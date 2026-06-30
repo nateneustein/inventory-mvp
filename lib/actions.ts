@@ -669,7 +669,8 @@ export async function createReplacementOrder(formData: FormData) {
   if (bomError) throw new Error(bomError.message)
   if (!bomItems || bomItems.length === 0) throw new Error('This variation has no BOM items yet. Add the BOM first.')
 
-  const movements = bomItems.map((item: any) => ({
+  const bomRows = bomItems || []
+  const movements = bomRows.map((item: any) => ({
     part_id: item.part_id,
     movement_type: 'replacement_order',
     quantity: -Number(item.quantity_per_unit) * qty,
@@ -835,13 +836,15 @@ export async function createManualUnitsSold(formData: FormData) {
     created_by: userId,
   }).select('id').single()
   if (saleError || !sale) fail(saleError?.message || 'Could not add manual sold units')
+  const saleId = (sale as any).id
 
-  const movements = bomItems.map((item: any) => ({
+  const bomRows = bomItems || []
+  const movements = bomRows.map((item: any) => ({
     part_id: item.part_id,
     movement_type: 'order_consumption',
     quantity: -Number(item.quantity_per_unit) * qty,
     source_type: 'manual_units_sold',
-    source_id: sale.id,
+    source_id: saleId,
     reason: 'Manual units sold / produced entry',
     notes,
     created_by: userId,

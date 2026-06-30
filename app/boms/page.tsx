@@ -36,6 +36,7 @@ export default async function BomsPage({ searchParams }: { searchParams?: Promis
     <>
       <div className="page-head"><div><h1>BOM / Master File</h1><p className="muted">Spreadsheet-style recipe sheet. Rows are finished products/variations, columns are parts. Edit quantities and click save.</p></div><Link className="button secondary" href="/products">Products</Link></div>
       <div className="card"><form className="filter-bar" action="/boms"><label>Search finished products<input name="q" defaultValue={params.q || ''} placeholder="Product, variation, internal SKU" /></label><button type="submit">Filter</button><Link className="button ghost" href="/boms">Clear</Link></form></div>
+      <div className="card spreadsheet-toolbar"><strong>Spreadsheet tools</strong><div className="zoom-controls big"><span>Zoom</span>{['80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={bomsHref(params, z)}>{z}%</Link>)}</div><span className="muted small">The header row and first column stay sticky while you scroll inside the sheet.</span></div>
 
       <form action={saveBomMatrix}>
         <div className="card table-card">
