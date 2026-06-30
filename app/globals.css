@@ -224,3 +224,6 @@ th.sticky-col { z-index: 3; background: #f8fafc; }
 .cell-danger { background: #fee4e2; color: #b42318; font-weight: 800; }
 .cell-warning { background: #fef0c7; color: #b54708; font-weight: 800; }
 .mini-details { margin-top: 12px; }
+
+.success-soft { border-color: rgba(22, 163, 74, 0.35); background: rgba(22, 163, 74, 0.08); color: #14532d; }
+.danger-soft { border-color: rgba(220, 38, 38, 0.35); background: rgba(220, 38, 38, 0.08); color: #7f1d1d; }

@@ -303,24 +303,35 @@ export async function createMappingRule(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const mapAction = value(formData, 'map_action') || 'map'
   const variationId = value(formData, 'variation_id') || null
-  if (mapAction === 'map' && !variationId) throw new Error('Choose a variation, or choose Ignore / void line.')
+  const matchValue = value(formData, 'match_value')
 
-  const { error } = await supabase.from('product_mapping_rules').insert({
-    platform: value(formData, 'platform'),
+  if (!matchValue) {
+    redirect('/mapping-rules?error=' + encodeURIComponent('Enter a match value for the rule.'))
+  }
+  if (mapAction === 'map' && !variationId) {
+    redirect('/mapping-rules?error=' + encodeURIComponent('Choose a variation, or choose Ignore / void line.'))
+  }
+
+  const payload = {
+    platform: (value(formData, 'platform') || 'all').toLowerCase(),
     account_name: value(formData, 'account_name') || null,
-    match_type: value(formData, 'match_type'),
-    match_field: value(formData, 'match_field'),
-    match_value: value(formData, 'match_value'),
+    match_type: value(formData, 'match_type') || 'contains',
+    match_field: value(formData, 'match_field') || 'sku',
+    match_value: matchValue,
     map_action: mapAction,
     variation_id: variationId,
     demand_variation_id: mapAction === 'ignore' ? null : (value(formData, 'demand_variation_id') || null),
     priority: num(formData, 'priority', 100),
     notes: value(formData, 'notes') || null,
     created_by: userId,
-  })
-  if (error) throw new Error(error.message)
+  }
+
+  const { error } = await supabase.from('product_mapping_rules').insert(payload)
+  if (error) {
+    redirect('/mapping-rules?error=' + encodeURIComponent(error.message))
+  }
   revalidatePath('/mapping-rules')
-  redirect('/mapping-rules')
+  redirect('/mapping-rules?notice=' + encodeURIComponent('Mapping rule added.'))
 }
 
 export async function applyMappingRulesToUnmappedRows() {

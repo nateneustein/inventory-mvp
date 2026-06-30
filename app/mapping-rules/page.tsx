@@ -10,10 +10,12 @@ function ruleTarget(r:any) {
   return `${r.product_variations?.internal_sku || ''} · ${r.product_variations?.variation_name || ''}`
 }
 
-export default async function MappingRulesPage({ searchParams }: { searchParams?: Promise<{ q?: string, platform?: string }> }) {
+export default async function MappingRulesPage({ searchParams }: { searchParams?: Promise<{ q?: string, platform?: string, error?: string, notice?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const platform = params.platform || ''
+  const error = params.error || ''
+  const notice = params.notice || ''
   const { supabase } = await requireUser()
   const { data: variations } = await supabase.from('product_variations').select('id, variation_name, internal_sku, products(name)').eq('active', true).order('internal_sku')
   const { data: allRules } = await supabase.from('product_mapping_rules').select('*, product_variations(internal_sku, variation_name, products(name))').order('priority')
@@ -22,7 +24,9 @@ export default async function MappingRulesPage({ searchParams }: { searchParams?
   return (
     <>
       <div className="page-head"><div><h1>Product Mapping Rules</h1><p className="muted">Rules that decide how uploaded marketplace rows become internal finished products, or whether they should be ignored.</p></div><form action={applyMappingRulesToUnmappedRows}><button type="submit">Apply rules to existing rows</button></form></div>
-      <div className="card alert"><strong>Tip:</strong> Use <b>Ignore / void line</b> for rows like BB FBA that should not touch inventory. Those rows will stop showing up as items needing attention.</div>
+      {error && <div className="card danger-soft"><strong>Rule was not saved:</strong> {error}</div>}
+      {notice && <div className="card success-soft"><strong>{notice}</strong></div>}
+      <div className="card alert"><strong>Tip:</strong> Use <b>Ignore / void line</b> for rows like BB FBA that should not touch inventory. Those rows will stop showing up as items needing attention. For multiple possible words like Stars, Butterfly, or Rainbow, create separate rules for each word unless the uploaded row contains the full phrase exactly.</div>
       <div className="card"><form className="filter-bar" action="/mapping-rules"><label>Search rules<input name="q" defaultValue={q} placeholder="SKU, product, variation, account" /></label><label className="compact">Platform<select name="platform" defaultValue={platform}><option value="">All</option><option value="all">All platforms</option><option value="etsy">Etsy</option><option value="amazon">Amazon</option><option value="tiktok">TikTok</option><option value="shopify">Shopify</option></select></label><button type="submit">Filter</button></form></div>
 
       <div className="card">

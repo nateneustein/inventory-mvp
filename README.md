@@ -132,3 +132,7 @@ V5 adds/fixes:
 - Damaged/missing received shipment quantities reduce projected incoming inventory.
 - Part pages include an Add Supplier form.
 ```
+
+
+## v5 fixed3
+Mapping rule creation now shows the exact Supabase error on screen instead of silently blinking.
