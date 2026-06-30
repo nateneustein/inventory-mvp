@@ -18,7 +18,7 @@ export default async function MappingRulesPage({ searchParams }: { searchParams?
   const notice = params.notice || ''
   const { supabase } = await requireUser()
   const { data: variations } = await supabase.from('product_variations').select('id, variation_name, internal_sku, products(name)').eq('active', true).order('internal_sku')
-  const { data: allRules } = await supabase.from('product_mapping_rules').select('*, product_variations(internal_sku, variation_name, products(name))').order('priority')
+  const { data: allRules } = await supabase.from('product_mapping_rules').select('*, product_variations!variation_id(internal_sku, variation_name, products(name))').order('priority')
   const rules = (allRules || []).filter((r:any) => (!q || `${r.platform} ${r.account_name||''} ${r.match_field} ${r.match_value} ${r.map_action||''} ${r.product_variations?.internal_sku||''} ${r.product_variations?.variation_name||''}`.toLowerCase().includes(q.toLowerCase())) && (!platform || r.platform === platform))
 
   return (
