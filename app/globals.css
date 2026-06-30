@@ -289,11 +289,10 @@ th.sticky-col { z-index: 3; background: #f8fafc; }
   z-index: 10 !important;
 }
 
-/* Product/part display hierarchy: names should lead; SKUs stay secondary. */
-.entity-stack { display: grid; gap: 2px; min-width: 0; }
-.entity-name { color: var(--text); font-size: 15px; font-weight: 850; line-height: 1.25; }
-.entity-name.link { color: var(--accent); }
-.entity-meta, .sku-small { color: var(--muted); font-size: 12px; font-weight: 650; line-height: 1.2; }
-td.sku-col, th.sku-col { color: var(--muted); font-size: 12px; font-weight: 650; }
-.table-card td:first-child > a.link,
-.wide-table td:first-child > a.link { font-size: 15px; font-weight: 850; }
+.muted-row {
+  background: #f9fafb;
+  color: #6b7280;
+}
+.muted-row .link {
+  color: #6b7280;
+}

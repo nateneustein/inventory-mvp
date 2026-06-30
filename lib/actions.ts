@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { randomUUID } from 'crypto'
 
 type CsvRow = Record<string, string>
 
@@ -51,6 +52,79 @@ function weekStartSundayFromDate(dateText: string | null) {
   if (Number.isNaN(d.getTime())) return null
   d.setDate(d.getDate() - d.getDay())
   return d.toISOString().slice(0, 10)
+}
+
+function compactKeyPart(raw: unknown) {
+  return clean(raw).toLowerCase().replace(/\s+/g, ' ')
+}
+
+function joinKeyParts(parts: unknown[]) {
+  return parts.map(compactKeyPart).join('|')
+}
+
+function lineKeyFromFallback(platform: string, normalized: any) {
+  return `${platform}:fallback:${joinKeyParts([
+    normalized.platform_order_id,
+    normalized.platform_sku,
+    normalized.item_name,
+    normalized.variation_text,
+    normalized.quantity,
+    normalized.order_date_parsed || normalized.order_date,
+  ])}`
+}
+
+function externalLineKeyFor(platform: string, row: CsvRow, normalized: any) {
+  if (platform === 'etsy') {
+    const transactionId = clean(row['Transaction ID'])
+    if (transactionId) return { key: `etsy:transaction:${transactionId}`, source: 'Transaction ID' }
+    return { key: lineKeyFromFallback(platform, normalized), source: 'fallback composite' }
+  }
+
+  if (platform === 'amazon') {
+    const orderItemId = clean(row['order-item-id'])
+    if (orderItemId) return { key: `amazon:order-item:${orderItemId}`, source: 'order-item-id' }
+    return { key: lineKeyFromFallback(platform, normalized), source: 'fallback composite' }
+  }
+
+  if (platform === 'tiktok') {
+    const orderId = clean(row['Order ID'])
+    const skuId = clean(row['SKU ID'])
+    if (orderId && skuId) return { key: `tiktok:order-sku:${joinKeyParts([orderId, skuId])}`, source: 'Order ID + SKU ID' }
+    return { key: lineKeyFromFallback(platform, normalized), source: 'fallback composite' }
+  }
+
+  // Shopify CSV exports do not always include a true line-item id.
+  // This composite catches overlapping uploads without blocking multi-quantity rows.
+  const shopifyOrderId = clean(row['Id'] || row['Name'])
+  return {
+    key: `shopify:line:${joinKeyParts([
+      shopifyOrderId || normalized.platform_order_id,
+      row['Lineitem sku'] || normalized.platform_sku,
+      row['Lineitem name'] || normalized.item_name,
+      row['Lineitem quantity'] || normalized.quantity,
+      row['Created at'] || normalized.order_date,
+    ])}`,
+    source: 'Order ID + line item composite',
+  }
+}
+
+async function loadExistingLineKeys(supabase: any, platform: string, accountName: string, keys: string[]) {
+  const existing = new Map<string, string>()
+  const uniqueKeys = Array.from(new Set(keys.filter(Boolean)))
+  for (let i = 0; i < uniqueKeys.length; i += 500) {
+    const chunk = uniqueKeys.slice(i, i + 500)
+    const { data, error } = await supabase
+      .from('imported_order_rows')
+      .select('id, external_line_key')
+      .eq('platform', platform)
+      .eq('account_name', accountName)
+      .in('external_line_key', chunk)
+    if (error) throw new Error(error.message)
+    for (const row of data || []) {
+      if (row.external_line_key) existing.set(row.external_line_key, row.id)
+    }
+  }
+  return existing
 }
 
 async function currentUserId() {
@@ -274,21 +348,46 @@ export async function importOrderCsv(formData: FormData) {
     .eq('active', true)
     .order('priority')
 
-  const rowsToInsert = parsedRows.slice(0, 10000).map((row, index) => {
+  const normalizedRows = parsedRows.slice(0, 10000).map((row, index) => {
     const normalized = normalizeImportedRow(platform, row)
+    const lineKey = externalLineKeyFor(platform, row, normalized)
+    return { row, index, normalized, lineKey }
+  })
+
+  const seenLineKeys = await loadExistingLineKeys(
+    supabase,
+    platform,
+    accountName,
+    normalizedRows.map((r) => r.lineKey.key),
+  )
+
+  const rowsToInsert = normalizedRows.map(({ row, index, normalized, lineKey }) => {
+    const rowId = randomUUID()
+    const duplicateOf = seenLineKeys.get(lineKey.key) || null
+    const isDuplicate = Boolean(duplicateOf)
+
     const baseRow = {
+      id: rowId,
       upload_batch_id: batch.id,
       platform,
       account_name: accountName,
       source_row_number: index + 2,
       raw_data: row,
-      mapping_status: 'unmapped',
+      external_line_key: lineKey.key,
+      external_line_key_source: lineKey.source,
+      dedupe_status: isDuplicate ? 'duplicate' : 'new',
+      duplicate_of_row_id: duplicateOf,
+      mapping_status: isDuplicate ? 'ignored' : 'unmapped',
       mapped_variation_id: null,
       demand_variation_id: null,
       created_by: userId,
       ...normalized,
     }
-    return applyMappingRules(baseRow, (rules || []) as MappingRule[])
+
+    // Mark the first copy in this upload as the real row so later rows in the same file do not count again.
+    if (!isDuplicate) seenLineKeys.set(lineKey.key, rowId)
+
+    return isDuplicate ? baseRow : applyMappingRules(baseRow, (rules || []) as MappingRule[])
   })
 
   const { error: rowsError } = await supabase.from('imported_order_rows').insert(rowsToInsert)

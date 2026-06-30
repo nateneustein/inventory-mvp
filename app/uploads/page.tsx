@@ -21,7 +21,7 @@ export default async function UploadsPage() {
       </div>
 
       <div className="grid">
-        {(summary || []).map((row: any) => <Link className="card kpi-card" href={`/imported-orders?platform=${row.platform}`} key={`${row.platform}-${row.account_name}`}><div className="muted">{row.platform} · {row.account_name}</div><div className="kpi">{row.imported_rows}</div><p><span className={`badge ${row.unmapped_rows > 0 ? 'warning' : 'ok'}`}>{row.unmapped_rows} unmapped</span></p><p className="muted small">Last import: {date(row.last_imported_at)}</p></Link>)}
+        {(summary || []).map((row: any) => <Link className="card kpi-card" href={`/imported-orders?platform=${row.platform}`} key={`${row.platform}-${row.account_name}`}><div className="muted">{row.platform} · {row.account_name}</div><div className="kpi">{row.imported_rows}</div><p><span className={`badge ${row.unmapped_rows > 0 ? 'warning' : 'ok'}`}>{row.unmapped_rows} unmapped</span> <span className="badge ignored">{row.duplicate_rows || 0} duplicates</span></p><p className="muted small">Last import: {date(row.last_imported_at)}</p></Link>)}
         {(summary || []).length === 0 && <div className="card"><div className="empty-state">No uploads yet.</div></div>}
       </div>
 

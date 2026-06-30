@@ -2,12 +2,12 @@ import { requireUser } from '@/lib/require-user'
 import { createMappingRule, updateMappingRule, deleteMappingRule, applyMappingRulesToUnmappedRows } from '@/lib/actions'
 
 function variationLabel(v:any) {
-  return `${v.products?.name} · ${v.variation_name} · ${v.internal_sku}`
+  return `${v.internal_sku} · ${v.products?.name} · ${v.variation_name}`
 }
 
 function ruleTarget(r:any) {
   if (r.map_action === 'ignore') return 'Ignored / void line'
-  return `${r.product_variations?.variation_name || ''} · ${r.product_variations?.internal_sku || ''}`
+  return `${r.product_variations?.internal_sku || ''} · ${r.product_variations?.variation_name || ''}`
 }
 
 export default async function MappingRulesPage({ searchParams }: { searchParams?: Promise<{ q?: string, platform?: string, error?: string, notice?: string }> }) {

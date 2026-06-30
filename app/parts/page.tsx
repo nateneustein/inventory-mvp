@@ -73,11 +73,11 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
         <div className="table-head"><h2>Part inventory</h2><div className="table-tools"><span className="badge info">{parts.length} shown</span></div></div>
         <div className="wide-table">
           <table>
-            <thead><tr><th>Part</th><th className="sku-col">SKU</th><th>Category</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Reorder point</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
+            <thead><tr><th>Part</th><th>SKU</th><th>Category</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Reorder point</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
             <tbody>
               {parts.map((p: any) => (
                 <tr key={p.part_id}>
-                  <td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td className="sku-col">{p.sku}</td><td>{p.category}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td>{num(p.reorder_point)}</td>
+                  <td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td>{p.category}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td>{num(p.reorder_point)}</td>
                   <td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td>
                   <td>
                     <div className="action-row">

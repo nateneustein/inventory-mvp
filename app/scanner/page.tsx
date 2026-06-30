@@ -12,11 +12,11 @@ export default async function ScannerPage() {
 
       <div className="card wide-table">
         <table>
-          <thead><tr><th>Part</th><th className="sku-col">SKU</th><th>Part page URL</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Part</th><th>SKU</th><th>Part page URL</th><th>Actions</th></tr></thead>
           <tbody>
             {(parts || []).map((p: any) => (
               <tr key={p.part_id}>
-                <td><span className="entity-name">{p.name}</span></td><td className="sku-col">{p.sku}</td><td><code>/parts/{p.part_id}</code></td><td><Link className="button secondary" href={`/parts/${p.part_id}`}>Open card page</Link></td>
+                <td>{p.name}</td><td>{p.sku}</td><td><code>/parts/{p.part_id}</code></td><td><Link className="button secondary" href={`/parts/${p.part_id}`}>Open card page</Link></td>
               </tr>
             ))}
             {(parts || []).length === 0 && <tr><td colSpan={4}>Add parts first.</td></tr>}

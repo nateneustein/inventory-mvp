@@ -23,7 +23,7 @@ export default async function DamagePage() {
             <label>Part
               <select name="part_id" required>
                 <option value="">Choose part</option>
-                {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.name} - {p.sku}</option>)}
+                {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>)}
               </select>
             </label>
             <label>Qty damaged / removed<input name="quantity" type="number" step="0.01" required /></label>
@@ -52,7 +52,7 @@ export default async function DamagePage() {
           <tbody>
             {(reports || []).map((r: any) => (
               <tr key={r.id}>
-                <td>{date(r.created_at)}</td><td><span className="entity-name">{r.parts?.name}</span><br/><span className="sku-small">{r.parts?.sku}</span></td><td>{num(r.quantity)}</td><td>{r.reason}</td><td>{r.order_reference}</td><td>{r.notes}</td>
+                <td>{date(r.created_at)}</td><td>{r.parts?.sku} - {r.parts?.name}</td><td>{num(r.quantity)}</td><td>{r.reason}</td><td>{r.order_reference}</td><td>{r.notes}</td>
               </tr>
             ))}
             {(reports || []).length === 0 && <tr><td colSpan={6}>No damage reports yet.</td></tr>}

@@ -96,11 +96,11 @@ export default async function DashboardPage() {
         <div className="table-head"><h2>Needs attention</h2><div className="table-tools"><Link className="button small-btn secondary" href="/predictions/basic">Prediction sheet</Link></div></div>
         <div className="wide-table">
           <table>
-            <thead><tr><th>Part</th><th className="sku-col">SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Reorder point</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
+            <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Reorder point</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
             <tbody>
               {rows.filter((r: any) => r.stock_status !== 'ok').map((r: any) => (
                 <tr key={r.part_id}>
-                  <td><Link className="link" href={`/parts/${r.part_id}`}>{r.name}</Link></td><td className="sku-col">{r.sku}</td><td>{num(r.on_hand)}</td><td>{num(r.incoming_qty)}</td><td>{num(r.projected_qty)}</td><td>{num(r.reorder_point)}</td><td>{statusBadge(r.stock_status)}</td>
+                  <td><Link className="link" href={`/parts/${r.part_id}`}>{r.name}</Link></td><td>{r.sku}</td><td>{num(r.on_hand)}</td><td>{num(r.incoming_qty)}</td><td>{num(r.projected_qty)}</td><td>{num(r.reorder_point)}</td><td>{statusBadge(r.stock_status)}</td>
                   <td><div className="action-row"><Link className="button small-btn secondary" href={`/parts/${r.part_id}`}>Open</Link><Link className="button small-btn" href={`/predictions/advanced?part_id=${r.part_id}`}>Calculate</Link></div></td>
                 </tr>
               ))}
@@ -117,7 +117,7 @@ export default async function DashboardPage() {
         </div>
         <div className="card table-card">
           <div className="table-head"><h2>Dead stock watch</h2><Link className="button small-btn secondary" href="/reports">Full report</Link></div>
-          <table><thead><tr><th>Part</th><th>On hand</th><th>Status</th></tr></thead><tbody>{(deadStock || []).map((d:any) => <tr key={d.part_id}><td><div className="entity-stack"><Link className="entity-name link" href={`/parts/${d.part_id}`}>{d.name}</Link><span className="sku-small">{d.sku}</span></div></td><td>{num(d.on_hand)}</td><td><span className="badge warning">{d.dead_stock_status}</span></td></tr>)}{(deadStock || []).length === 0 && <tr><td colSpan={3}><div className="empty-state">No dead stock warnings yet.</div></td></tr>}</tbody></table>
+          <table><thead><tr><th>Part</th><th>On hand</th><th>Status</th></tr></thead><tbody>{(deadStock || []).map((d:any) => <tr key={d.part_id}><td><Link className="link" href={`/parts/${d.part_id}`}>{d.sku} · {d.name}</Link></td><td>{num(d.on_hand)}</td><td><span className="badge warning">{d.dead_stock_status}</span></td></tr>)}{(deadStock || []).length === 0 && <tr><td colSpan={3}><div className="empty-state">No dead stock warnings yet.</div></td></tr>}</tbody></table>
         </div>
       </div>
     </>

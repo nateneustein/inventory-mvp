@@ -63,7 +63,7 @@ export default async function PurchaseOrdersPage() {
             <label>Part
               <select name="part_id" required>
                 <option value="">Choose part</option>
-                {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.name} - {p.sku}</option>)}
+                {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>)}
               </select>
             </label>
             <div className="form-row">

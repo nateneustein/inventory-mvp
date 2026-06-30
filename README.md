@@ -140,3 +140,6 @@ Mapping rule creation now shows the exact Supabase error on screen instead of si
 
 ## v9 simple zoom
 Restored v7 layout, removed extra Spreadsheet tools cards, and added 50/60/70% zoom options to the existing sheet header controls.
+
+## v11 order-line dedupe
+Adds external order-line keys so overlapping CSV uploads do not count the same Etsy/Amazon/TikTok/Shopify line twice. Run `supabase/migrations/0007_order_line_dedupe.sql` after 0006.

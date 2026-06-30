@@ -20,7 +20,7 @@ function weekNumber(d: Date) {
   return Math.floor((d.getTime() - firstSunday.getTime()) / (7 * DAY)) + 1
 }
 function monthName(d: Date) { return d.toLocaleString('en-US', { month: 'long' }) }
-function variationLabel(v:any) { return `${v.products?.name} · ${v.variation_name} · ${v.internal_sku}` }
+function variationLabel(v:any) { return `${v.internal_sku} · ${v.products?.name} · ${v.variation_name}` }
 
 function zoomValue(raw?: string) {
   const allowed = ['50', '60', '70', '80', '90', '100', '110', '125', '150']
@@ -96,12 +96,12 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
 
       <div className="card table-card">
         <div className="table-head"><h2>Current stock summary</h2></div>
-        <div className="wide-table"><table><thead><tr><th>Part</th><th className="sku-col">SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Status</th></tr></thead><tbody>{parts.map((p: any) => <tr key={p.part_id}><td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td className="sku-col">{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td></tr>)}</tbody></table></div>
+        <div className="wide-table"><table><thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Status</th></tr></thead><tbody>{parts.map((p: any) => <tr key={p.part_id}><td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td></tr>)}</tbody></table></div>
       </div>
 
       <div className="card table-card">
         <div className="table-head"><h2>Recent manual sold/produced entries</h2></div>
-        <div className="wide-table"><table><thead><tr><th>Date</th><th>Week start</th><th>Variation</th><th>Qty</th><th>Reference</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(manualRows || []).map((r:any)=><tr key={r.id}><td>{date(r.sale_date)}</td><td>{date(r.week_start)}</td><td><span className="entity-name">{r.product_variations?.variation_name}</span><br/><span className="sku-small">{r.product_variations?.internal_sku}</span></td><td>{num(r.quantity)}</td><td>{r.order_reference}</td><td>{r.reason}</td><td>{r.notes}</td></tr>)}{(manualRows || []).length === 0 && <tr><td colSpan={7}><div className="empty-state">No manual sold/produced entries yet.</div></td></tr>}</tbody></table></div>
+        <div className="wide-table"><table><thead><tr><th>Date</th><th>Week start</th><th>Variation</th><th>Qty</th><th>Reference</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(manualRows || []).map((r:any)=><tr key={r.id}><td>{date(r.sale_date)}</td><td>{date(r.week_start)}</td><td>{r.product_variations?.internal_sku} · {r.product_variations?.variation_name}</td><td>{num(r.quantity)}</td><td>{r.order_reference}</td><td>{r.reason}</td><td>{r.notes}</td></tr>)}{(manualRows || []).length === 0 && <tr><td colSpan={7}><div className="empty-state">No manual sold/produced entries yet.</div></td></tr>}</tbody></table></div>
       </div>
     </>
   )
