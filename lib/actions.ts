@@ -434,7 +434,7 @@ export async function createMappingRule(formData: FormData) {
 }
 
 export async function applyMappingRulesToUnmappedRows() {
-  const { supabase } = await currentUserId()
+  const { supabase, userId } = await currentUserId()
   const { data: rules, error: rulesError } = await supabase
     .from('product_mapping_rules')
     .select('platform, account_name, match_type, match_field, match_value, map_action, variation_id, demand_variation_id, priority')
@@ -442,28 +442,94 @@ export async function applyMappingRulesToUnmappedRows() {
     .order('priority')
   if (rulesError) throw new Error(rulesError.message)
 
-  const { data: rows, error: rowsError } = await supabase
-    .from('imported_order_rows')
-    .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text, mapping_status')
-    .in('mapping_status', ['unmapped', 'needs_review'])
-    .limit(5000)
-  if (rowsError) throw new Error(rowsError.message)
+  // The Supabase Data API refuses to return more than max-rows (1000) in one
+  // response, and a client-side .limit(5000) does NOT raise that ceiling.
+  // This used to ask for 5000, silently receive 1000, and report success --
+  // leaving every row past the first thousand unmapped with no warning.
+  // Page explicitly instead.
+  const PAGE_SIZE = 500
+  let pageStart = 0
+  let scanned = 0
+  let changed = 0
 
-  for (const row of rows || []) {
-    const updated = applyMappingRules(row, (rules || []) as MappingRule[])
-    if (updated.mapping_status !== row.mapping_status) {
-      const { error } = await supabase.from('imported_order_rows').update({
-        mapping_status: updated.mapping_status,
-        mapped_variation_id: updated.mapped_variation_id,
-        demand_variation_id: updated.demand_variation_id,
-      }).eq('id', row.id)
-      if (error) throw new Error(error.message)
+  for (;;) {
+    const { data: rows, error: rowsError } = await supabase
+      .from('imported_order_rows')
+      .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text, mapping_status')
+      .in('mapping_status', ['unmapped', 'needs_review'])
+      .order('id')
+      .range(pageStart, pageStart + PAGE_SIZE - 1)
+    if (rowsError) throw new Error(rowsError.message)
+    if (!rows || rows.length === 0) break
+
+    for (const row of rows) {
+      scanned++
+      const updated = applyMappingRules(row, (rules || []) as MappingRule[])
+      if (updated.mapping_status !== row.mapping_status) {
+        const { error } = await supabase.from('imported_order_rows').update({
+          mapping_status: updated.mapping_status,
+          mapped_variation_id: updated.mapped_variation_id,
+          demand_variation_id: updated.demand_variation_id,
+        }).eq('id', row.id)
+        if (error) throw new Error(error.message)
+        changed++
+      }
     }
+
+    if (rows.length < PAGE_SIZE) break
+    // Rows whose status changed drop out of the filter, so the window only
+    // advances by the ones we left behind.
+    pageStart += rows.length - changed
+    changed = 0
+    if (scanned > 100000) break
   }
+
+  // Newly mapped rows still need to actually consume stock.
+  await postImportedOrdersToInventory()
+
   revalidatePath('/mapping-rules')
   revalidatePath('/imported-orders')
+  revalidatePath('/usage')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
 }
 
+/**
+ * Turns mapped marketplace order lines into real inventory consumption.
+ *
+ * This step did not exist. Uploading and mapping Etsy/Amazon/TikTok/Shopify
+ * orders wrote rows into imported_order_rows and stopped there -- nothing ever
+ * deducted the BOM parts, so on-hand never moved for real sales. Every usage
+ * figure in the system came from the one-time spreadsheet backfill.
+ *
+ * The work happens set-based inside Postgres, so it is not subject to the
+ * 1000-row response cap, and a unique index on (source_id, part_id) makes it
+ * idempotent -- running it twice cannot double-consume.
+ */
+export async function postImportedOrdersToInventory(): Promise<void> {
+  const { supabase, userId } = await currentUserId()
+  const { data, error } = await supabase.rpc('post_imported_orders_to_inventory', { p_user: userId })
+  if (error) throw new Error(error.message)
+
+  const result = Array.isArray(data) ? data[0] : data
+  const rowsPosted = Number(result?.rows_posted || 0)
+  const movements = Number(result?.movements_created || 0)
+
+  if (rowsPosted > 0) {
+    await supabase.from('notifications').insert({
+      level: 'info',
+      title: 'Marketplace orders posted to inventory',
+      message: `${rowsPosted} order line(s) consumed stock across ${movements} part movement(s).`,
+      source_type: 'imported_order_row',
+      created_by: userId,
+    })
+  }
+
+  revalidatePath('/imported-orders')
+  revalidatePath('/usage')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+}
 
 export async function createSupplier(formData: FormData) {
   const { supabase, userId } = await currentUserId()
@@ -612,62 +678,38 @@ export async function receivePurchaseOrderItem(formData: FormData) {
   const qtyReceived = num(formData, 'quantity_received', 0)
   const qtyDamaged = num(formData, 'quantity_damaged', 0)
   const qtyMissing = num(formData, 'quantity_missing', 0)
+  const notes = value(formData, 'notes') || null
+
+  // The form carries a one-time token. If the warehouse double-clicks Confirm,
+  // or hits back and resubmits, the database replays the original receipt
+  // instead of adding the shipment to stock a second time.
+  const idempotencyKey = value(formData, 'idempotency_key') || null
 
   if (qtyReceived <= 0 && qtyDamaged <= 0 && qtyMissing <= 0) {
     throw new Error('Enter at least one quantity.')
   }
 
-  const { data: item, error: itemError } = await supabase
-    .from('purchase_order_items')
-    .select('id, purchase_order_id, part_id, quantity_received, quantity_accounted')
-    .eq('id', itemId)
-    .single()
-
-  if (itemError || !item) throw new Error(itemError?.message || 'PO item not found')
-
-  const { data: receiveEvent, error: receiveError } = await supabase.from('receiving_events').insert({
-    purchase_order_id: item.purchase_order_id,
-    purchase_order_item_id: item.id,
-    part_id: item.part_id,
-    quantity_received: qtyReceived,
-    quantity_damaged: qtyDamaged,
-    quantity_missing: qtyMissing,
-    notes: value(formData, 'notes') || null,
-    created_by: userId,
-  }).select('id').single()
-  if (receiveError || !receiveEvent) throw new Error(receiveError?.message || 'Could not create receiving event')
-
-  if (qtyReceived > 0) {
-    const { error: movementError } = await supabase.from('inventory_movements').insert({
-      part_id: item.part_id,
-      movement_type: 'supplier_received',
-      quantity: qtyReceived,
-      source_type: 'purchase_order_item',
-      source_id: item.id,
-      reason: 'Shipment received and confirmed by warehouse',
-      notes: value(formData, 'notes') || null,
-      created_by: userId,
-    })
-    if (movementError) throw new Error(movementError.message)
-  }
+  // Single atomic call: locks the shipment line, refuses to over-receive, and
+  // writes the receiving event, the stock movement, any damage report and the
+  // PO counters together. Previously this was a read-then-write in JS with no
+  // lock and no ceiling, so concurrent or repeated receipts inflated stock.
+  const { error } = await supabase.rpc('receive_po_item', {
+    p_item_id: itemId,
+    p_qty_received: qtyReceived,
+    p_qty_damaged: qtyDamaged,
+    p_qty_missing: qtyMissing,
+    p_notes: notes,
+    p_user: userId,
+    p_idempotency_key: idempotencyKey,
+  })
+  if (error) throw new Error(error.message)
 
   if (qtyDamaged > 0) {
-    const { data: damageReport, error: damageError } = await supabase.from('damage_reports').insert({
-      part_id: item.part_id,
-      quantity: qtyDamaged,
-      reason: 'supplier_damaged',
-      order_reference: item.purchase_order_id,
-      notes: value(formData, 'notes') || 'Damaged during receiving',
-      created_by: userId,
-    }).select('id').single()
-    if (damageError || !damageReport) throw new Error(damageError?.message || 'Could not create damage report')
-
     await supabase.from('notifications').insert({
       level: 'warning',
       title: 'Damaged inventory received',
-      message: `${qtyDamaged} damaged item(s) were reported during receiving.`,
-      source_type: 'damage_report',
-      source_id: damageReport.id,
+      message: `${qtyDamaged} damaged item(s) were reported during receiving. They were not added to stock.`,
+      source_type: 'receiving_event',
       created_by: userId,
     })
 
@@ -681,17 +723,6 @@ export async function receivePurchaseOrderItem(formData: FormData) {
     }
   }
 
-  const accountedAlready = Number(item.quantity_accounted ?? item.quantity_received ?? 0)
-  const accountedNow = qtyReceived + qtyDamaged + qtyMissing
-  const { error: updateError } = await supabase
-    .from('purchase_order_items')
-    .update({
-      quantity_received: Number(item.quantity_received || 0) + qtyReceived,
-      quantity_accounted: accountedAlready + accountedNow,
-    })
-    .eq('id', item.id)
-
-  if (updateError) throw new Error(updateError.message)
   revalidatePath('/receiving')
   revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
@@ -793,47 +824,21 @@ export async function createCycleCount(formData: FormData) {
   const partId = value(formData, 'part_id')
   const countedQty = num(formData, 'counted_quantity', 0)
 
-  const { data: stockRow, error: stockError } = await supabase
-    .from('part_stock')
-    .select('on_hand')
-    .eq('part_id', partId)
-    .single()
-
-  if (stockError && stockError.code !== 'PGRST116') throw new Error(stockError.message)
-  const systemQty = Number(stockRow?.on_hand || 0)
-  const difference = countedQty - systemQty
-
-  const { data: count, error: countError } = await supabase
-    .from('cycle_counts')
-    .insert({
-      part_id: partId,
-      counted_quantity: countedQty,
-      system_quantity_at_count: systemQty,
-      difference,
-      notes: value(formData, 'notes') || null,
-      created_by: userId,
-    })
-    .select('id')
-    .single()
-
-  if (countError || !count) throw new Error(countError?.message || 'Could not create count')
-
-  if (difference !== 0) {
-    const { error: movementError } = await supabase.from('inventory_movements').insert({
-      part_id: partId,
-      movement_type: 'cycle_count_adjustment',
-      quantity: difference,
-      source_type: 'cycle_count',
-      source_id: count.id,
-      reason: 'Actual inventory count adjustment',
-      notes: value(formData, 'notes') || null,
-      created_by: userId,
-    })
-    if (movementError) throw new Error(movementError.message)
-  }
+  // Atomic: the difference is recomputed against a locked, in-transaction read
+  // of on-hand. Previously two people counting the same bin each computed the
+  // correction from the same stale baseline, so the second one subtracted the
+  // difference a second time and put a hole in the very stock it was fixing.
+  const { error } = await supabase.rpc('record_cycle_count', {
+    p_part_id: partId,
+    p_counted: countedQty,
+    p_notes: value(formData, 'notes') || null,
+    p_user: userId,
+  })
+  if (error) throw new Error(error.message)
 
   revalidatePath('/counts')
   revalidatePath('/parts')
+  revalidatePath('/usage')
   revalidatePath('/dashboard')
 }
 
@@ -864,6 +869,10 @@ export async function createInventorySwitch(formData: FormData) {
   const toPartId = value(formData, 'to_part_id')
   const qty = num(formData, 'quantity', 0)
   if (qty <= 0) throw new Error('Quantity must be above zero.')
+  if (!toPartId) throw new Error('Choose the part that was actually used.')
+  if (fromPartId && fromPartId === toPartId) {
+    throw new Error('The original part and the substitute cannot be the same part.')
+  }
 
   const { data: switchRow, error: switchError } = await supabase
     .from('inventory_switches')
@@ -881,18 +890,45 @@ export async function createInventorySwitch(formData: FormData) {
 
   if (switchError || !switchRow) throw new Error(switchError?.message || 'Could not create switch')
 
-  const movementRows = []
-  if (toPartId) {
-    movementRows.push({
+  // A substitution has two sides and must balance to zero.
+  //
+  // The original version wrote a single -qty leg against the SUBSTITUTE part
+  // and nothing at all against the part that was replaced. Since the order had
+  // already consumed the original part via its BOM, the original stayed short
+  // forever and the substitute was deducted on top -- total on-hand drifted
+  // down by the switch quantity every single time, undetectably.
+  const reason = `Inventory switch: ${value(formData, 'change_type') || 'substitution'}`
+  const notes = value(formData, 'notes') || null
+  const movementRows: any[] = [
+    {
       part_id: toPartId,
-      movement_type: 'manual_adjustment',
+      movement_type: 'inventory_switch',
       quantity: -qty,
       source_type: 'inventory_switch',
       source_id: switchRow.id,
-      reason: `Inventory switch used instead of original. ${value(formData, 'change_type')}`,
-      notes: value(formData, 'notes') || null,
+      reason: `${reason} — substitute part consumed`,
+      notes,
+      created_by: userId,
+    },
+  ]
+
+  if (fromPartId) {
+    // The original part was never actually used, so give it back.
+    movementRows.push({
+      part_id: fromPartId,
+      movement_type: 'inventory_switch',
+      quantity: qty,
+      source_type: 'inventory_switch',
+      source_id: switchRow.id,
+      reason: `${reason} — original part returned, was not used`,
+      notes,
       created_by: userId,
     })
+  }
+
+  const balance = movementRows.reduce((sum, row) => sum + Number(row.quantity), 0)
+  if (fromPartId && balance !== 0) {
+    throw new Error('Internal error: inventory switch legs did not balance. No stock was changed.')
   }
 
   const { error: movementError } = await supabase.from('inventory_movements').insert(movementRows)
@@ -993,29 +1029,28 @@ export async function saveBomMatrix(formData: FormData) {
 export async function reportZeroStock(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const partId = value(formData, 'part_id')
-  const { data: stockRow } = await supabase.from('part_stock').select('on_hand').eq('part_id', partId).single()
-  const systemQty = Number(stockRow?.on_hand || 0)
 
-  const { error } = await supabase.from('zero_stock_reports').insert({
-    part_id: partId,
-    system_quantity_at_report: systemQty,
-    warehouse_quantity_reported: 0,
-    order_reference: value(formData, 'order_reference') || null,
-    notes: value(formData, 'notes') || null,
-    created_by: userId,
+  // The warehouse can report the real counted quantity, not just "it's zero".
+  // Blank means zero, which preserves the original behaviour of the button.
+  const actualRaw = value(formData, 'actual_quantity')
+  const actual = actualRaw === '' ? 0 : num(formData, 'actual_quantity', 0)
+
+  // This used to only write a note and a notification -- stock was never
+  // corrected, so the dashboard kept showing the part as fine and no reorder
+  // ever fired. Now the correcting movement is written in the same transaction.
+  const { error } = await supabase.rpc('report_zero_stock', {
+    p_part_id: partId,
+    p_actual: actual,
+    p_notes: value(formData, 'notes') || null,
+    p_user: userId,
+    p_order_reference: value(formData, 'order_reference') || null,
   })
   if (error) throw new Error(error.message)
 
-  await supabase.from('notifications').insert({
-    level: 'urgent',
-    title: 'Warehouse reported zero stock',
-    message: value(formData, 'notes') || 'A part was reported as physically out of stock.',
-    source_type: 'zero_stock_report',
-    created_by: userId,
-  })
-
   revalidatePath('/zero')
   revalidatePath('/reports')
+  revalidatePath('/parts')
+  revalidatePath('/usage')
   revalidatePath('/dashboard')
 }
 
@@ -1272,26 +1307,75 @@ export async function updatePurchaseOrder(formData: FormData) {
 export async function deletePurchaseOrder(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+
+  // Deleting a shipment cascades away its lines and receiving events, but the
+  // inventory_movements it produced are linked only by source_type/source_id
+  // and survive. Deleting a received shipment therefore left its stock on hand
+  // permanently with no record of where it came from.
+  const { data: received, error: checkError } = await supabase
+    .from('purchase_order_items')
+    .select('id, quantity_accounted')
+    .eq('purchase_order_id', id)
+  if (checkError) throw new Error(checkError.message)
+
+  const accounted = (received || []).reduce((sum: number, r: any) => sum + Number(r.quantity_accounted || 0), 0)
+  if (accounted > 0) {
+    throw new Error(
+      `This shipment already has ${accounted} unit(s) received against it, and that stock is now part of your on-hand count. ` +
+      `Deleting it would leave the stock with no explanation. Mark the shipment cancelled instead, or reverse the receipt first.`
+    )
+  }
+
   const { error } = await supabase.from('purchase_orders').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/shipments')
   revalidatePath('/purchase-orders')
-  redirect('/shipments')
+  revalidatePath('/shipments')
+  revalidatePath('/receiving')
+  revalidatePath('/dashboard')
 }
 
 export async function updatePurchaseOrderItem(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
-  const poId = value(formData, 'purchase_order_id')
+  const nextPartId = value(formData, 'part_id')
+  const nextQtyOrdered = num(formData, 'quantity_ordered', 0)
+
+  const { data: item, error: checkError } = await supabase
+    .from('purchase_order_items')
+    .select('id, part_id, quantity_accounted')
+    .eq('id', id)
+    .single()
+  if (checkError) throw new Error(checkError.message)
+
+  const accounted = Number(item?.quantity_accounted || 0)
+
+  // Changing the part after stock has been received would leave the received
+  // units credited to the OLD part while the line claims the new one --
+  // overstating one SKU and understating the other, permanently.
+  if (accounted > 0 && nextPartId && nextPartId !== item?.part_id) {
+    throw new Error(
+      'Stock has already been received against this line, so the part cannot be changed. ' +
+      'Add a new line for the correct part and reverse the receipt on this one.'
+    )
+  }
+
+  if (accounted > 0 && nextQtyOrdered < accounted) {
+    throw new Error(
+      `You cannot order fewer than the ${accounted} unit(s) already accounted for on this line.`
+    )
+  }
+
   const { error } = await supabase.from('purchase_order_items').update({
-    part_id: value(formData, 'part_id'),
-    quantity_ordered: num(formData, 'quantity_ordered', 0),
+    part_id: nextPartId,
+    quantity_ordered: nextQtyOrdered,
     unit_cost: num(formData, 'unit_cost', 0),
     notes: value(formData, 'notes') || null,
   }).eq('id', id)
   if (error) throw new Error(error.message)
+  const poId = value(formData, 'purchase_order_id')
+  revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
-  revalidatePath(`/shipments/${poId}`)
+  if (poId) revalidatePath(`/shipments/${poId}`)
   revalidatePath('/receiving')
   revalidatePath('/dashboard')
 }
@@ -1299,12 +1383,27 @@ export async function updatePurchaseOrderItem(formData: FormData) {
 export async function deletePurchaseOrderItem(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
-  const poId = value(formData, 'purchase_order_id')
+
+  const { data: item, error: checkError } = await supabase
+    .from('purchase_order_items')
+    .select('id, quantity_accounted')
+    .eq('id', id)
+    .single()
+  if (checkError) throw new Error(checkError.message)
+
+  if (Number(item?.quantity_accounted || 0) > 0) {
+    throw new Error(
+      `This line already has ${item?.quantity_accounted} unit(s) received against it. Deleting it would strand that stock. ` +
+      `Reverse the receipt first if it was entered by mistake.`
+    )
+  }
+
   const { error } = await supabase.from('purchase_order_items').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
-  revalidatePath(`/shipments/${poId}`)
   revalidatePath('/receiving')
+  revalidatePath('/dashboard')
 }
 
 export async function acknowledgeNotification(formData: FormData) {
