@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { date, num } from '@/lib/format'
 
+export const dynamic = 'force-dynamic'
+
 const DAY = 86400000
-function daysAgo(days: number) { const d = new Date(); d.setDate(d.getDate() - days); return d.toISOString() }
 function isoDate(d: Date) { return d.toISOString().slice(0, 10) }
 function match(row:any, q:string) { return `${row.name||''} ${row.sku||''} ${row.category||''}`.toLowerCase().includes(q.toLowerCase()) }
 
@@ -40,17 +41,34 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
   const zoom = zoomValue(params.zoom)
   const { supabase } = await requireUser()
   const { data: status } = await supabase.from('inventory_status').select('*').order('name')
-  const { data: movements } = await supabase.from('inventory_movements').select('part_id, quantity, created_at, movement_date').lt('quantity', 0).gte('created_at', daysAgo(130)).limit(50000)
+  const { data: movements } = await supabase
+    .from('inventory_movements')
+    .select('part_id, quantity, created_at, movement_date, movement_type')
+    .lt('quantity', 0)
+    .eq('movement_type', 'order_consumption')
+    .is('archived_at', null)
+    .order('movement_date', { ascending: true })
+    .limit(50000)
 
   const parts = (status || []).filter((p:any) => (!q || match(p, q)) && (!statusFilter || p.stock_status === statusFilter))
-  const now = Date.now()
+
+  let anchorDate: Date | null = null
+  for (const m of movements || []) {
+    const d = new Date(m.movement_date || m.created_at)
+    if (Number.isNaN(d.getTime())) continue
+    if (!anchorDate || d > anchorDate) anchorDate = d
+  }
+  const today = anchorDate || new Date()
+  const anchorTime = today.getTime()
+
   const usage = new Map<string, Map<number, number>>()
   for (const m of movements || []) {
     const d = new Date(m.movement_date || m.created_at)
     if (Number.isNaN(d.getTime())) continue
-    const ageDays = (now - d.getTime()) / DAY
+    const ageDays = (anchorTime - d.getTime()) / DAY
+    if (ageDays < 0) continue
     for (const period of usagePeriods) {
-      if (ageDays <= period.days) {
+      if (ageDays <= period.days - 1) {
         const map = usage.get(m.part_id) || new Map<number, number>()
         map.set(period.days, (map.get(period.days) || 0) + Math.abs(Number(m.quantity || 0)))
         usage.set(m.part_id, map)
@@ -58,15 +76,13 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
     }
   }
 
-  const today = new Date()
-
   return (
     <>
-      <div className="page-head"><div><h1>Basic Prediction</h1><p className="muted">Spreadsheet-style prediction. Each block uses a different recent usage period, then projects what stock will be left after 5 weeks, 2 months, 2.5 months, 3 months, and 4 months.</p></div><Link className="button" href="/predictions/advanced">Advanced calculator</Link></div>
+      <div className="page-head"><div><h1>Basic Prediction</h1><p className="muted">Spreadsheet-style prediction. Each block uses a different recent usage period, then projects what stock will be left after 5 weeks, 2 months, 2.5 months, 3 months, and 4 months. Latest imported usage date: {date(isoDate(today))}.</p></div><Link className="button" href="/predictions/advanced">Advanced calculator</Link></div>
       <div className="card"><form className="filter-bar" action="/predictions/basic"><label>Search parts<input name="q" defaultValue={q} placeholder="SKU, part, category" /></label><label className="compact">Status<select name="status" defaultValue={statusFilter}><option value="">All</option><option value="out">Out</option><option value="reorder_now">Reorder now</option><option value="getting_low">Getting low</option><option value="ok">OK</option></select></label><button type="submit">Filter</button><Link className="button ghost" href="/predictions/basic">Clear</Link></form></div>
 
       <div className="card table-card">
-        <div className="table-head"><div><h2>Prediction sheet</h2><p className="muted small">Today: {date(isoDate(today))}. Negative numbers mean projected stockout.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['50','60','70','80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={predictionHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{parts.length} parts</span></div></div>
+        <div className="table-head"><div><h2>Prediction sheet</h2><p className="muted small">Anchor date: {date(isoDate(today))}. Negative numbers mean projected stockout.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['50','60','70','80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={predictionHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{parts.length} parts</span></div></div>
         <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} prediction-grid`}><table>
           <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Days</th>{parts.map((p:any)=><th key={p.part_id}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
           <tbody>
