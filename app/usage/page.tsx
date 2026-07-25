@@ -4,6 +4,8 @@ import { createManualUnitsSold } from '@/lib/actions'
 import { ManualUsageRows } from '@/components/manual-usage-actions'
 import { date, num } from '@/lib/format'
 
+export const dynamic = 'force-dynamic'
+
 const DAY = 86400000
 
 function startOfSundayWeek(d: Date) {
@@ -41,29 +43,40 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
   const { supabase } = await requireUser()
   const { data: status } = await supabase.from('inventory_status').select('*').order('name')
   const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').eq('active', true).order('internal_sku')
-  const { data: movements } = await supabase.from('inventory_movements').select('part_id, quantity, created_at, movement_date, movement_type').lt('quantity', 0).is('archived_at', null).order('created_at', { ascending: true }).limit(50000)
+  const { data: movements } = await supabase
+    .from('inventory_movements')
+    .select('part_id, quantity, created_at, movement_date, movement_type')
+    .lt('quantity', 0)
+    .eq('movement_type', 'order_consumption')
+    .is('archived_at', null)
+    .order('movement_date', { ascending: true })
+    .limit(50000)
   const { data: manualRows } = await supabase.from('manual_units_sold').select('*, product_variations(internal_sku, variation_name, products(name))').is('archived_at', null).order('sale_date', { ascending: false }).limit(100)
 
   const parts = (status || []).filter((p:any) => !q || `${p.name || ''} ${p.sku || ''} ${p.category || ''}`.toLowerCase().includes(q))
 
   const usageByWeek = new Map<string, Map<string, number>>()
   let firstWeek: Date | null = null
-  let lastWeek = startOfSundayWeek(new Date())
+  let lastWeek: Date | null = null
+  let latestDataDate: Date | null = null
 
   for (const m of movements || []) {
     const rawDate = m.movement_date || m.created_at
     const d = new Date(rawDate)
     if (Number.isNaN(d.getTime())) continue
+    if (!latestDataDate || d > latestDataDate) latestDataDate = d
     const week = startOfSundayWeek(d)
     if (!firstWeek || week < firstWeek) firstWeek = week
-    if (week > lastWeek) lastWeek = week
+    if (!lastWeek || week > lastWeek) lastWeek = week
     const weekKey = iso(week)
     const map = usageByWeek.get(weekKey) || new Map<string, number>()
     map.set(m.part_id, (map.get(m.part_id) || 0) + Math.abs(Number(m.quantity || 0)))
     usageByWeek.set(weekKey, map)
   }
 
+  if (!lastWeek) lastWeek = startOfSundayWeek(new Date())
   if (!firstWeek) firstWeek = addDays(lastWeek, -7 * 12)
+
   const weeks: Date[] = []
   for (let d = new Date(firstWeek); d <= lastWeek; d = addDays(d, 7)) weeks.push(new Date(d))
   weeks.reverse()
@@ -88,7 +101,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
       <div className="card"><form className="filter-bar" action="/usage"><label>Filter parts<input name="q" defaultValue={params.q || ''} placeholder="Part name, SKU, category" /></label><button type="submit">Filter</button><Link className="button ghost" href="/usage">Clear</Link></form></div>
 
       <div className="card table-card">
-        <div className="table-head"><div><h2>Weekly usage timeline</h2><p className="muted small">Each row is one Sunday-to-Saturday week. Columns are parts/components.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['50','60','70','80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={usageHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{weeks.length} weeks</span></div></div>
+        <div className="table-head"><div><h2>Weekly usage timeline</h2><p className="muted small">Each row is one Sunday-to-Saturday week. Columns are parts/components. Latest imported usage date: {latestDataDate ? date(iso(latestDataDate)) : 'none'}.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['50','60','70','80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={usageHref(params, z)}>{z}%</Link>)}</div><span className="badge info">{weeks.length} weeks</span></div></div>
         <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} usage-grid`}><table>
           <thead><tr><th className="sticky-col date-col">Week range</th><th>Week #</th><th>Month</th><th>Year</th>{parts.map((p:any)=><th key={p.part_id}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
           <tbody>{weeks.map((w) => { const weekKey = iso(w); const weekMap = usageByWeek.get(weekKey) || new Map<string, number>(); return <tr key={weekKey}><td className="sticky-col date-col"><strong>{date(weekKey)}</strong><br/><span className="muted small">to {date(iso(addDays(w, 6)))}</span></td><td>{weekNumber(w)}</td><td>{monthName(w)}</td><td>{w.getFullYear()}</td>{parts.map((p:any)=><td key={p.part_id}>{num(weekMap.get(p.part_id) || 0)}</td>)}</tr> })}</tbody>
