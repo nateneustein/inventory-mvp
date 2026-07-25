@@ -9,7 +9,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
   const { data: part } = await supabase.from('inventory_status').select('*').eq('part_id', id).single()
   const { data: details } = await supabase.from('parts').select('*, suppliers(name, website, contact_name, email, phone)').eq('id', id).single()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
-  const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(75)
+  const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null).order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(75)
   const { data: incoming } = await supabase.from('open_po_items').select('*').eq('part_id', id)
   const { data: zeroReports } = await supabase.from('zero_stock_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
   const { data: damageReports } = await supabase.from('damage_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
