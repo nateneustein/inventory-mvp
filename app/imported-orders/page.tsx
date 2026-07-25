@@ -1,11 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { updateImportedOrderRow, deleteImportedOrderRow } from '@/lib/actions'
+import { updateImportedOrderRow, deleteImportedOrderRow, postImportedOrdersToInventory } from '@/lib/actions'
 import { date, num } from '@/lib/format'
-
-function rowMatch(r:any, q:string) {
-  return `${r.platform_order_id||''} ${r.external_line_key||''} ${r.platform_sku||''} ${r.item_name||''} ${r.variation_text||''} ${r.customization_text||''} ${r.account_name||''}`.toLowerCase().includes(q.toLowerCase())
-}
 
 function dedupeBadge(row:any) {
   if (row.dedupe_status === 'duplicate') return <span className="badge ignored">duplicate</span>
@@ -18,17 +14,62 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
   const { supabase } = await requireUser()
   const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').order('internal_sku')
 
+  // How much mapped demand is still not reflected in stock.
+  const { data: waiting } = await supabase
+    .from('unposted_order_rows')
+    .select('platform, account_name, rows_waiting, units_waiting, oldest_date')
+  const totalWaiting = (waiting || []).reduce((sum:number, w:any) => sum + Number(w.rows_waiting || 0), 0)
+
   let query = supabase.from('imported_order_rows').select('*, mapped:product_variations!imported_order_rows_mapped_variation_id_fkey(internal_sku, variation_name), demand:product_variations!imported_order_rows_demand_variation_id_fkey(internal_sku, variation_name)').order('created_at', { ascending: false }).limit(500)
   if (params.platform) query = query.eq('platform', params.platform)
   if (params.status) query = query.eq('mapping_status', params.status)
   if (params.dedupe) query = query.eq('dedupe_status', params.dedupe)
+  // Search has to run in the database. Filtering in JS only searched whichever
+  // 500 rows happened to come back, so an order that existed but was older than
+  // the newest 500 reported "no results".
+  if (q) {
+    const term = `%${q.replace(/[%_]/g, '')}%`
+    query = query.or([
+      `platform_order_id.ilike.${term}`,
+      `external_line_key.ilike.${term}`,
+      `platform_sku.ilike.${term}`,
+      `item_name.ilike.${term}`,
+      `variation_text.ilike.${term}`,
+      `customization_text.ilike.${term}`,
+      `account_name.ilike.${term}`,
+    ].join(','))
+  }
   const { data: allRows } = await query
-  const rows = (allRows || []).filter((r:any) => !q || rowMatch(r, q))
+  const rows = allRows || []
 
   return (
     <>
       <div className="page-head"><div><h1>Imported Orders</h1><p className="muted">Raw order rows from Etsy, Amazon, TikTok, and Shopify before they become inventory demand/usage.</p></div><Link className="button" href="/uploads">Upload CSV</Link></div>
       <div className="card alert"><strong>Duplicate protection:</strong> The system dedupes by marketplace order line, not only by order number. Same order with multiple real items still counts each item; overlapping spreadsheet uploads get marked duplicate and ignored for inventory.</div>
+
+      <div className={totalWaiting > 0 ? 'card danger-soft' : 'card success-soft'}>
+        <h2>{totalWaiting > 0 ? `${totalWaiting} mapped order line(s) have not consumed stock yet` : 'All mapped order lines have consumed stock'}</h2>
+        <p className="muted">
+          Mapped order lines deduct their BOM parts from inventory. Cancelled and refunded
+          lines, duplicates, and unmapped lines are skipped. Posting is safe to run as often
+          as you like — each line can only ever consume stock once.
+        </p>
+        {(waiting || []).length > 0 && (
+          <div className="wide-table"><table>
+            <thead><tr><th>Platform</th><th>Account</th><th>Lines waiting</th><th>Units waiting</th><th>Oldest</th></tr></thead>
+            <tbody>{(waiting || []).map((w:any) => (
+              <tr key={`${w.platform}-${w.account_name || 'any'}`}>
+                <td>{w.platform}</td><td>{w.account_name || '—'}</td>
+                <td>{num(w.rows_waiting)}</td><td>{num(w.units_waiting)}</td>
+                <td>{date(w.oldest_date)}</td>
+              </tr>
+            ))}</tbody>
+          </table></div>
+        )}
+        <form action={postImportedOrdersToInventory}>
+          <button type="submit" disabled={totalWaiting === 0}>Post orders to inventory</button>
+        </form>
+      </div>
       <div className="card"><form className="filter-bar" action="/imported-orders"><label>Search<input name="q" defaultValue={q} placeholder="Order ID, line key, SKU, item, variation" /></label><label className="compact">Platform<select name="platform" defaultValue={params.platform || ''}><option value="">All</option><option value="etsy">Etsy</option><option value="amazon">Amazon</option><option value="tiktok">TikTok</option><option value="shopify">Shopify</option></select></label><label className="compact">Mapping<select name="status" defaultValue={params.status || ''}><option value="">All</option><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label><label className="compact">Import status<select name="dedupe" defaultValue={params.dedupe || ''}><option value="">All</option><option value="new">New lines only</option><option value="duplicate">Duplicates only</option></select></label><button type="submit">Filter</button><Link className="button ghost" href="/imported-orders">Clear</Link></form></div>
 
       <div className="card table-card">
