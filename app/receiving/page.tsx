@@ -1,10 +1,22 @@
+import { randomUUID } from 'crypto'
 import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
 import { date, num } from '@/lib/format'
 
 export default async function ReceivingPage() {
   const { supabase } = await requireUser()
-  const { data: openItems } = await supabase.from('open_po_items').select('*').limit(200)
+  // No .limit(): the Data API caps the response anyway, and an arbitrary 200
+  // meant that past 200 open lines the warehouse simply could not select the
+  // item it was holding. Ordered so the oldest expected arrivals come first.
+  const { data: openItems } = await supabase
+    .from('open_po_items')
+    .select('*')
+    .order('expected_date', { ascending: true, nullsFirst: false })
+
+  // One-shot token: if Confirm is double-clicked or the form is resubmitted via
+  // browser-back, the database replays the original receipt instead of adding
+  // the shipment to stock a second time.
+  const idempotencyKey = randomUUID()
   const { data: events } = await supabase
     .from('receiving_events')
     .select('*, parts(name, sku), purchase_orders(po_number)')
@@ -19,6 +31,7 @@ export default async function ReceivingPage() {
       <div className="card">
         <h2>Receive shipment item</h2>
         <form className="stack" action={receivePurchaseOrderItem}>
+          <input type="hidden" name="idempotency_key" value={idempotencyKey} />
           <label>Open PO item
             <select name="purchase_order_item_id" required>
               <option value="">Choose item</option>
