@@ -6,7 +6,7 @@ import { date, num } from '@/lib/format'
 export default async function AdjustmentsPage({ searchParams }: { searchParams?: Promise<{ error?: string, notice?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const { supabase } = await requireUser()
-  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('name')
+  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: movements } = await supabase.from('inventory_movements').select('*, parts(name, sku)').is('archived_at', null).order('created_at', { ascending: false }).limit(50)
   const { data: switches } = await supabase.from('inventory_switches').select('*, to_part:parts!inventory_switches_to_part_id_fkey(name, sku), from_part:parts!inventory_switches_from_part_id_fkey(name, sku)').order('created_at', { ascending: false }).limit(30)
 
