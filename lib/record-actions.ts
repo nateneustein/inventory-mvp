@@ -65,24 +65,103 @@ export async function deleteVariation(formData: FormData) {
 }
 
 export async function updateInventoryMovement(formData: FormData) {
-  const { supabase } = await currentUserId()
+  const { supabase, userId } = await currentUserId()
   const id = value(formData, 'id')
   const goBack = back(formData, '/adjustments')
-  const { error } = await supabase.from('inventory_movements').update({
-    part_id: value(formData, 'part_id'),
-    movement_type: value(formData, 'movement_type'),
-    quantity: num(formData, 'quantity', 0),
-    movement_date: value(formData, 'movement_date') || null,
-    reason: value(formData, 'reason') || 'Manual edit',
-    notes: value(formData, 'notes') || null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', id)
-  if (error) redirect(`${goBack}?error=${encodeURIComponent(error.message)}`)
+
+  const { data: original, error: readError } = await supabase
+    .from('inventory_movements')
+    .select('id, part_id, quantity, movement_type, movement_date, reason, notes, source_type, source_id')
+    .eq('id', id)
+    .single()
+  if (readError || !original) redirect(`${goBack}?error=${encodeURIComponent(readError?.message || 'That entry no longer exists.')}`)
+
+  const newQty = num(formData, 'quantity', Number(original.quantity))
+  const newDate = value(formData, 'movement_date') || original.movement_date
+  const newReason = value(formData, 'reason') || original.reason
+  const newNotes = value(formData, 'notes') || null
+  const newPartId = value(formData, 'part_id') || original.part_id
+
+  const oldQty = Number(original.quantity)
+  const partChanged = newPartId !== original.part_id
+  const qtyChanged = newQty !== oldQty
+
+  // Wording, dates and notes are safe to change in place -- they do not move stock.
+  const { error: metaError } = await supabase
+    .from('inventory_movements')
+    .update({ movement_date: newDate, reason: newReason, notes: newNotes, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (metaError) redirect(`${goBack}?error=${encodeURIComponent(metaError.message)}`)
+
+  // Quantity is different. Rather than overwrite the original -- which would
+  // leave the shipment/damage record it came from disagreeing with stock, and
+  // no sign anything had been changed -- write a correction line so the history
+  // stays readable and the totals still come out right.
+  const corrections: any[] = []
+  if (qtyChanged && !partChanged) {
+    const delta = newQty - oldQty
+    if (delta !== 0) {
+      corrections.push({
+        part_id: original.part_id,
+        movement_type: 'manual_adjustment',
+        quantity: delta,
+        source_type: 'movement_correction',
+        source_id: original.id,
+        reason: `Correction: entry changed from ${oldQty} to ${newQty}`,
+        notes: newNotes,
+        movement_date: newDate,
+        created_by: userId,
+      })
+    }
+  }
+
+  // The part itself was wrong: give the original part its quantity back and
+  // book the same quantity against the part that should have been used.
+  if (partChanged) {
+    corrections.push({
+      part_id: original.part_id,
+      movement_type: 'manual_adjustment',
+      quantity: -oldQty,
+      source_type: 'movement_correction',
+      source_id: original.id,
+      reason: 'Correction: entry was recorded against the wrong part',
+      notes: newNotes,
+      movement_date: newDate,
+      created_by: userId,
+    })
+    corrections.push({
+      part_id: newPartId,
+      movement_type: 'manual_adjustment',
+      quantity: newQty,
+      source_type: 'movement_correction',
+      source_id: original.id,
+      reason: 'Correction: moved here from the wrong part',
+      notes: newNotes,
+      movement_date: newDate,
+      created_by: userId,
+    })
+  }
+
+  if (corrections.length) {
+    const { error: corrError } = await supabase.from('inventory_movements').insert(corrections)
+    if (corrError) redirect(`${goBack}?error=${encodeURIComponent(corrError.message)}`)
+  }
+
+  // Keep the record this came from in step with the new number.
+  if (qtyChanged && !partChanged && original.source_type === 'receiving_event' && original.source_id) {
+    await supabase.from('receiving_events').update({ quantity_received: newQty }).eq('id', original.source_id)
+  }
+  if (qtyChanged && !partChanged && original.source_type === 'damage_report' && original.source_id) {
+    await supabase.from('damage_reports').update({ quantity: Math.abs(newQty), updated_at: new Date().toISOString() }).eq('id', original.source_id)
+  }
+
   revalidatePath('/adjustments')
-  revalidatePath('/usage')
   revalidatePath('/parts')
+  revalidatePath('/usage')
+  revalidatePath('/receiving')
+  revalidatePath('/damage')
   revalidatePath('/dashboard')
-  redirect(`${goBack}?notice=Inventory%20movement%20updated`)
+  redirect(`${goBack}?notice=${encodeURIComponent(corrections.length ? 'Saved. A correction line was added so the change is visible in the history.' : 'Saved.')}`)
 }
 
 export async function archiveInventoryMovement(formData: FormData) {
@@ -219,4 +298,95 @@ export async function deleteZeroStockReport(formData: FormData) {
   revalidatePath('/reports')
   revalidatePath('/dashboard')
   redirect('/zero?notice=Zero%20report%20deleted')
+}
+
+
+/**
+ * Damage reports had no way to be corrected. If somebody typed 500 instead of
+ * 50 the only remedy was to edit the stock movement, which left the damage
+ * register still claiming 500 -- so month-end scrap totals disagreed with
+ * stock. These keep the two in step.
+ */
+export async function updateDamageReport(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'id')
+  const goBack = back(formData, '/damage')
+
+  const { data: report, error: readError } = await supabase
+    .from('damage_reports')
+    .select('id, part_id, quantity, reason, reduced_stock, order_reference, notes')
+    .eq('id', id)
+    .single()
+  if (readError || !report) redirect(`${goBack}?error=${encodeURIComponent(readError?.message || 'That damage report no longer exists.')}`)
+
+  const newQty = num(formData, 'quantity', Number(report.quantity))
+  if (newQty <= 0) redirect(`${goBack}?error=${encodeURIComponent('Damage quantity must be above zero.')}`)
+
+  const { error: updateError } = await supabase.from('damage_reports').update({
+    quantity: newQty,
+    reason: value(formData, 'reason') || report.reason,
+    order_reference: value(formData, 'order_reference') || null,
+    notes: value(formData, 'notes') || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+  if (updateError) redirect(`${goBack}?error=${encodeURIComponent(updateError.message)}`)
+
+  // Only damage that actually took stock out needs a stock correction.
+  // Damaged-on-arrival was never added to stock, so there is nothing to correct.
+  if (report.reduced_stock) {
+    const delta = Number(report.quantity) - newQty
+    if (delta !== 0) {
+      const { error: moveError } = await supabase.from('inventory_movements').insert({
+        part_id: report.part_id,
+        movement_type: 'manual_adjustment',
+        quantity: delta,
+        source_type: 'damage_report_correction',
+        source_id: report.id,
+        reason: `Correction: damage report changed from ${report.quantity} to ${newQty}`,
+        notes: value(formData, 'notes') || null,
+        created_by: userId,
+      })
+      if (moveError) redirect(`${goBack}?error=${encodeURIComponent(moveError.message)}`)
+    }
+  }
+
+  revalidatePath('/damage')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+  redirect(`${goBack}?notice=${encodeURIComponent('Damage report updated.')}`)
+}
+
+export async function deleteDamageReport(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'id')
+  const goBack = back(formData, '/damage')
+
+  const { data: report } = await supabase
+    .from('damage_reports')
+    .select('id, part_id, quantity, reduced_stock')
+    .eq('id', id)
+    .single()
+
+  // Put the stock back before removing the report, otherwise deleting a damage
+  // entry would silently leave the units missing from inventory forever.
+  if (report?.reduced_stock && Number(report.quantity) > 0) {
+    await supabase.from('inventory_movements').insert({
+      part_id: report.part_id,
+      movement_type: 'manual_adjustment',
+      quantity: Number(report.quantity),
+      source_type: 'damage_report_correction',
+      source_id: report.id,
+      reason: 'Damage report removed, stock returned',
+      created_by: userId,
+    })
+  }
+
+  await supabase.from('inventory_movements').delete().eq('source_type', 'damage_report').eq('source_id', id)
+  const { error } = await supabase.from('damage_reports').delete().eq('id', id)
+  if (error) redirect(`${goBack}?error=${encodeURIComponent(error.message)}`)
+
+  revalidatePath('/damage')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+  redirect(`${goBack}?notice=${encodeURIComponent('Damage report deleted.')}`)
 }

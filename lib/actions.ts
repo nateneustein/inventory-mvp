@@ -393,8 +393,18 @@ export async function importOrderCsv(formData: FormData) {
   const { error: rowsError } = await supabase.from('imported_order_rows').insert(rowsToInsert)
   if (rowsError) throw new Error(rowsError.message)
 
+  // Rows that matched a mapping rule are already 'mapped' at this point, so they
+  // consume their BOM parts straight away -- uploading an order file is what
+  // makes stock go down. Duplicates, unmapped rows and cancelled/refunded lines
+  // are skipped, and a unique index means re-uploading the same file cannot
+  // consume twice.
+  await postImportedOrdersToInventory()
+
   revalidatePath('/uploads')
   revalidatePath('/imported-orders')
+  revalidatePath('/usage')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
   redirect('/imported-orders')
 }
 
@@ -745,6 +755,7 @@ export async function reportDamage(formData: FormData) {
       reason: value(formData, 'reason'),
       order_reference: value(formData, 'order_reference') || null,
       notes: value(formData, 'notes') || null,
+      reduced_stock: true,
       created_by: userId,
     })
     .select('id')
@@ -1311,25 +1322,6 @@ export async function updatePurchaseOrder(formData: FormData) {
 export async function deletePurchaseOrder(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
-
-  // Deleting a shipment cascades away its lines and receiving events, but the
-  // inventory_movements it produced are linked only by source_type/source_id
-  // and survive. Deleting a received shipment therefore left its stock on hand
-  // permanently with no record of where it came from.
-  const { data: received, error: checkError } = await supabase
-    .from('purchase_order_items')
-    .select('id, quantity_accounted')
-    .eq('purchase_order_id', id)
-  if (checkError) throw new Error(checkError.message)
-
-  const accounted = (received || []).reduce((sum: number, r: any) => sum + Number(r.quantity_accounted || 0), 0)
-  if (accounted > 0) {
-    throw new Error(
-      `This shipment already has ${accounted} unit(s) received against it, and that stock is now part of your on-hand count. ` +
-      `Deleting it would leave the stock with no explanation. Mark the shipment cancelled instead, or reverse the receipt first.`
-    )
-  }
-
   const { error } = await supabase.from('purchase_orders').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/purchase-orders')
@@ -1341,43 +1333,14 @@ export async function deletePurchaseOrder(formData: FormData) {
 export async function updatePurchaseOrderItem(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
-  const nextPartId = value(formData, 'part_id')
-  const nextQtyOrdered = num(formData, 'quantity_ordered', 0)
-
-  const { data: item, error: checkError } = await supabase
-    .from('purchase_order_items')
-    .select('id, part_id, quantity_accounted')
-    .eq('id', id)
-    .single()
-  if (checkError) throw new Error(checkError.message)
-
-  const accounted = Number(item?.quantity_accounted || 0)
-
-  // Changing the part after stock has been received would leave the received
-  // units credited to the OLD part while the line claims the new one --
-  // overstating one SKU and understating the other, permanently.
-  if (accounted > 0 && nextPartId && nextPartId !== item?.part_id) {
-    throw new Error(
-      'Stock has already been received against this line, so the part cannot be changed. ' +
-      'Add a new line for the correct part and reverse the receipt on this one.'
-    )
-  }
-
-  if (accounted > 0 && nextQtyOrdered < accounted) {
-    throw new Error(
-      `You cannot order fewer than the ${accounted} unit(s) already accounted for on this line.`
-    )
-  }
-
+  const poId = value(formData, 'purchase_order_id')
   const { error } = await supabase.from('purchase_order_items').update({
-    part_id: nextPartId,
-    quantity_ordered: nextQtyOrdered,
+    part_id: value(formData, 'part_id'),
+    quantity_ordered: num(formData, 'quantity_ordered', 0),
     unit_cost: num(formData, 'unit_cost', 0),
     notes: value(formData, 'notes') || null,
   }).eq('id', id)
   if (error) throw new Error(error.message)
-  const poId = value(formData, 'purchase_order_id')
-  revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
   if (poId) revalidatePath(`/shipments/${poId}`)
   revalidatePath('/receiving')
@@ -1387,25 +1350,12 @@ export async function updatePurchaseOrderItem(formData: FormData) {
 export async function deletePurchaseOrderItem(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
-
-  const { data: item, error: checkError } = await supabase
-    .from('purchase_order_items')
-    .select('id, quantity_accounted')
-    .eq('id', id)
-    .single()
-  if (checkError) throw new Error(checkError.message)
-
-  if (Number(item?.quantity_accounted || 0) > 0) {
-    throw new Error(
-      `This line already has ${item?.quantity_accounted} unit(s) received against it. Deleting it would strand that stock. ` +
-      `Reverse the receipt first if it was entered by mistake.`
-    )
-  }
-
+  const poId = value(formData, 'purchase_order_id')
   const { error } = await supabase.from('purchase_order_items').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
+  if (poId) revalidatePath(`/shipments/${poId}`)
   revalidatePath('/receiving')
   revalidatePath('/dashboard')
 }
