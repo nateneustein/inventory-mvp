@@ -7,7 +7,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
   const { id } = await params
   const { supabase } = await requireUser()
   const { data: supplier } = await supabase.from('suppliers').select('*').eq('id', id).single()
-  const { data: parts } = await supabase.from('parts').select('*').eq('supplier_id', id).order('name')
+  const { data: parts } = await supabase.from('parts').select('*').eq('supplier_id', id).order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: pos } = await supabase.from('purchase_orders').select('*').eq('supplier_id', id).order('created_at', { ascending: false }).limit(50)
 
   if (!supplier) return <div className="card"><h1>Supplier not found</h1><Link className="button" href="/suppliers">Back</Link></div>
