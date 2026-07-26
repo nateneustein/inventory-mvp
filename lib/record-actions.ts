@@ -390,3 +390,51 @@ export async function deleteDamageReport(formData: FormData) {
   revalidatePath('/dashboard')
   redirect(`${goBack}?notice=${encodeURIComponent('Damage report deleted.')}`)
 }
+
+
+/**
+ * Role management. Admin only -- the database also refuses these writes to
+ * anyone else, so this check is for a clear message rather than for safety.
+ */
+export async function updateUserRole(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'id')
+  const role = value(formData, 'role')
+  const goBack = back(formData, '/users')
+
+  if (!['admin', 'manager', 'production_associate'].includes(role)) {
+    redirect(`${goBack}?error=${encodeURIComponent('That is not a valid role.')}`)
+  }
+  if (id === userId) {
+    redirect(`${goBack}?error=${encodeURIComponent('You cannot change your own role. Another admin has to do it.')}`)
+  }
+
+  const { error } = await supabase.from('profiles').update({
+    role,
+    full_name: value(formData, 'full_name') || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
+
+  if (error) redirect(`${goBack}?error=${encodeURIComponent(error.message)}`)
+  revalidatePath('/users')
+  redirect(`${goBack}?notice=${encodeURIComponent('Role updated.')}`)
+}
+
+export async function setUserActive(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'id')
+  const active = value(formData, 'active') === 'true'
+  const goBack = back(formData, '/users')
+
+  if (id === userId) {
+    redirect(`${goBack}?error=${encodeURIComponent('You cannot disable your own account.')}`)
+  }
+
+  const { error } = await supabase.from('profiles')
+    .update({ active, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) redirect(`${goBack}?error=${encodeURIComponent(error.message)}`)
+  revalidatePath('/users')
+  redirect(`${goBack}?notice=${encodeURIComponent(active ? 'Access re-enabled.' : 'Access disabled. They can still sign in but cannot see or change anything.')}`)
+}
