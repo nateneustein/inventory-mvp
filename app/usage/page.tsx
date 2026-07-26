@@ -42,13 +42,6 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
     .select('anchor_date, earliest_date, usage_row_count')
     .single()
 
-  // Broader than just negatives: a part pinned at exactly zero while orders
-  // keep consuming it is the same kind of lie as a negative balance.
-  const { data: negativeParts } = await supabase
-    .from('needs_physical_count')
-    .select('part_id, name, sku, on_hand, starting_balance, total_received, total_used, last_used_on, count_reason')
-    .order('on_hand')
-
   const { data: manualRows } = await supabase
     .from('manual_units_sold')
     .select('*, product_variations(internal_sku, variation_name, products(name))')
@@ -66,28 +59,6 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
       {params.error && <div className="card danger-soft"><strong>Manual usage was not saved:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
       {weekError && <div className="card danger-soft"><strong>Usage timeline could not be loaded:</strong> {weekError.message}</div>}
-
-      {(negativeParts || []).length > 0 && (
-        <div className="card danger-soft">
-          <h2>Needs a physical count</h2>
-          <p className="muted">Two things land here. <strong>Negative stock</strong> means more usage was recorded than stock ever received — a gap in the imported history, not a real quantity. <strong>Zero but still selling</strong> means the system says zero while orders kept consuming the part in the last 4 weeks, so the real shelf count is almost certainly not zero. Either way the number cannot be trusted until somebody counts it. Use <strong>Report Zero</strong> to enter the real quantity and the system will correct itself.</p>
-          <div className="wide-table"><table>
-            <thead><tr><th>Part</th><th>SKU</th><th>Why</th><th>System says</th><th>Opening</th><th>Received</th><th>Used</th><th>Last used</th></tr></thead>
-            <tbody>{(negativeParts || []).map((p: any) => (
-              <tr key={p.part_id}>
-                <td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td>
-                <td>{p.sku}</td>
-                <td><span className={`badge ${p.count_reason === 'negative_stock' ? 'urgent' : 'warning'}`}>{p.count_reason === 'negative_stock' ? 'negative stock' : 'zero but still selling'}</span></td>
-                <td className="cell-danger">{num(p.on_hand)}</td>
-                <td>{num(p.starting_balance)}</td>
-                <td>{num(p.total_received)}</td>
-                <td>{num(p.total_used)}</td>
-                <td>{date(p.last_used_on)}</td>
-              </tr>
-            ))}</tbody>
-          </table></div>
-        </div>
-      )}
 
       <div className="card">
         <h2>Add manual products produced / sold</h2>
@@ -134,7 +105,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
         </table></div>
       </div>
 
-      <div className="card table-card"><div className="table-head"><h2>Current stock summary</h2></div><div className="wide-table"><table><thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Status</th></tr></thead><tbody>{parts.map((p: any) => <tr key={p.part_id}><td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td className={Number(p.on_hand) < 0 ? 'cell-danger' : ''}>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td></tr>)}</tbody></table></div></div>
+      <div className="card table-card"><div className="table-head"><h2>Current stock summary</h2></div><div className="wide-table"><table><thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Status</th></tr></thead><tbody>{parts.map((p: any) => <tr key={p.part_id}><td><Link className="link" href={`/parts/${p.part_id}`}>{p.name}</Link></td><td>{p.sku}</td><td>{num(p.on_hand)}</td><td>{num(p.incoming_qty)}</td><td>{num(p.projected_qty)}</td><td><span className={`badge ${p.stock_status}`}>{p.stock_status}</span></td></tr>)}</tbody></table></div></div>
 
       <div className="card table-card">
         <div className="table-head"><h2>Recent manual sold/produced entries</h2></div>
