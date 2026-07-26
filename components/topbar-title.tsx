@@ -1,0 +1,44 @@
+'use client'
+
+import { usePathname } from 'next/navigation'
+
+/**
+ * The topbar used to say "Operations dashboard" on every single page, which
+ * read as a mistake once you were three levels deep. It now names the page you
+ * are actually on. Longest prefix wins, so /parts/<id> resolves to "Parts /
+ * Supplies" rather than falling through.
+ */
+const TITLES: Array<[string, string]> = [
+  ['/dashboard', 'Operations dashboard'],
+  ['/uploads', 'Uploads / Connections'],
+  ['/imported-orders', 'Imported Orders'],
+  ['/reports', 'Reports'],
+  ['/parts', 'Parts / Supplies'],
+  ['/shipments', 'Shipments / Purchases'],
+  ['/receiving', 'Receiving'],
+  ['/adjustments', 'Adjustments / Switches'],
+  ['/damage', 'Damage / Scrap'],
+  ['/zero', 'Report Zero'],
+  ['/counts', 'Counts'],
+  ['/scanner', 'Scanner / QR'],
+  ['/products', 'Finished Products'],
+  ['/bom', 'BOM / Master File'],
+  ['/mapping', 'Mapping Rules'],
+  ['/usage', 'Usage'],
+  ['/predictions/basic', 'Basic Prediction'],
+  ['/predictions/advanced', 'Advanced Prediction'],
+  ['/predictions', 'Prediction'],
+  ['/suppliers', 'Suppliers'],
+  ['/users', 'Users & roles'],
+  ['/no-access', 'No access'],
+  ['/login', 'Sign in'],
+]
+
+export function TopbarTitle() {
+  const pathname = usePathname() || '/'
+  const match = TITLES
+    .filter(([href]) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b[0].length - a[0].length)[0]
+
+  return <div className="topbar-title">{match ? match[1] : 'Inventory Control'}</div>
+}
