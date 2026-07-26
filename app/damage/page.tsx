@@ -18,7 +18,7 @@ const REASONS = [
 export default async function DamagePage({ searchParams }: { searchParams?: Promise<{ error?: string, notice?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const { supabase } = await requireUser()
-  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('name')
+  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: reports } = await supabase
     .from('damage_reports')
     .select('*, parts(name, sku)')
