@@ -16,7 +16,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
   const category = params.category || ''
   const { supabase } = await requireUser()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
-  const { data: allParts } = await supabase.from('inventory_status').select('*').order('name')
+  const { data: allParts } = await supabase.from('inventory_status').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
 
   const categories = Array.from(new Set((allParts || []).map((p: any) => p.category).filter(Boolean))).sort()
   const parts = (allParts || []).filter((p: any) => (!q || matches(p, q)) && (!status || p.stock_status === status) && (!category || p.category === category))
