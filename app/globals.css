@@ -277,6 +277,14 @@ tbody tr:hover .action-row, tbody .action-row:focus-within { opacity: 1; }
 .compact-rows td, .compact-rows th { white-space: nowrap; }
 .compact-rows td { max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
 .compact-rows .sku-cell { color: var(--ink-2); font-size: 12.5px; max-width: 260px; }
+/* The action column pins to the right edge, so it is still reachable on a wide
+   table that has to scroll sideways. */
+.compact-rows th.actions-cell, .compact-rows td.actions-cell {
+  position: sticky; right: 0; z-index: 2; max-width: none; overflow: visible;
+  background: var(--card-bg); box-shadow: -1px 0 0 var(--border);
+}
+.compact-rows th.actions-cell { background: var(--thead-bg); z-index: 3; }
+.compact-rows tbody tr:hover td.actions-cell { background: #fafbfc; }
 
 /* `details` used as an inline editor */
 details > summary { list-style: none; cursor: pointer; }
