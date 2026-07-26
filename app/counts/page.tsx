@@ -4,7 +4,7 @@ import { date, num } from '@/lib/format'
 
 export default async function CountsPage() {
   const { supabase } = await requireUser()
-  const { data: parts } = await supabase.from('inventory_status').select('part_id, name, sku, on_hand').order('name')
+  const { data: parts } = await supabase.from('inventory_status').select('part_id, name, sku, on_hand').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: counts } = await supabase
     .from('cycle_counts')
     .select('*, parts(name, sku)')
