@@ -2,6 +2,7 @@ import './globals.css'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getPermissions } from '@/lib/permissions'
+import { NavLink } from '@/components/nav-link'
 
 export const metadata = {
   title: 'Inventory Control Center',
@@ -87,7 +88,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <section key={group.title}>
                       <p className="nav-group-title">{group.title}</p>
                       {links.map(([label, href]) => (
-                        <Link key={href as string} href={href as string}>{label}</Link>
+                        <NavLink key={href as string} href={href as string}>{label}</NavLink>
                       ))}
                     </section>
                   )

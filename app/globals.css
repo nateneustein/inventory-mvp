@@ -71,6 +71,26 @@ button, input, select, textarea { font: inherit; }
 }
 .side-nav a:hover { background: rgba(255,255,255,.10); transform: translateX(2px); }
 
+/* The page you are currently on. */
+.side-nav a.active {
+  background: rgba(255,255,255,.16);
+  color: #ffffff;
+  font-weight: 700;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
+}
+.side-nav a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #60a5fa;
+}
+.side-nav a.active:hover { transform: none; }
+
 .main-shell { min-width: 0; }
 .topbar {
   position: sticky;
