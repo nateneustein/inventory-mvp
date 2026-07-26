@@ -1029,28 +1029,32 @@ export async function saveBomMatrix(formData: FormData) {
 export async function reportZeroStock(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const partId = value(formData, 'part_id')
+  const { data: stockRow } = await supabase.from('part_stock').select('on_hand').eq('part_id', partId).single()
+  const systemQty = Number(stockRow?.on_hand || 0)
 
-  // The warehouse can report the real counted quantity, not just "it's zero".
-  // Blank means zero, which preserves the original behaviour of the button.
-  const actualRaw = value(formData, 'actual_quantity')
-  const actual = actualRaw === '' ? 0 : num(formData, 'actual_quantity', 0)
-
-  // This used to only write a note and a notification -- stock was never
-  // corrected, so the dashboard kept showing the part as fine and no reorder
-  // ever fired. Now the correcting movement is written in the same transaction.
-  const { error } = await supabase.rpc('report_zero_stock', {
-    p_part_id: partId,
-    p_actual: actual,
-    p_notes: value(formData, 'notes') || null,
-    p_user: userId,
-    p_order_reference: value(formData, 'order_reference') || null,
+  // Deliberately does NOT change stock. A zero report is a signal that someone
+  // needs to go and look -- sometimes there is still stock the reporter did not
+  // find. Correcting inventory here would hide that check instead of prompting it.
+  const { error } = await supabase.from('zero_stock_reports').insert({
+    part_id: partId,
+    system_quantity_at_report: systemQty,
+    warehouse_quantity_reported: 0,
+    order_reference: value(formData, 'order_reference') || null,
+    notes: value(formData, 'notes') || null,
+    created_by: userId,
   })
   if (error) throw new Error(error.message)
 
+  await supabase.from('notifications').insert({
+    level: 'urgent',
+    title: 'Warehouse reported zero stock',
+    message: value(formData, 'notes') || 'A part was reported as physically out of stock.',
+    source_type: 'zero_stock_report',
+    created_by: userId,
+  })
+
   revalidatePath('/zero')
   revalidatePath('/reports')
-  revalidatePath('/parts')
-  revalidatePath('/usage')
   revalidatePath('/dashboard')
 }
 
