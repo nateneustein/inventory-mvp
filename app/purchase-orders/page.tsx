@@ -5,7 +5,7 @@ import { date, num } from '@/lib/format'
 export default async function PurchaseOrdersPage() {
   const { supabase } = await requireUser()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
-  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('name')
+  const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: purchaseOrders } = await supabase
     .from('purchase_orders')
     .select('*, suppliers(name)')
