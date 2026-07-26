@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/require-user'
 
 export default async function ScannerPage() {
   const { supabase } = await requireUser()
-  const { data: parts } = await supabase.from('inventory_status').select('*').order('name')
+  const { data: parts } = await supabase.from('inventory_status').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
 
   return (
     <>
