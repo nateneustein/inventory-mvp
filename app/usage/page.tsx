@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
+import { getPermissions } from '@/lib/permissions'
 import { createManualUnitsSold } from '@/lib/actions'
 import { ManualUsageRows } from '@/components/manual-usage-actions'
 import { date, num } from '@/lib/format'
@@ -25,6 +26,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
   const q = (params.q || '').toLowerCase()
   const zoom = zoomValue(params.zoom)
   const { supabase } = await requireUser()
+  const perms = await getPermissions()
 
   const { data: status } = await supabase.from('inventory_status').select('*').order('name')
   const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').eq('active', true).order('internal_sku')
@@ -60,6 +62,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
       {weekError && <div className="card danger-soft"><strong>Usage timeline could not be loaded:</strong> {weekError.message}</div>}
 
+      {perms.canRecordManualUsage && (
       <div className="card">
         <h2>Add manual products produced / sold</h2>
         <p className="muted">Use this for bulk orders or any order line that actually represents multiple finished products. It will consume inventory using the BOM.</p>
@@ -70,6 +73,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
           <button type="submit">Add manual sold units</button>
         </form>
       </div>
+      )}
 
       <div className="card"><form className="filter-bar" action="/usage"><label>Filter parts<input name="q" defaultValue={params.q || ''} placeholder="Part name, SKU, category" /></label><button type="submit">Filter</button><Link className="button ghost" href="/usage">Clear</Link></form></div>
 
