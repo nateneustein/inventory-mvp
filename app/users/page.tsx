@@ -62,7 +62,9 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
                 <tr key={p.id}>
                   <td>{p.email}{isSelf && <span className="badge info" style={{ marginLeft: 8 }}>you</span>}</td>
                   <td>{p.full_name || '—'}</td>
-                  <td><span className={`badge ${p.role === 'admin' ? 'urgent' : p.role === 'manager' ? 'warning' : 'ok'}`}>{ROLE_LABELS[p.role] || p.role}</span></td>
+                  {/* A role is an identity, not a stock status — the red/amber/green
+                      badges made "Admin" read like an alert. Neutral chip, real word. */}
+                  <td><span className={`badge ${p.role === 'admin' ? 'info' : ''}`}>{ROLE_LABELS[p.role] || p.role}</span></td>
                   <td className="muted small">{ROLE_NOTES[p.role]}</td>
                   <td>{p.active ? <span className="badge ok">active</span> : <span className="badge archived">disabled</span>}</td>
                   <td>{date(p.created_at)}</td>
