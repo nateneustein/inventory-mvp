@@ -188,6 +188,7 @@ p { line-height: 1.5; margin: 0 0 10px; }
   display: flex; justify-content: space-between; gap: 14px; align-items: center;
   padding: 10px 14px; border-bottom: 1px solid var(--border-soft); background: var(--card-bg);
 }
+.table-head > *:first-child { min-width: 0; flex: 1 1 220px; }
 .table-head h2 { margin: 0; font-size: 13.5px; }
 .table-head p { margin: 2px 0 0; }
 .table-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -195,6 +196,8 @@ p { line-height: 1.5; margin: 0 0 10px; }
 
 table { width: 100%; border-collapse: separate; border-spacing: 0; background: transparent; font-size: 13px; }
 th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+/* Lining figures so digits line up down a column even when the text does not. */
+td { font-variant-numeric: tabular-nums; }
 th {
   background: var(--thead-bg); color: var(--muted); font-size: 11.5px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
@@ -210,6 +213,10 @@ a.link:hover { text-decoration: underline; }
 
 /* ---------------------------------------------------------------- forms -- */
 form.stack { display: grid; gap: 10px; }
+/* A grid child stretches by default, which turned every submit button into a
+   full-width black bar. Buttons size to their label and sit on the left. */
+form.stack > button, form.stack > .button,
+form.stack > .action-row > button, form.stack > .action-row > .button { justify-self: start; }
 label { display: grid; gap: 4px; font-weight: 500; color: var(--ink-2); font-size: 12.5px; }
 input, select, textarea {
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -252,11 +259,24 @@ button.danger:hover, .button.danger:hover { background: #d03b3b; border-color: #
 button.small-btn, .button.small-btn { padding: 3px 8px; font-size: 12.5px; border-radius: var(--radius-sm); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 
-/* Row actions sit quiet until you are on the row. */
-.action-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.actions-cell { min-width: 0; white-space: nowrap; }
-tbody .action-row { opacity: .4; transition: opacity .1s ease; }
+/* Row actions sit quiet until you are on the row.
+   They stay on ONE line: a wrapped action column was the single biggest cause
+   of 90px table rows. The column shrinks to its content (width:1%) so the data
+   columns keep the space. */
+.action-row { display: flex; flex-wrap: nowrap; gap: 5px; align-items: center; }
+td .action-row { justify-content: flex-end; }
+.actions-cell { width: 1%; white-space: nowrap; text-align: right; }
+tbody .action-row { opacity: .6; transition: opacity .1s ease; }
 tbody tr:hover .action-row, tbody .action-row:focus-within { opacity: 1; }
+/* Forms outside tables (filter bars, card footers) may still wrap. */
+.card > .action-row, .table-head .action-row, .filter-bar .action-row { flex-wrap: wrap; opacity: 1; }
+
+/* Single-line list rows.
+   Long part names and hyphenated SKUs wrap to two or three lines and double the
+   row height. On scanning tables we clip instead, with the full text on hover. */
+.compact-rows td, .compact-rows th { white-space: nowrap; }
+.compact-rows td { max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+.compact-rows .sku-cell { color: var(--ink-2); font-size: 12.5px; max-width: 260px; }
 
 /* `details` used as an inline editor */
 details > summary { list-style: none; cursor: pointer; }
@@ -293,6 +313,10 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .prediction-grid th, .prediction-grid td,
 .usage-grid th, .usage-grid td { white-space: nowrap; font-size: 12px; padding: 5px 10px; }
 .tiny-input { min-width: 68px; padding: 4px 6px; border-radius: 5px; font-size: 12px; }
+/* Everything past the label columns on the prediction sheet is a figure, so it
+   is right-aligned — that is what makes a column of numbers comparable. */
+.prediction-grid th:nth-child(n+4), .prediction-grid td:nth-child(n+4) { text-align: right; }
+.usage-grid th:nth-child(n+5), .usage-grid td:nth-child(n+5) { text-align: right; }
 
 .sticky-col { position: sticky; left: 0; z-index: 2; background: var(--card-bg); box-shadow: 1px 0 0 var(--border); }
 th.sticky-col { z-index: 3; background: var(--thead-bg); }

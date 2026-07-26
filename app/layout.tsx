@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getPermissions } from '@/lib/permissions'
 import { NavLink } from '@/components/nav-link'
+import { TopbarTitle } from '@/components/topbar-title'
 
 export const metadata = {
   title: 'Inventory Control Center',
@@ -101,7 +102,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <header className="topbar">
               <div>
                 <div className="eyebrow">Inventory Management MVP</div>
-                <div className="topbar-title">Operations dashboard</div>
+                <TopbarTitle />
               </div>
               {user ? (
                 <div className="topbar-actions">
