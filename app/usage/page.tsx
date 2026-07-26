@@ -28,7 +28,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
   const { supabase } = await requireUser()
   const perms = await getPermissions()
 
-  const { data: status } = await supabase.from('inventory_status').select('*').order('name')
+  const { data: status } = await supabase.from('inventory_status').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: variations } = await supabase.from('product_variations').select('id, internal_sku, variation_name, products(name)').eq('active', true).order('internal_sku')
 
   // Aggregated in Postgres: one row per week, not one row per movement.
