@@ -1,19 +1,22 @@
 import './globals.css'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getPermissions } from '@/lib/permissions'
 
 export const metadata = {
   title: 'Inventory Control Center',
   description: 'Internal inventory and order data management system'
 }
 
+// 'needs' names the permission a link requires. Anything without one is
+// visible to every signed-in role.
 const navGroups = [
   {
     title: 'Control',
     links: [
       ['Dashboard', '/dashboard'],
-      ['Uploads / Connections', '/uploads'],
-      ['Imported Orders', '/imported-orders'],
+      ['Uploads / Connections', '/uploads', 'canUploadOrders'],
+      ['Imported Orders', '/imported-orders', 'canUploadOrders'],
       ['Reports', '/reports'],
     ]
   },
@@ -21,19 +24,21 @@ const navGroups = [
     title: 'Inventory',
     links: [
       ['Parts / Supplies', '/parts'],
-      ['Shipments / Purchases', '/shipments'],
+      ['Shipments / Purchases', '/shipments', 'canManagePurchasing'],
       ['Receiving', '/receiving'],
-      ['Adjustments / Switches', '/adjustments'],
+      ['Adjustments / Switches', '/adjustments', 'canAdjustStock'],
+      ['Damage / Scrap', '/damage'],
       ['Report Zero', '/zero'],
+      ['Counts', '/counts', 'canRecordCycleCount'],
       ['Scanner / QR', '/scanner'],
     ]
   },
   {
     title: 'Products',
     links: [
-      ['Finished Products', '/products'],
-      ['BOM / Master File', '/boms'],
-      ['Mapping Rules', '/mapping-rules'],
+      ['Finished Products', '/products', 'canManageMasterData'],
+      ['BOM / Master File', '/boms', 'canManageMasterData'],
+      ['Mapping Rules', '/mapping-rules', 'canUploadOrders'],
       ['Usage', '/usage'],
     ]
   },
@@ -42,8 +47,14 @@ const navGroups = [
     links: [
       ['Basic Prediction', '/predictions/basic'],
       ['Advanced Prediction', '/predictions/advanced'],
-      ['Slack Alerts', '/slack'],
-      ['Suppliers', '/suppliers'],
+      ['Slack Alerts', '/slack', 'canManageIntegrations'],
+      ['Suppliers', '/suppliers', 'canManageMasterData'],
+    ]
+  },
+  {
+    title: 'Admin',
+    links: [
+      ['Users and roles', '/users', 'canManageUsers'],
     ]
   }
 ]
@@ -51,6 +62,8 @@ const navGroups = [
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const perms = await getPermissions()
+  const allowed = (needs?: string) => !needs || Boolean((perms as any)[needs])
 
   return (
     <html lang="en">
@@ -67,14 +80,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </Link>
 
               <nav className="side-nav">
-                {navGroups.map((group) => (
-                  <section key={group.title}>
-                    <p className="nav-group-title">{group.title}</p>
-                    {group.links.map(([label, href]) => (
-                      <Link key={href} href={href}>{label}</Link>
-                    ))}
-                  </section>
-                ))}
+                {navGroups.map((group) => {
+                  const links = group.links.filter(([, , needs]) => allowed(needs as string | undefined))
+                  if (links.length === 0) return null
+                  return (
+                    <section key={group.title}>
+                      <p className="nav-group-title">{group.title}</p>
+                      {links.map(([label, href]) => (
+                        <Link key={href as string} href={href as string}>{label}</Link>
+                      ))}
+                    </section>
+                  )
+                })}
               </nav>
             </aside>
           )}
@@ -87,8 +104,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
               {user ? (
                 <div className="topbar-actions">
-                  <Link className="button secondary" href="/uploads">Upload CSV</Link>
-                  <Link className="button" href="/parts">Add / view parts</Link>
+                  <span className="badge info" title={user.email || ''}>{perms.label}</span>
+                  {perms.canUploadOrders && <Link className="button secondary" href="/uploads">Upload CSV</Link>}
+                  <Link className="button" href="/parts">{perms.canManageMasterData ? 'Add / view parts' : 'View parts'}</Link>
                   <Link className="button ghost" href="/auth/signout">Sign out</Link>
                 </div>
               ) : (
