@@ -1,21 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-export type RuleCondition = { field: string, type: string, value: string }
-
-const FIELDS: Array<[string, string]> = [
-  ['sku', 'SKU'],
-  ['item_name', 'Item name'],
-  ['variation', 'Variation'],
-  ['customization', 'Customization'],
-]
-
-const TYPES: Array<[string, string]> = [
-  ['contains', 'contains'],
-  ['equals', 'equals'],
-  ['starts_with', 'starts with'],
-]
+import { CONDITION_FIELDS as FIELDS, CONDITION_TYPES as TYPES, type RuleCondition } from '@/lib/rule-conditions'
 
 const BLANK: RuleCondition = { field: 'sku', type: 'contains', value: '' }
 
@@ -133,20 +119,4 @@ export function RuleConditions({
       </div>
     </div>
   )
-}
-
-/** Plain-English summary of a rule's conditions, for the rules table. */
-export function conditionSummary(conditions: any, logic: string | null | undefined,
-  legacy?: { field?: string, type?: string, value?: string }) {
-  const list: RuleCondition[] = Array.isArray(conditions) && conditions.length
-    ? conditions
-    : legacy && legacy.value
-      ? [{ field: legacy.field || 'sku', type: legacy.type || 'contains', value: legacy.value }]
-      : []
-  if (!list.length) return '—'
-  const label = (v: string, table: Array<[string, string]>) =>
-    (table.find(t => t[0] === v) || [v, v])[1]
-  return list
-    .map(c => `${label(c.field, FIELDS)} ${label(c.type, TYPES)} “${c.value}”`)
-    .join(logic === 'any' ? '  OR  ' : '  AND  ')
 }
