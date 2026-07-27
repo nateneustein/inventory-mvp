@@ -300,7 +300,7 @@ function conditionMatchesImportedRow(condition: RuleCondition, row: any) {
  * array, so fall back to the original single match_* columns rather than
  * treating those rules as matching nothing.
  */
-export function conditionsForRule(rule: Partial<MappingRule>): RuleCondition[] {
+function conditionsForRule(rule: Partial<MappingRule>): RuleCondition[] {
   const list = Array.isArray(rule.conditions) ? rule.conditions : []
   const usable = list.filter((c) => c && c.field && clean(c.value))
   if (usable.length) return usable
