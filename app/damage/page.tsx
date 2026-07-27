@@ -2,6 +2,8 @@ import { requireUser } from '@/lib/require-user'
 import { reportDamage } from '@/lib/actions'
 import { updateDamageReport, deleteDamageReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
+import { rowMatches } from '@/lib/search'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,8 +17,9 @@ const REASONS = [
   ['unknown', 'Unknown'],
 ]
 
-export default async function DamagePage({ searchParams }: { searchParams?: Promise<{ error?: string, notice?: string }> }) {
+export default async function DamagePage({ searchParams }: { searchParams?: Promise<{ error?: string, notice?: string, q?: string }> }) {
   const params = searchParams ? await searchParams : {}
+  const q = params.q || ''
   const { supabase } = await requireUser()
   const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: reports } = await supabase
@@ -24,6 +27,9 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
     .select('*, parts(name, sku)')
     .order('created_at', { ascending: false })
     .limit(100)
+
+  const shown = (reports || []).filter((r: any) =>
+    rowMatches(q, r.parts?.sku, r.parts?.name, r.reason, r.order_reference, r.notes))
 
   return (
     <>
@@ -37,10 +43,12 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
         <form className="stack" action={reportDamage}>
           <div className="form-row">
             <label>Part
-              <select name="part_id" required>
-                <option value="">Choose part</option>
-                {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>)}
-              </select>
+              <SearchSelect
+                name="part_id"
+                required
+                placeholder="Type a part name or SKU"
+                options={(parts || []).map((p: any) => ({ value: p.id, label: `${p.sku} - ${p.name}` }))}
+              />
             </label>
             <label>Qty damaged / removed<input name="quantity" type="number" step="0.01" required /></label>
             <label>Reason
@@ -65,11 +73,18 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
               units were never counted in, so reporting them again here would remove stock you still have.
             </p>
           </div>
+          <div className="table-tools">
+            <form className="filter-bar" action="/damage">
+              <input name="q" defaultValue={q} placeholder="Search part, reason, order or notes" aria-label="Search damage reports" />
+              <button className="small-btn" type="submit">Search</button>
+            </form>
+            <span className="badge info">{shown.length} shown</span>
+          </div>
         </div>
         <div className="wide-table"><table>
           <thead><tr><th>Date</th><th>Part</th><th>Qty</th><th>Effect on stock</th><th>Reason</th><th>Order ref</th><th>Notes</th><th>Actions</th></tr></thead>
           <tbody>
-            {(reports || []).map((r: any) => (
+            {shown.map((r: any) => (
               <tr key={r.id}>
                 <td>{date(r.created_at)}</td>
                 <td>{r.parts?.sku} - {r.parts?.name}</td>
@@ -110,7 +125,7 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
                 </td>
               </tr>
             ))}
-            {(reports || []).length === 0 && <tr><td colSpan={8}><div className="empty-state">No damage reports yet.</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={8}><div className="empty-state">{q ? 'No damage reports match that search.' : 'No damage reports yet.'}</div></td></tr>}
           </tbody>
         </table></div>
       </div>
