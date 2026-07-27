@@ -2,8 +2,12 @@ import { randomUUID } from 'crypto'
 import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
 import { date, num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
+import { rowMatches } from '@/lib/search'
 
-export default async function ReceivingPage() {
+export default async function ReceivingPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+  const params = searchParams ? await searchParams : {}
+  const q = params.q || ''
   const { supabase } = await requireUser()
   // No .limit(): the Data API caps the response anyway, and an arbitrary 200
   // meant that past 200 open lines the warehouse simply could not select the
@@ -23,6 +27,9 @@ export default async function ReceivingPage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
+  const shown = (events || []).filter((e: any) =>
+    rowMatches(q, e.purchase_orders?.po_number, e.parts?.sku, e.parts?.name, e.notes))
+
   return (
     <>
       <h1>Receiving Check</h1>
@@ -33,14 +40,16 @@ export default async function ReceivingPage() {
         <form className="stack" action={receivePurchaseOrderItem}>
           <input type="hidden" name="idempotency_key" value={idempotencyKey} />
           <label>Open PO item
-            <select name="purchase_order_item_id" required>
-              <option value="">Choose item</option>
-              {(openItems || []).map((i: any) => (
-                <option key={i.purchase_order_item_id} value={i.purchase_order_item_id}>
-                  {i.po_number} - {i.supplier_name} - {i.part_sku} {i.part_name} - remaining {num(i.remaining_qty)} - expected {date(i.expected_date)}
-                </option>
-              ))}
-            </select>
+            <SearchSelect
+              name="purchase_order_item_id"
+              required
+              placeholder="Type a PO number, supplier or part"
+              options={(openItems || []).map((i: any) => ({
+                value: i.purchase_order_item_id,
+                label: `${i.po_number} - ${i.supplier_name} - ${i.part_sku} ${i.part_name}`,
+                hint: `remaining ${num(i.remaining_qty)} · expected ${date(i.expected_date)}`,
+              }))}
+            />
           </label>
           <div className="form-row">
             <label>Qty received usable<input name="quantity_received" type="number" step="0.01" defaultValue="0" /></label>
@@ -52,17 +61,26 @@ export default async function ReceivingPage() {
         </form>
       </div>
 
-      <div className="card">
-        <h2>Recent receiving events</h2>
+      <div className="card table-card">
+        <div className="table-head">
+          <h2>Recent receiving events</h2>
+          <div className="table-tools">
+            <form className="filter-bar" action="/receiving">
+              <input name="q" defaultValue={q} placeholder="Search PO, part or notes" aria-label="Search list" />
+              <button className="small-btn" type="submit">Search</button>
+            </form>
+            <span className="badge info">{shown.length} shown</span>
+          </div>
+        </div>
         <table>
           <thead><tr><th>Date</th><th>PO</th><th>Part</th><th>Received</th><th>Damaged</th><th>Missing</th><th>Notes</th></tr></thead>
           <tbody>
-            {(events || []).map((e: any) => (
+            {shown.map((e: any) => (
               <tr key={e.id}>
                 <td>{date(e.created_at)}</td><td>{e.purchase_orders?.po_number}</td><td>{e.parts?.sku} - {e.parts?.name}</td><td>{num(e.quantity_received)}</td><td>{num(e.quantity_damaged)}</td><td>{num(e.quantity_missing)}</td><td>{e.notes}</td>
               </tr>
             ))}
-            {(events || []).length === 0 && <tr><td colSpan={7}>No receiving events yet.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={7}><div className="empty-state">{q ? 'No receiving events match that search.' : 'No receiving events yet.'}</div></td></tr>}
           </tbody>
         </table>
       </div>
