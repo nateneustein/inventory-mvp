@@ -1,8 +1,12 @@
 import { requireUser } from '@/lib/require-user'
 import { addPurchaseOrderItem, createPurchaseOrder, updatePurchaseOrderStatus } from '@/lib/actions'
 import { date, num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
+import { rowMatches } from '@/lib/search'
 
-export default async function PurchaseOrdersPage() {
+export default async function PurchaseOrdersPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+  const params = searchParams ? await searchParams : {}
+  const q = params.q || ''
   const { supabase } = await requireUser()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
   const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
@@ -15,10 +19,22 @@ export default async function PurchaseOrdersPage() {
     .select('*, parts(name, sku), purchase_orders(po_number)')
     .order('created_at', { ascending: false })
 
+  const shownPos = (purchaseOrders || []).filter((po: any) =>
+    rowMatches(q, po.po_number, po.suppliers?.name, po.status, po.tracking_number, po.notes))
+  const shownItems = (poItems || []).filter((i: any) =>
+    rowMatches(q, i.purchase_orders?.po_number, i.parts?.sku, i.parts?.name, i.notes))
+
   return (
     <>
       <h1>Purchase Orders / Incoming Shipments</h1>
       <p className="muted">Add supplier orders here. They count as incoming, but do not become usable stock until receiving confirms the quantity.</p>
+
+      <div className="card">
+        <form className="filter-bar" action="/purchase-orders">
+          <label>Search POs and items<input name="q" defaultValue={q} placeholder="PO number, supplier, part, tracking or notes" /></label>
+          <button type="submit">Search</button>
+        </form>
+      </div>
 
       <div className="grid">
         <div className="card">
@@ -26,10 +42,7 @@ export default async function PurchaseOrdersPage() {
           <form className="stack" action={createPurchaseOrder}>
             <label>PO number<input name="po_number" required placeholder="PO-1001" /></label>
             <label>Supplier
-              <select name="supplier_id" required>
-                <option value="">Choose supplier</option>
-                {(suppliers || []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <SearchSelect name="supplier_id" required placeholder="Type a supplier" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} />
             </label>
             <div className="form-row">
               <label>Status
@@ -55,16 +68,10 @@ export default async function PurchaseOrdersPage() {
           <h2>Add item to PO</h2>
           <form className="stack" action={addPurchaseOrderItem}>
             <label>PO
-              <select name="purchase_order_id" required>
-                <option value="">Choose PO</option>
-                {(purchaseOrders || []).map((po: any) => <option key={po.id} value={po.id}>{po.po_number} - {po.suppliers?.name}</option>)}
-              </select>
+              <SearchSelect name="purchase_order_id" required placeholder="Type a PO number or supplier" options={shownPos.map((po: any) => ({ value: po.id, label: `${po.po_number} - ${po.suppliers?.name}` }))} />
             </label>
             <label>Part
-              <select name="part_id" required>
-                <option value="">Choose part</option>
-                {(parts || []).map((p: any) => <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>)}
-              </select>
+              <SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: `${p.sku} - ${p.name}` }))} />
             </label>
             <div className="form-row">
               <label>Qty ordered<input name="quantity_ordered" type="number" step="0.01" required /></label>
@@ -77,7 +84,7 @@ export default async function PurchaseOrdersPage() {
       </div>
 
       <div className="card">
-        <h2>Open POs</h2>
+        <h2>Open POs <span className="badge info">{shownPos.length} shown</span></h2>
         <table>
           <thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>Order date</th><th>Expected</th><th>Tracking</th><th>Update</th></tr></thead>
           <tbody>
@@ -111,17 +118,17 @@ export default async function PurchaseOrdersPage() {
                 </td>
               </tr>
             ))}
-            {(purchaseOrders || []).length === 0 && <tr><td colSpan={7}>No POs yet.</td></tr>}
+            {shownPos.length === 0 && <tr><td colSpan={7}><div className="empty-state">{q ? 'No POs match that search.' : 'No POs yet.'}</div></td></tr>}
           </tbody>
         </table>
       </div>
 
       <div className="card">
-        <h2>PO items</h2>
+        <h2>PO items <span className="badge info">{shownItems.length} shown</span></h2>
         <table>
           <thead><tr><th>PO</th><th>Part</th><th>Ordered</th><th>Received</th><th>Remaining</th><th>Unit cost</th></tr></thead>
           <tbody>
-            {(poItems || []).map((i: any) => (
+            {shownItems.map((i: any) => (
               <tr key={i.id}>
                 <td>{i.purchase_orders?.po_number}</td>
                 <td>{i.parts?.sku} - {i.parts?.name}</td>
@@ -131,7 +138,7 @@ export default async function PurchaseOrdersPage() {
                 <td>{num(i.unit_cost, 4)}</td>
               </tr>
             ))}
-            {(poItems || []).length === 0 && <tr><td colSpan={6}>No PO items yet.</td></tr>}
+            {shownItems.length === 0 && <tr><td colSpan={6}><div className="empty-state">{q ? 'No PO items match that search.' : 'No PO items yet.'}</div></td></tr>}
           </tbody>
         </table>
       </div>
