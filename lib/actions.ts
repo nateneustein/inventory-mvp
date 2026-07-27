@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
+import { CONDITION_FIELDS, CONDITION_TYPES, conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
 
 type CsvRow = Record<string, string>
 
@@ -254,8 +255,6 @@ function normalizeImportedRow(platform: string, row: CsvRow) {
   }
 }
 
-type RuleCondition = { field: string, type: string, value: string }
-
 type MappingRule = {
   platform: string
   account_name: string | null
@@ -293,32 +292,11 @@ function conditionMatchesImportedRow(condition: RuleCondition, row: any) {
   return haystack.includes(needle)
 }
 
-/**
- * The conditions a rule is actually made of.
- *
- * Rules written before multi-condition support have an empty `conditions`
- * array, so fall back to the original single match_* columns rather than
- * treating those rules as matching nothing.
- */
-function conditionsForRule(rule: Partial<MappingRule>): RuleCondition[] {
-  const list = Array.isArray(rule.conditions) ? rule.conditions : []
-  const usable = list.filter((c) => c && c.field && clean(c.value))
-  if (usable.length) return usable
-  if (clean(rule.match_value || '')) {
-    return [{
-      field: rule.match_field || 'sku',
-      type: rule.match_type || 'contains',
-      value: rule.match_value as string,
-    }]
-  }
-  return []
-}
-
 function ruleMatchesImportedRow(rule: MappingRule, row: any) {
   if (rule.platform !== 'all' && rule.platform !== row.platform) return false
   if (rule.account_name && rule.account_name !== row.account_name) return false
 
-  const conditions = conditionsForRule(rule)
+  const conditions = conditionsOf(rule)
   // A rule with nothing to test would otherwise match every row and quietly
   // remap the whole upload.
   if (conditions.length === 0) return false
@@ -451,9 +429,6 @@ export async function importOrderCsv(formData: FormData) {
   redirect('/imported-orders')
 }
 
-const CONDITION_FIELDS = ['sku', 'item_name', 'variation', 'customization']
-const CONDITION_TYPES = ['contains', 'equals', 'starts_with']
-
 /**
  * Read the condition list off the form.
  *
@@ -475,8 +450,8 @@ function conditionsFromForm(formData: FormData): RuleCondition[] {
     const v = clean(c.value)
     if (!v) continue
     cleaned.push({
-      field: CONDITION_FIELDS.includes(c.field) ? c.field : 'sku',
-      type: CONDITION_TYPES.includes(c.type) ? c.type : 'contains',
+      field: CONDITION_FIELDS.some(f => f[0] === c.field) ? c.field : 'sku',
+      type: CONDITION_TYPES.some(t => t[0] === c.type) ? c.type : 'contains',
       value: v,
     })
   }
