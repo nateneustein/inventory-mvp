@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/require-user'
 import { createPart, archivePart } from '@/lib/actions'
 import { deletePart } from '@/lib/record-actions'
 import { num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
 
 function matches(row: any, q: string) {
   const hay = `${row.name || ''} ${row.sku || ''} ${row.category || ''}`.toLowerCase()
@@ -47,7 +48,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
         <h2>Add part</h2>
         <form className="stack" action={createPart}>
           <div className="form-row"><label>Part name<input name="name" required /></label><label>Internal SKU<input name="sku" required placeholder="LED-BASE-WHITE" /></label><label>Category<input name="category" placeholder="Acrylic, packaging, base, etc." /></label></div>
-          <div className="form-row"><label>Supplier<select name="supplier_id"><option value="">No supplier yet</option>{(suppliers || []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Supplier part #<input name="supplier_part_number" /></label><label>Unit<input name="unit" defaultValue="each" /></label></div>
+          <div className="form-row"><label>Supplier<SearchSelect name="supplier_id" placeholder="No supplier yet" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} /></label><label>Supplier part #<input name="supplier_part_number" /></label><label>Unit<input name="unit" defaultValue="each" /></label></div>
           <div className="form-row"><label>Lead time min days<input name="lead_time_days_min" type="number" step="0.01" defaultValue="0" /></label><label>Lead time max days<input name="lead_time_days_max" type="number" step="0.01" defaultValue="0" /></label><label>Safety stock days<input name="safety_stock_days" type="number" step="0.01" defaultValue="30" /></label></div>
           <div className="form-row"><label>Reorder point<input name="reorder_point" type="number" step="0.01" defaultValue="0" /></label><label>Target stock<input name="target_stock" type="number" step="0.01" defaultValue="0" /></label><label>Default order qty<input name="default_order_quantity" type="number" step="0.01" defaultValue="0" /></label></div>
           <label className="small"><span><input name="critical" type="checkbox" style={{ width: 'auto', marginRight: 8 }} />Critical part, production stops if this runs out</span></label>
