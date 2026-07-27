@@ -85,10 +85,15 @@ export function SearchSelect({
     const r = el.getBoundingClientRect()
     const spaceBelow = window.innerHeight - r.bottom
     const above = spaceBelow < 220 && r.top > spaceBelow
+    // Never let the menu run off the right edge: pickers in the last column of
+    // a table sit close enough to the window edge that a wider-than-the-input
+    // menu would otherwise be half off screen.
+    const width = Math.max(r.width, 280)
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 12))
     setRect({
       top: above ? r.top : r.bottom + 4,
-      left: r.left,
-      width: r.width,
+      left,
+      width,
       above,
     })
   }, [])
@@ -190,7 +195,7 @@ export function SearchSelect({
             top: rect.above ? undefined : rect.top,
             bottom: rect.above ? window.innerHeight - rect.top + 4 : undefined,
             left: rect.left,
-            width: Math.max(rect.width, 260),
+            width: rect.width,
           }}
         >
           {filtered.length === 0 && <li className="search-select-empty">{emptyLabel}</li>}
