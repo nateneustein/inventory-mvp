@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { createManualAdjustment, reportZeroStock, reportDamage, updatePart, archivePart, createSupplier } from '@/lib/actions'
 import { date, num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
 
 export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -47,7 +48,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <label>Category<input name="category" defaultValue={details.category || ''} /></label>
             </div>
             <div className="form-row">
-              <label>Supplier<select name="supplier_id" defaultValue={details.supplier_id || ''}><option value="">No supplier</option>{(suppliers || []).map((s:any) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+              <label>Supplier<SearchSelect name="supplier_id" defaultValue={details.supplier_id || ''} placeholder="No supplier" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} /></label>
               <label>Supplier part #<input name="supplier_part_number" defaultValue={details.supplier_part_number || ''} /></label>
               <label>Unit<input name="unit" defaultValue={details.unit || 'each'} /></label>
             </div>
