@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { date, num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,9 +74,12 @@ export default async function AdvancedPredictionPage({ searchParams }: { searchP
         <form className="filter-bar">
           <label>Show as of<input name="as_of" type="date" defaultValue={asOf} max={isoToday()} /></label>
           <label>Part
-            <select name="part_id" defaultValue={selectedPartId || ''}>
-              {parts.map((p: any) => <option key={p.part_id} value={p.part_id}>{p.sku} · {p.name}</option>)}
-            </select>
+            <SearchSelect
+              name="part_id"
+              defaultValue={selectedPartId || ''}
+              placeholder="Type a part name or SKU"
+              options={parts.map((p: any) => ({ value: p.part_id, label: `${p.sku} · ${p.name}` }))}
+            />
           </label>
           <button type="submit">Calculate</button>
           {selected && <Link className="button ghost" href={`/parts/${selected.part_id}`}>Open part</Link>}
