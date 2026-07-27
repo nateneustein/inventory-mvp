@@ -4,6 +4,7 @@ import { getPermissions } from '@/lib/permissions'
 import { createManualUnitsSold } from '@/lib/actions'
 import { ManualUsageRows } from '@/components/manual-usage-actions'
 import { date, num } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,7 +68,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
         <h2>Add manual products produced / sold</h2>
         <p className="muted">Use this for bulk orders or any order line that actually represents multiple finished products. It will consume inventory using the BOM.</p>
         <form className="stack" action={createManualUnitsSold}>
-          <div className="form-row"><label>Finished product / variation<select name="variation_id" required><option value="">Choose variation</option>{(variations || []).map((v: any) => <option key={v.id} value={v.id}>{variationLabel(v)}</option>)}</select></label><label>Quantity produced/sold<input name="quantity" type="number" step="0.01" required /></label><label>Date<input name="sale_date" type="date" defaultValue={iso(new Date())} required /></label></div>
+          <div className="form-row"><label>Finished product / variation<SearchSelect name="variation_id" required placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: variationLabel(v) }))} /></label><label>Quantity produced/sold<input name="quantity" type="number" step="0.01" required /></label><label>Date<input name="sale_date" type="date" defaultValue={iso(new Date())} required /></label></div>
           <div className="form-row"><label>Reason<select name="reason" defaultValue="bulk_order_manual_entry"><option value="bulk_order_manual_entry">Bulk order/manual split</option><option value="missing_from_platform_upload">Missing from platform upload</option><option value="correction">Correction</option><option value="other">Other</option></select></label><label>Order/reference<input name="order_reference" placeholder="Optional order number" /></label></div>
           <label>Notes<textarea name="notes" /></label>
           <button type="submit">Add manual sold units</button>
