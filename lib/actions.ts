@@ -254,17 +254,27 @@ function normalizeImportedRow(platform: string, row: CsvRow) {
   }
 }
 
+type RuleCondition = { field: string, type: string, value: string }
+
 type MappingRule = {
   platform: string
   account_name: string | null
+  // Kept in step with conditions[0] so anything still reading these columns
+  // sees the same thing it always did.
   match_type: string
   match_field: string
   match_value: string
+  conditions?: RuleCondition[] | null
+  condition_logic?: string | null
   map_action?: string
   variation_id: string | null
   demand_variation_id: string | null
   priority: number
 }
+
+/** Columns every rule read needs, so the matcher always has the full picture. */
+const MAPPING_RULE_COLUMNS =
+  'platform, account_name, match_type, match_field, match_value, conditions, condition_logic, map_action, variation_id, demand_variation_id, priority'
 
 function importedFieldValue(row: any, field: string) {
   if (field === 'sku') return clean(row.platform_sku)
@@ -274,15 +284,48 @@ function importedFieldValue(row: any, field: string) {
   return ''
 }
 
+function conditionMatchesImportedRow(condition: RuleCondition, row: any) {
+  const haystack = importedFieldValue(row, condition.field).toLowerCase()
+  const needle = clean(condition.value).toLowerCase()
+  if (!needle) return false
+  if (condition.type === 'equals') return haystack === needle
+  if (condition.type === 'starts_with') return haystack.startsWith(needle)
+  return haystack.includes(needle)
+}
+
+/**
+ * The conditions a rule is actually made of.
+ *
+ * Rules written before multi-condition support have an empty `conditions`
+ * array, so fall back to the original single match_* columns rather than
+ * treating those rules as matching nothing.
+ */
+export function conditionsForRule(rule: Partial<MappingRule>): RuleCondition[] {
+  const list = Array.isArray(rule.conditions) ? rule.conditions : []
+  const usable = list.filter((c) => c && c.field && clean(c.value))
+  if (usable.length) return usable
+  if (clean(rule.match_value || '')) {
+    return [{
+      field: rule.match_field || 'sku',
+      type: rule.match_type || 'contains',
+      value: rule.match_value as string,
+    }]
+  }
+  return []
+}
+
 function ruleMatchesImportedRow(rule: MappingRule, row: any) {
   if (rule.platform !== 'all' && rule.platform !== row.platform) return false
   if (rule.account_name && rule.account_name !== row.account_name) return false
-  const haystack = importedFieldValue(row, rule.match_field).toLowerCase()
-  const needle = clean(rule.match_value).toLowerCase()
-  if (!needle) return false
-  if (rule.match_type === 'equals') return haystack === needle
-  if (rule.match_type === 'starts_with') return haystack.startsWith(needle)
-  return haystack.includes(needle)
+
+  const conditions = conditionsForRule(rule)
+  // A rule with nothing to test would otherwise match every row and quietly
+  // remap the whole upload.
+  if (conditions.length === 0) return false
+
+  return rule.condition_logic === 'any'
+    ? conditions.some((c) => conditionMatchesImportedRow(c, row))
+    : conditions.every((c) => conditionMatchesImportedRow(c, row))
 }
 
 function applyMappingRules(row: any, rules: MappingRule[]) {
@@ -344,7 +387,7 @@ export async function importOrderCsv(formData: FormData) {
 
   const { data: rules } = await supabase
     .from('product_mapping_rules')
-    .select('platform, account_name, match_type, match_field, match_value, map_action, variation_id, demand_variation_id, priority')
+    .select(MAPPING_RULE_COLUMNS)
     .eq('active', true)
     .order('priority')
 
@@ -408,14 +451,63 @@ export async function importOrderCsv(formData: FormData) {
   redirect('/imported-orders')
 }
 
+const CONDITION_FIELDS = ['sku', 'item_name', 'variation', 'customization']
+const CONDITION_TYPES = ['contains', 'equals', 'starts_with']
+
+/**
+ * Read the condition list off the form.
+ *
+ * The builder posts the whole list as one JSON blob. Anything malformed, or a
+ * condition with an empty value, is dropped rather than saved — a rule with a
+ * blank condition would match nothing useful and is almost always a slip.
+ */
+function conditionsFromForm(formData: FormData): RuleCondition[] {
+  const raw = value(formData, 'conditions_json')
+  let parsed: any = []
+  if (raw) {
+    try { parsed = JSON.parse(raw) } catch { parsed = [] }
+  }
+  if (!Array.isArray(parsed)) parsed = []
+
+  const cleaned: RuleCondition[] = []
+  for (const c of parsed) {
+    if (!c || typeof c !== 'object') continue
+    const v = clean(c.value)
+    if (!v) continue
+    cleaned.push({
+      field: CONDITION_FIELDS.includes(c.field) ? c.field : 'sku',
+      type: CONDITION_TYPES.includes(c.type) ? c.type : 'contains',
+      value: v,
+    })
+  }
+
+  // Falls back to the old single-field inputs so an older cached page, or a
+  // form submitted with JavaScript unavailable, still saves a working rule.
+  if (cleaned.length === 0) {
+    const legacy = value(formData, 'match_value')
+    if (legacy) {
+      cleaned.push({
+        field: value(formData, 'match_field') || 'sku',
+        type: value(formData, 'match_type') || 'contains',
+        value: legacy,
+      })
+    }
+  }
+  return cleaned
+}
+
+function conditionLogicFromForm(formData: FormData) {
+  return value(formData, 'condition_logic') === 'any' ? 'any' : 'all'
+}
+
 export async function createMappingRule(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const mapAction = value(formData, 'map_action') || 'map'
   const variationId = value(formData, 'variation_id') || null
-  const matchValue = value(formData, 'match_value')
+  const conditions = conditionsFromForm(formData)
 
-  if (!matchValue) {
-    redirect('/mapping-rules?error=' + encodeURIComponent('Enter a match value for the rule.'))
+  if (conditions.length === 0) {
+    redirect('/mapping-rules?error=' + encodeURIComponent('Add at least one condition with something to match on.'))
   }
   if (mapAction === 'map' && !variationId) {
     redirect('/mapping-rules?error=' + encodeURIComponent('Choose a variation, or choose Ignore / void line.'))
@@ -424,9 +516,12 @@ export async function createMappingRule(formData: FormData) {
   const payload = {
     platform: (value(formData, 'platform') || 'all').toLowerCase(),
     account_name: value(formData, 'account_name') || null,
-    match_type: value(formData, 'match_type') || 'contains',
-    match_field: value(formData, 'match_field') || 'sku',
-    match_value: matchValue,
+    // The match_* columns mirror the first condition so older readers keep working.
+    match_type: conditions[0].type,
+    match_field: conditions[0].field,
+    match_value: conditions[0].value,
+    conditions,
+    condition_logic: conditionLogicFromForm(formData),
     map_action: mapAction,
     variation_id: variationId,
     demand_variation_id: mapAction === 'ignore' ? null : (value(formData, 'demand_variation_id') || null),
@@ -447,7 +542,7 @@ export async function applyMappingRulesToUnmappedRows() {
   const { supabase, userId } = await currentUserId()
   const { data: rules, error: rulesError } = await supabase
     .from('product_mapping_rules')
-    .select('platform, account_name, match_type, match_field, match_value, map_action, variation_id, demand_variation_id, priority')
+    .select(MAPPING_RULE_COLUMNS)
     .eq('active', true)
     .order('priority')
   if (rulesError) throw new Error(rulesError.message)
@@ -1252,12 +1347,17 @@ export async function updateMappingRule(formData: FormData) {
   const variationId = value(formData, 'variation_id') || null
   if (mapAction === 'map' && !variationId) throw new Error('Choose a variation, or choose Ignore / void line.')
 
+  const conditions = conditionsFromForm(formData)
+  if (conditions.length === 0) throw new Error('Add at least one condition with something to match on.')
+
   const { error } = await supabase.from('product_mapping_rules').update({
     platform: value(formData, 'platform'),
     account_name: value(formData, 'account_name') || null,
-    match_type: value(formData, 'match_type'),
-    match_field: value(formData, 'match_field'),
-    match_value: value(formData, 'match_value'),
+    match_type: conditions[0].type,
+    match_field: conditions[0].field,
+    match_value: conditions[0].value,
+    conditions,
+    condition_logic: conditionLogicFromForm(formData),
     map_action: mapAction,
     variation_id: variationId,
     demand_variation_id: mapAction === 'ignore' ? null : (value(formData, 'demand_variation_id') || null),
