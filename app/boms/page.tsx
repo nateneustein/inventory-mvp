@@ -4,7 +4,7 @@ import { saveBomMatrix } from '@/lib/actions'
 import { num } from '@/lib/format'
 
 function variationLabel(v:any) {
-  return `${v.products?.name || ''} · ${v.variation_name || ''} · ${v.internal_sku || ''}`
+  return `${v.products?.name || ''} · ${v.variation_name || ''}`
 }
 
 function zoomValue(raw?: string) {
@@ -41,7 +41,7 @@ export default async function BomsPage({ searchParams }: { searchParams?: Promis
         <div className="card table-card">
           <div className="table-head"><div><h2>Master BOM grid</h2><p className="muted small">Blank or 0 means this part is not used. Quantities can be decimals like 0.08 or 1.08.</p></div><div className="table-tools"><div className="zoom-controls"><span>Zoom</span>{['50','60','70','80','90','100','110','125','150'].map(z => <Link key={z} className={`button small-btn ${zoom === z ? '' : 'secondary'}`} href={bomsHref(params, z)}>{z}%</Link>)}</div><button type="submit">Save BOM sheet</button></div></div>
           <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} bom-grid`}><table>
-            <thead><tr><th className="sticky-col product-col">Finished product / variation</th>{parts.map((p:any)=><th key={p.id} title={`${p.sku} · ${p.name}`}>{p.name}<br/><span className="muted small">{p.sku}</span></th>)}</tr></thead>
+            <thead><tr><th className="sticky-col product-col">Finished product / variation</th>{parts.map((p:any)=><th key={p.id} title={`${p.name} · ${p.sku}`}><strong>{p.name}</strong><span className="sku-under">{p.sku}</span></th>)}</tr></thead>
             <tbody>
               {variations.map((v:any) => <tr key={v.id}><td className="sticky-col product-col"><Link className="link" href={`/products/${v.product_id}`}>{v.products?.name}</Link><br/><strong>{v.variation_name}</strong><br/><span className="muted small">{v.internal_sku}</span></td>{parts.map((p:any) => { const current = bomMap.get(`${v.id}__${p.id}`) || 0; return <td key={p.id}><input className="tiny-input" name={`bom__${v.id}__${p.id}`} type="number" step="0.0001" min="0" defaultValue={current ? num(current, 4) : ''} /></td> })}</tr>)}
               {variations.length === 0 && <tr><td colSpan={parts.length + 1}><div className="empty-state">No variations match this search.</div></td></tr>}
