@@ -1240,6 +1240,30 @@ export async function archivePart(formData: FormData) {
   revalidatePath(`/parts/${id}`)
 }
 
+/**
+ * Mute or unmute a part's stock alerts.
+ *
+ * Not the same as archiving. The part stays in the prediction sheet, the usage
+ * grid and every BOM — it simply stops counting toward "out of stock" and
+ * "reorder now", and drops off Needs attention. For things bought in bulk and
+ * never counted in, the stock figure is noise, and the alert it raises hides
+ * the parts that genuinely need ordering.
+ */
+export async function setPartIgnoreAlerts(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const ignore = value(formData, 'ignore_alerts') === 'true'
+  const { error } = await supabase
+    .from('parts')
+    .update({ ignore_alerts: ignore, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/parts')
+  revalidatePath(`/parts/${id}`)
+  revalidatePath('/dashboard')
+  revalidatePath('/predictions/basic')
+}
+
 export async function updateProduct(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
