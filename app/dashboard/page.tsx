@@ -19,9 +19,14 @@ export default async function DashboardPage() {
   const { data: deadStock } = await supabase.from('dead_stock_candidates').select('*').neq('dead_stock_status', 'active').limit(12)
 
   const rows = statusRows || []
-  const outRows = rows.filter((r: any) => r.stock_status === 'out')
-  const reorderRows = rows.filter((r: any) => r.stock_status === 'reorder_now')
-  const lowRows = rows.filter((r: any) => r.stock_status === 'getting_low')
+  // Parts with alerts turned off are deliberately excluded from every count and
+  // from Needs attention. They are still stocked and still appear on the parts
+  // list and the prediction sheet — they just do not shout.
+  const alerting = rows.filter((r: any) => !r.ignore_alerts)
+  const ignoredCount = rows.length - alerting.length
+  const outRows = alerting.filter((r: any) => r.stock_status === 'out')
+  const reorderRows = alerting.filter((r: any) => r.stock_status === 'reorder_now')
+  const lowRows = alerting.filter((r: any) => r.stock_status === 'getting_low')
   const parts = rows.length
   const unmapped = (importedSummary || []).reduce((sum: number, r: any) => sum + Number(r.unmapped_rows || 0), 0)
 
@@ -93,18 +98,18 @@ export default async function DashboardPage() {
       )}
 
       <div className="card table-card">
-        <div className="table-head"><h2>Needs attention</h2><div className="table-tools"><Link className="button small-btn secondary" href="/predictions/basic">Prediction sheet</Link></div></div>
+        <div className="table-head"><h2>Needs attention</h2><div className="table-tools">{ignoredCount > 0 && <Link className="badge ignored-alerts" href="/parts?alerts=off" title="Parts you have told the app not to alert on">{ignoredCount} ignored</Link>}<Link className="button small-btn secondary" href="/predictions/basic">Prediction sheet</Link></div></div>
         <div className="wide-table compact-rows">
           <table>
             <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Reorder point</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
             <tbody>
-              {rows.filter((r: any) => r.stock_status !== 'ok').map((r: any) => (
+              {alerting.filter((r: any) => r.stock_status !== 'ok').map((r: any) => (
                 <tr key={r.part_id}>
                   <td title={r.name}><Link className="link" href={`/parts/${r.part_id}`}>{r.name}</Link></td><td className="sku-cell" title={r.sku}>{r.sku}</td><td>{num(r.on_hand)}</td><td>{num(r.incoming_qty)}</td><td>{num(r.projected_qty)}</td><td>{num(r.reorder_point)}</td><td>{statusBadge(r.stock_status)}</td>
                   <td className="actions-cell"><div className="action-row"><Link className="button small-btn secondary" href={`/parts/${r.part_id}`}>Open</Link><Link className="button small-btn" href={`/predictions/advanced?part_id=${r.part_id}`}>Calculate</Link></div></td>
                 </tr>
               ))}
-              {rows.filter((r: any) => r.stock_status !== 'ok').length === 0 && <tr><td colSpan={8}><div className="empty-state">No urgent inventory alerts yet.</div></td></tr>}
+              {alerting.filter((r: any) => r.stock_status !== 'ok').length === 0 && <tr><td colSpan={8}><div className="empty-state">No urgent inventory alerts yet.</div></td></tr>}
             </tbody>
           </table>
         </div>
