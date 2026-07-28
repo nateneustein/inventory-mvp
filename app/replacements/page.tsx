@@ -40,7 +40,8 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
                 placeholder="Type a product or variation"
                 options={(variations || []).map((v: any) => ({
                   value: v.id,
-                  label: `${v.internal_sku} - ${v.products?.name} - ${v.variation_name}`,
+                  label: `${v.products?.name || ''} · ${v.variation_name || ''}`,
+                  hint: v.internal_sku,
                 }))}
               />
             </label>
@@ -71,7 +72,7 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
           <tbody>
             {shown.map((r: any) => (
               <tr key={r.id}>
-                <td>{date(r.created_at)}</td><td>{r.original_order_reference}</td><td>{r.product_variations?.internal_sku} - {r.product_variations?.variation_name}</td><td>{num(r.quantity)}</td><td>{r.reason}</td><td>{r.approved_by}</td>
+                <td>{date(r.created_at)}</td><td>{r.original_order_reference}</td><td className="name-cell">{r.product_variations?.variation_name}<span className="sku-under">{r.product_variations?.internal_sku}</span></td><td>{num(r.quantity)}</td><td>{r.reason}</td><td>{r.approved_by}</td>
               </tr>
             ))}
             {shown.length === 0 && <tr><td colSpan={6}><div className="empty-state">{q ? 'No replacements match that search.' : 'No replacements yet.'}</div></td></tr>}
