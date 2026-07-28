@@ -8,7 +8,10 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params
   const { supabase } = await requireUser()
   const { data: part } = await supabase.from('inventory_status').select('*').eq('part_id', id).single()
-  const { data: details } = await supabase.from('parts').select('*, suppliers(name, website, contact_name, email, phone)').eq('id', id).single()
+  // parts now has TWO foreign keys to suppliers (supplier_id and backup_supplier_id),
+  // so a bare suppliers(...) embed is ambiguous and PostgREST refuses the whole
+  // query -- which rendered every part page as "Part not found". Name the FK.
+  const { data: details } = await supabase.from('parts').select('*, suppliers!parts_supplier_id_fkey(name, website, contact_name, email, phone)').eq('id', id).single()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
   const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null).order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(75)
   const { data: incoming } = await supabase.from('open_po_items').select('*').eq('part_id', id)
