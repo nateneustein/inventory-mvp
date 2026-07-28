@@ -134,7 +134,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
           </div>
         </div>
         <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} prediction-grid`}><table>
-          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id}>{p.name}<br /><span className="muted small">{p.sku}</span></th>)}</tr></thead>
+          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : undefined}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts && <><br /><span className="badge ignored-alerts">alerts off</span></>}</th>)}</tr></thead>
           <tbody>
             {usagePeriods.map((period) => {
               const from = shiftDays(anchorLabel, -(period.days - 1))
@@ -146,7 +146,13 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
                   if (!complete) return <td key={p.part_id}>-</td>
                   const perWeek = usageFor(p, period.column) / period.weeks
                   const projected = Number(p.on_hand || 0) - perWeek * projection.weeks
-                  return <td key={p.part_id} className={projected < 0 ? 'cell-danger' : projected <= Number(p.reorder_point || 0) ? 'cell-warning' : ''}>{num(projected)}</td>
+                  // Red means "go and order this". A part with alerts turned off
+                  // still shows its shortfall, in orange, so it reads as known
+                  // rather than urgent.
+                  const tone = p.ignore_alerts
+                    ? (projected < 0 || projected <= Number(p.reorder_point || 0) ? 'cell-ignored' : '')
+                    : (projected < 0 ? 'cell-danger' : projected <= Number(p.reorder_point || 0) ? 'cell-warning' : '')
+                  return <td key={p.part_id} className={tone}>{num(projected)}</td>
                 })}</tr>),
                 <tr key={`${period.days}-blank`} className="spacer-row"><td colSpan={parts.length + 4}></td></tr>
               ]
