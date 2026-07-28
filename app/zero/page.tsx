@@ -23,7 +23,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
       <div className="card">
         <h2>Report actual zero</h2>
         <form className="stack" action={reportZeroStock}>
-          <label>Part<SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.part_id, label: `${p.sku} · ${p.name}`, hint: `system: ${num(p.on_hand)}` }))} /></label>
+          <label>Part<SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.part_id, label: p.name, hint: `${p.sku} · system: ${num(p.on_hand)}` }))} /></label>
           <label>Order reference, optional<input name="order_reference" /></label>
           <label>What happened?<textarea name="notes" placeholder="Warehouse scanned card and says there are none left, order waiting, etc." /></label>
           <button type="submit">Report zero</button>
