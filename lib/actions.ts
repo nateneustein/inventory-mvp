@@ -1398,6 +1398,32 @@ export async function updateImportedOrderRow(formData: FormData) {
  * back any stock it already consumed -- the replacement case: the customer's
  * second unit is not a second sale.
  */
+/**
+ * Undo a count.
+ *
+ * A count silently rewrites on-hand, and until now there was no way back from
+ * the app — a mistyped quantity was permanent. This archives the adjustment
+ * the count made (the movement stays in history, marked reversed) and removes
+ * the count row, putting the stock back where it was.
+ */
+export async function reverseCycleCount(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const { data, error } = await supabase.rpc('reverse_cycle_count', {
+    p_count_id: value(formData, 'id'),
+  })
+  if (error) redirect(`/counts?error=${encodeURIComponent(error.message)}`)
+
+  const result = Array.isArray(data) ? data[0] : data
+  const part = result?.part_name || 'that part'
+  const restored = Number(result?.restored || 0)
+
+  revalidatePath('/counts'); revalidatePath('/parts')
+  revalidatePath('/dashboard'); revalidatePath('/predictions/basic')
+  redirect(`/counts?notice=${encodeURIComponent(
+    `Count reversed. ${part} is back to what it was${restored ? ` (${restored > 0 ? '+' : ''}${restored})` : ''}.`
+  )}`)
+}
+
 export async function voidImportedOrderRow(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const id = value(formData, 'id')
