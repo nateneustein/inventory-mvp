@@ -141,7 +141,11 @@ h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
 p { line-height: 1.5; margin: 0 0 10px; }
 .page-head p { margin: 0; }
 .muted { color: var(--ink-2); font-size: 13px; }
-.small { font-size: 12px; }
+/* Relative, not a fixed 12px. The BOM and prediction sheets scale their cells
+   with the zoom control, and an absolute .small meant that at 50% zoom the
+   product NAME rendered at 7px while the SKU under it stayed 12px — the SKU
+   became the biggest text on the page. Sizes now shrink together. */
+.small { font-size: .88em; }
 .muted.small { color: var(--muted); }
 
 /* ---------------------------------------------------------------- cards -- */
@@ -361,7 +365,12 @@ tbody tr:hover .action-row, tbody .action-row:focus-within { opacity: 1; }
    row height. On scanning tables we clip instead, with the full text on hover. */
 .compact-rows td, .compact-rows th { white-space: nowrap; }
 .compact-rows td { max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
-.compact-rows .sku-cell { color: var(--ink-2); font-size: 12.5px; max-width: 260px; }
+/* The SKU is a lookup code, not the thing you read. It stays secondary to the
+   name everywhere: smaller, greyer, and relative so it scales with its row. */
+.compact-rows .sku-cell { color: var(--ink-2); font-size: .92em; max-width: 260px; }
+.name-cell { font-weight: 600; color: var(--ink); }
+.name-cell .sku-under { display: block; font-weight: 400; font-size: .85em; color: var(--muted); }
+th .sku-under { display: block; font-weight: 400; font-size: .85em; color: var(--muted); text-transform: none; letter-spacing: 0; }
 /* The action column pins to the right edge, so it is still reachable on a wide
    table that has to scroll sideways. */
 .compact-rows th.actions-cell, .compact-rows td.actions-cell {
@@ -437,6 +446,33 @@ th.ignored-col { color: var(--muted-alert); box-shadow: inset 0 -2px 0 var(--mut
 .voided-row td:last-child { text-decoration: none; }
 .voided-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px;
   flex-wrap: wrap; border-color: var(--danger-line); background: var(--danger-soft); }
+
+/* ------------------------------------------------- action button feedback -- */
+button.is-busy, .button.is-busy { opacity: .75; cursor: progress; }
+button.is-done, .button.is-done {
+  background: var(--ok-soft) !important; color: var(--ok) !important;
+  border-color: var(--ok-line) !important; opacity: 1;
+}
+/* An armed confirmation. Loud on purpose - it is one click from happening. */
+button.is-armed, .button.is-armed {
+  background: var(--danger) !important; color: #fff !important;
+  border-color: var(--danger) !important; font-weight: 600;
+  animation: armed-pulse .9s ease-in-out infinite alternate;
+}
+@keyframes armed-pulse { from { box-shadow: 0 0 0 0 rgba(165,42,42,.35); } to { box-shadow: 0 0 0 4px rgba(165,42,42,0); } }
+
+/* --------------------------------------------------------- checkbox guard -- */
+/* `label` is display:grid, so a checkbox label used to stretch the whole grid
+   column and a click 200px away from the box still toggled it. That is how a
+   part gets silently archived. The target is now the box and its own words. */
+label.checkbox {
+  display: inline-flex; width: fit-content; align-items: center; gap: 8px;
+  padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card-bg); cursor: pointer; font-size: 12.5px; user-select: none;
+}
+label.checkbox:hover { border-color: #c9d4e3; background: #fbfcfe; }
+label.checkbox input[type="checkbox"] { width: auto; margin: 0; flex: none; }
+label.checkbox.is-on { border-color: var(--accent-line, #cfe0f8); background: var(--accent-soft); color: var(--accent-strong); }
 
 .zoom-controls { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .zoom-controls span { color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
