@@ -8,6 +8,7 @@ import {
 } from '@/lib/part-detail-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
+import { ActionButton } from '@/components/action-button'
 
 // The prediction sheet's own windows, so the reorder trigger is set in the same
 // language the sheet speaks rather than in raw days.
@@ -56,9 +57,9 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           <form className="inline-form" action={setPartIgnoreAlerts}>
             <input type="hidden" name="id" value={id} />
             <input type="hidden" name="ignore_alerts" value={part.ignore_alerts ? 'false' : 'true'} />
-            <button className="button secondary" type="submit">
+            <ActionButton className="button secondary" confirm={part.ignore_alerts ? `Alert on ${part.name} again?` : `Stop alerts for ${part.name}?`} busyLabel="…" doneLabel="Saved">
               {part.ignore_alerts ? 'Turn alerts back on' : 'Ignore stock alerts'}
-            </button>
+            </ActionButton>
           </form>
           <Link className="button" href={`/predictions/advanced?part_id=${id}`}>Calculate reorder</Link>
         </div>
@@ -104,7 +105,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <span className="muted small">{HORIZON_PRESETS.map((h) => `${h.days} = ${h.label}`).join(' · ')}</span>
             </div>
           </div>
-          <button type="submit">Save reorder window</button>
+          <ActionButton busyLabel="Saving…" doneLabel="Window saved">Save reorder window</ActionButton>
         </form>
         <p className="muted small">
           Reorder point, target stock, lead times and safety days are kept below as notes for
@@ -158,15 +159,15 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             </div>
 
             <div className="form-row">
-              <label className="small"><span><input name="critical" type="checkbox" defaultChecked={details.critical} style={{ width: 'auto', marginRight: 8 }} />Critical</span></label>
+              <label className="checkbox"><input name="critical" type="checkbox" defaultChecked={details.critical} />Critical part</label>
               {/* A select, not a checkbox: the action reads active !== 'off', so an
                   unchecked box would silently keep the part active forever. */}
               <label className="compact">Status<select name="active" defaultValue={details.active ? 'on' : 'off'}><option value="on">Active</option><option value="off">Archived</option></select></label>
             </div>
             <label>Notes<textarea name="notes" defaultValue={details.notes || ''} /></label>
-            <button type="submit">Save part</button>
+            <ActionButton busyLabel="Saving…" doneLabel="Saved">Save part</ActionButton>
           </form>
-          <form action={archivePart} className="inline-form"><input type="hidden" name="id" value={id} /><input type="hidden" name="active" value={details.active ? 'false' : 'true'} /><button className="danger" type="submit">{details.active ? 'Archive part' : 'Restore part'}</button></form>
+          <form action={archivePart} className="inline-form"><input type="hidden" name="id" value={id} /><input type="hidden" name="active" value={details.active ? 'false' : 'true'} /><ActionButton className="danger" confirm={details.active ? `Archive ${details.name}?` : `Restore ${details.name}?`} busyLabel="…" doneLabel="Done">{details.active ? 'Archive part' : 'Restore part'}</ActionButton></form>
         </div>
 
         <div className="card">
@@ -194,13 +195,13 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <p className="ignored-note" style={{ whiteSpace: 'pre-wrap' }}>{details.supplier_order_instructions}</p>
             </>
           )}
-          <details className="mini-details"><summary className="button small-btn secondary">Add a supplier</summary><form className="stack card flat" action={createSupplier}><label>Supplier name<input name="name" required /></label><div className="form-row"><label>Contact<input name="contact_name" /></label><label>Email<input name="email" /></label></div><label>Website<input name="website" /></label><label>Notes<textarea name="notes" /></label><button type="submit">Create supplier</button><p className="muted small">After adding, refresh/select the supplier in the edit part form and save this part.</p></form></details>
+          <details className="mini-details"><summary className="button small-btn secondary">Add a supplier</summary><form className="stack card flat" action={createSupplier}><label>Supplier name<input name="name" required /></label><div className="form-row"><label>Contact<input name="contact_name" /></label><label>Email<input name="email" /></label></div><label>Website<input name="website" /></label><label>Notes<textarea name="notes" /></label><ActionButton busyLabel="Creating…" doneLabel="Supplier created">Create supplier</ActionButton><p className="muted small">After adding, refresh/select the supplier in the edit part form and save this part.</p></form></details>
           <hr />
           <h2>Warehouse quick actions</h2>
           <form className="stack" action={reportZeroStock}>
             <input type="hidden" name="part_id" value={id} />
             <label>Zero report note<textarea name="notes" placeholder="Scanned bin and there are none left" /></label>
-            <button type="submit">Report zero</button>
+            <ActionButton confirm="Confirm: there are none left?" busyLabel="Reporting…" doneLabel="Reported">Report zero</ActionButton>
           </form>
           <hr />
           <form className="stack" action={reportDamage}>
@@ -208,7 +209,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <label>Damaged qty<input name="quantity" type="number" step="0.01" required /></label>
             <label>Reason<select name="reason"><option value="supplier_damaged">Supplier damaged</option><option value="production_damaged">Production damaged</option><option value="wrong_cut">Wrong cut</option><option value="broken_in_shipping">Broken in shipping</option><option value="testing_sample">Testing/sample</option><option value="missing">Missing</option><option value="unknown">Unknown</option></select></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Report damage</button>
+            <ActionButton confirm="Confirm this damage write-off?" busyLabel="Reporting…" doneLabel="Reported">Report damage</ActionButton>
           </form>
           <hr />
           <form className="stack" action={createManualAdjustment}>
@@ -216,7 +217,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <label>Adjustment qty<input name="quantity_change" type="number" step="0.01" required placeholder="-3 or 10" /></label>
             <input type="hidden" name="reason" value="Part page manual adjustment" />
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Save adjustment</button>
+            <ActionButton confirm="Confirm this stock adjustment?" busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton>
           </form>
         </div>
       </div>
@@ -245,14 +246,14 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                       <label>Label<input name="label" defaultValue={f.label} required /></label>
                       <label>Value<input name="value" defaultValue={f.value || ''} /></label>
                       <label className="compact">Order<input name="sort_order" type="number" defaultValue={f.sort_order ?? 100} /></label>
-                      <button className="small-btn" type="submit">Save</button>
+                      <ActionButton className="small-btn" busyLabel="…" doneLabel="Saved">Save</ActionButton>
                     </form>
                   </td>
                   <td className="actions-cell">
                     <form className="inline-form" action={deletePartCustomField}>
                       <input type="hidden" name="part_id" value={id} />
                       <input type="hidden" name="field_id" value={f.id} />
-                      <button className="small-btn danger" type="submit">Remove</button>
+                      <ActionButton className="small-btn danger" confirm={`Remove the "${f.label}" line?`} busyLabel="…" doneLabel="Removed">Remove</ActionButton>
                     </form>
                   </td>
                 </tr>
@@ -267,7 +268,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <label>Value<input name="value" placeholder="3mm" /></label>
               <label className="compact">Order<input name="sort_order" type="number" defaultValue={100} /></label>
             </div>
-            <button type="submit">Add line</button>
+            <ActionButton busyLabel="Adding…" doneLabel="Added">Add line</ActionButton>
           </form>
         </div>
 
@@ -294,7 +295,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                     <form className="inline-form" action={deletePartFile}>
                       <input type="hidden" name="part_id" value={id} />
                       <input type="hidden" name="file_id" value={f.id} />
-                      <button className="small-btn danger" type="submit">Remove</button>
+                      <ActionButton className="small-btn danger" confirm={`Delete ${f.file_name}?`} busyLabel="…" doneLabel="Deleted">Remove</ActionButton>
                     </form>
                   </div></td>
                 </tr>
@@ -317,7 +318,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <label>Caption<input name="caption" placeholder="Colour reference — match this exactly" /></label>
             </div>
             <label className="small"><span><input name="send_to_supplier" type="checkbox" defaultChecked style={{ width: 'auto', marginRight: 8 }} />This is one to send to the supplier</span></label>
-            <button type="submit">Upload</button>
+            <ActionButton busyLabel="Uploading…" doneLabel="Uploaded">Upload</ActionButton>
           </form>
         </div>
       </div>
