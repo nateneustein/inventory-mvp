@@ -78,7 +78,7 @@ export default async function AdvancedPredictionPage({ searchParams }: { searchP
               name="part_id"
               defaultValue={selectedPartId || ''}
               placeholder="Type a part name or SKU"
-              options={parts.map((p: any) => ({ value: p.part_id, label: `${p.sku} · ${p.name}` }))}
+              options={parts.map((p: any) => ({ value: p.part_id, label: p.name, hint: p.sku }))}
             />
           </label>
           <button type="submit">Calculate</button>
