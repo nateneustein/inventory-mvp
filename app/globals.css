@@ -44,6 +44,9 @@
   --warning: #8a5b06;
   --warning-soft: #fffaf0;
   --warning-line: #f6e0b0;
+  --muted-alert: #a35708;
+  --muted-alert-soft: #fff5ea;
+  --muted-alert-line: #f2d2ac;
   --danger: #a52a2a;
   --danger-soft: #fdf4f4;
   --danger-line: #f2cccc;
@@ -181,6 +184,14 @@ p { line-height: 1.5; margin: 0 0 10px; }
 .badge.ok, .badge.mapped, .badge.active { background: var(--ok-soft); color: var(--ok); border-color: var(--ok-line); }
 .badge.info { background: var(--accent-soft); color: var(--accent-strong); border-color: #cfe0f8; }
 .badge.ignored, .badge.archived { background: #f2f3f4; color: #616670; border-color: var(--border); }
+
+/* Alerts turned off.
+   Deliberately its own orange, not the amber used for "getting low" and not the
+   red used for "out". A muted part still shows its shortfall - the colour says
+   "we know, and we are not tracking it" rather than "go and order this". */
+.badge.ignored-alerts { background: var(--muted-alert-soft); color: var(--muted-alert);
+  border-color: var(--muted-alert-line); }
+.badge.ignored-alerts::before { opacity: .5; }
 
 /* --------------------------------------------------------------- tables -- */
 .table-card { overflow: hidden; padding: 0; }
@@ -407,6 +418,13 @@ tbody tr:hover .sticky-col { background: #fafbfc; }
 .spacer-row td { padding: 4px; background: var(--card-sunken); }
 .cell-danger { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
 .cell-warning { background: var(--warning-soft); color: var(--warning); font-weight: 600; }
+
+/* A shortfall on a part whose alerts are off. Same number, orange instead of
+   red, so the prediction sheet still tells the whole story. */
+.cell-ignored { background: var(--muted-alert-soft); color: var(--muted-alert); font-weight: 600; }
+th.ignored-col { color: var(--muted-alert); box-shadow: inset 0 -2px 0 var(--muted-alert); }
+.ignored-note { border: 1px solid var(--muted-alert-line); background: var(--muted-alert-soft);
+  color: var(--muted-alert); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; }
 
 .zoom-controls { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .zoom-controls span { color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
