@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { createManualAdjustment, reportZeroStock, reportDamage, updatePart, archivePart, createSupplier } from '@/lib/actions'
+import { createManualAdjustment, reportZeroStock, reportDamage, updatePart, archivePart, createSupplier, setPartIgnoreAlerts } from '@/lib/actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 
@@ -23,9 +23,23 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <div>
           <h1>{part.name}</h1>
           <p className="muted">Part card page for QR scanning. URL: <code>/parts/{id}</code></p>
+          {part.ignore_alerts && (
+            <p className="ignored-note">
+              <span className="badge ignored-alerts">alerts off</span>
+              This part never counts as out of stock or reorder now. It still appears in the
+              prediction sheet and usage, marked in orange.
+            </p>
+          )}
         </div>
         <div className="action-row">
           <Link className="button secondary" href="/parts">Back</Link>
+          <form className="inline-form" action={setPartIgnoreAlerts}>
+            <input type="hidden" name="id" value={id} />
+            <input type="hidden" name="ignore_alerts" value={part.ignore_alerts ? 'false' : 'true'} />
+            <button className="button secondary" type="submit">
+              {part.ignore_alerts ? 'Turn alerts back on' : 'Ignore stock alerts'}
+            </button>
+          </form>
           <Link className="button" href={`/predictions/advanced?part_id=${id}`}>Calculate reorder</Link>
         </div>
       </div>
@@ -34,7 +48,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <div className="card kpi-card"><div className="muted">On hand</div><div className="kpi">{num(part.on_hand)}</div></div>
         <div className="card kpi-card"><div className="muted">Incoming</div><div className="kpi">{num(part.incoming_qty)}</div></div>
         <div className="card kpi-card"><div className="muted">Projected</div><div className="kpi">{num(part.projected_qty)}</div></div>
-        <div className="card kpi-card"><div className="muted">Status</div><div className="kpi"><span className={`badge ${part.stock_status}`}>{part.stock_status}</span></div></div>
+        <div className="card kpi-card"><div className="muted">Status</div><div className="kpi"><span className={`badge ${part.ignore_alerts ? 'ignored-alerts' : part.stock_status}`}>{part.stock_status}</span></div></div>
       </div>
 
       <div className="grid two">
