@@ -193,6 +193,10 @@ p { line-height: 1.5; margin: 0 0 10px; }
   border-color: var(--muted-alert-line); }
 .badge.ignored-alerts::before { opacity: .5; }
 
+/* A voided order line: real, still on file, deliberately not counting. */
+.badge.voided { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-line); }
+.badge.voided::before { opacity: .45; }
+
 /* --------------------------------------------------------------- tables -- */
 .table-card { overflow: hidden; padding: 0; }
 .table-head {
@@ -425,6 +429,14 @@ tbody tr:hover .sticky-col { background: #fafbfc; }
 th.ignored-col { color: var(--muted-alert); box-shadow: inset 0 -2px 0 var(--muted-alert); }
 .ignored-note { border: 1px solid var(--muted-alert-line); background: var(--muted-alert-soft);
   color: var(--muted-alert); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; }
+
+/* Rows that are still listed but are not counting toward anything. Struck
+   through rather than hidden: the whole point is that you can still see them. */
+.muted-row td { color: var(--ink-2); background: var(--card-sunken); }
+.voided-row td { color: var(--ink-2); background: #fdf7f7; text-decoration: line-through; }
+.voided-row td:last-child { text-decoration: none; }
+.voided-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap; border-color: var(--danger-line); background: var(--danger-soft); }
 
 .zoom-controls { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .zoom-controls span { color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
