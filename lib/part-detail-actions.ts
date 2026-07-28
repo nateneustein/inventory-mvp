@@ -1,6 +1,3 @@
-// PASTE TEST LINE 1
-const x = { a: 1 }
-  indented
 'use server'
 
 import { revalidatePath } from 'next/cache'
