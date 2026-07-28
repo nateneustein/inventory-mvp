@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { updateImportedOrderRow, deleteImportedOrderRow, voidImportedOrderRow, unvoidImportedOrderRow } from '@/lib/actions'
 import { date, num } from '@/lib/format'
+import { ActionButton } from '@/components/action-button'
 import { SearchSelect } from '@/components/search-select'
 import { VOID_REASONS } from '@/lib/void-reasons'
 
@@ -48,7 +49,7 @@ export default async function ImportedOrderRowPage({ params, searchParams }: { p
           </div>
           <form action={unvoidImportedOrderRow}>
             <input type="hidden" name="id" value={id} />
-            <button className="secondary" type="submit">Un-void this line</button>
+            <ActionButton className="secondary" confirm="Put this line back in play?" busyLabel="…" doneLabel="Restored">Un-void this line</ActionButton>
           </form>
         </div>
       )}
@@ -63,11 +64,11 @@ export default async function ImportedOrderRowPage({ params, searchParams }: { p
           <form className="stack" action={updateImportedOrderRow}>
             <input type="hidden" name="id" value={id}/>
             <label>Mapping status<select name="mapping_status" defaultValue={row.mapping_status}><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label>
-            <label>Actual variation used<SearchSelect name="mapped_variation_id" defaultValue={row.mapped_variation_id || ''} placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.internal_sku} · ${v.products?.name} · ${v.variation_name}` }))} /></label>
-            <label>Demand variation<SearchSelect name="demand_variation_id" defaultValue={row.demand_variation_id || ''} placeholder="Same as actual" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.internal_sku} · ${v.products?.name} · ${v.variation_name}` }))} /></label>
-            <button type="submit">Save mapping</button>
+            <label>Actual variation used<SearchSelect name="mapped_variation_id" defaultValue={row.mapped_variation_id || ''} placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.products?.name || ''} · ${v.variation_name || ''}`, hint: v.internal_sku }))} /></label>
+            <label>Demand variation<SearchSelect name="demand_variation_id" defaultValue={row.demand_variation_id || ''} placeholder="Same as actual" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.products?.name || ''} · ${v.variation_name || ''}`, hint: v.internal_sku }))} /></label>
+            <ActionButton busyLabel="Saving…" doneLabel="Saved">Save mapping</ActionButton>
           </form>
-          <form action={deleteImportedOrderRow}><input type="hidden" name="id" value={id}/><button className="danger" type="submit">Delete imported row</button></form>
+          <form action={deleteImportedOrderRow}><input type="hidden" name="id" value={id}/><ActionButton className="danger" confirm="Permanently delete this source row?" busyLabel="Deleting…" doneLabel="Deleted">Delete imported row</ActionButton></form>
         </div>
       </div>
 
@@ -107,9 +108,9 @@ export default async function ImportedOrderRowPage({ params, searchParams }: { p
               </label>
               <label>Note (optional)<input name="void_note" placeholder="Broken in transit, resent 07/12" /></label>
             </div>
-            <button className="danger" type="submit">
+            <ActionButton className="danger" confirm="Confirm: void this line?" busyLabel="Voiding…" doneLabel="Voided">
               {consumed.length > 0 ? `Void line and put ${consumed.length} part(s) back` : 'Void this line'}
-            </button>
+            </ActionButton>
           </form>
         )}
       </div>
