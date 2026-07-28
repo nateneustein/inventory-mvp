@@ -71,7 +71,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
               <SearchSelect name="purchase_order_id" required placeholder="Type a PO number or supplier" options={shownPos.map((po: any) => ({ value: po.id, label: `${po.po_number} - ${po.suppliers?.name}` }))} />
             </label>
             <label>Part
-              <SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: `${p.sku} - ${p.name}` }))} />
+              <SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} />
             </label>
             <div className="form-row">
               <label>Qty ordered<input name="quantity_ordered" type="number" step="0.01" required /></label>
