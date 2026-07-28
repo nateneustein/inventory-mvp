@@ -1389,6 +1389,56 @@ export async function updateImportedOrderRow(formData: FormData) {
   revalidatePath(`/imported-orders/${id}`)
 }
 
+/**
+ * Void a single order line.
+ *
+ * Not the same as Delete and not the same as "Ignored". Delete throws the
+ * source row away; Ignored means the line was never mapped. Voiding keeps the
+ * line, its mapping and its history, marks WHY it does not count, and hands
+ * back any stock it already consumed -- the replacement case: the customer's
+ * second unit is not a second sale.
+ */
+export async function voidImportedOrderRow(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'id')
+  const { data, error } = await supabase.rpc('void_imported_order_row', {
+    p_id: id,
+    p_reason: value(formData, 'void_reason') || null,
+    p_note: value(formData, 'void_note') || null,
+    p_user: userId,
+  })
+  if (error) throw new Error(error.message)
+
+  const result = Array.isArray(data) ? data[0] : data
+  const moves = Number(result?.movements_removed || 0)
+  const parts = Number(result?.parts_restored || 0)
+
+  revalidatePath('/imported-orders')
+  revalidatePath(`/imported-orders/${id}`)
+  revalidatePath('/usage'); revalidatePath('/parts')
+  revalidatePath('/dashboard'); revalidatePath('/predictions/basic')
+
+  redirect(`/imported-orders/${id}?notice=${encodeURIComponent(
+    moves > 0
+      ? `Line voided. ${parts} part(s) put back on the shelf.`
+      : 'Line voided. It had not consumed any stock yet, so nothing changed on hand.'
+  )}`)
+}
+
+/** Put a voided line back in play. It becomes postable again on the next post. */
+export async function unvoidImportedOrderRow(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.rpc('unvoid_imported_order_row', { p_id: id })
+  if (error) throw new Error(error.message)
+  revalidatePath('/imported-orders')
+  revalidatePath(`/imported-orders/${id}`)
+  revalidatePath('/dashboard')
+  redirect(`/imported-orders/${id}?notice=${encodeURIComponent(
+    'Line is live again. Run "Post orders to inventory" to deduct its parts.'
+  )}`)
+}
+
 export async function deleteImportedOrderRow(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
