@@ -47,7 +47,7 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
                 name="part_id"
                 required
                 placeholder="Type a part name or SKU"
-                options={(parts || []).map((p: any) => ({ value: p.id, label: `${p.sku} - ${p.name}` }))}
+                options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))}
               />
             </label>
             <label>Qty damaged / removed<input name="quantity" type="number" step="0.01" required /></label>
