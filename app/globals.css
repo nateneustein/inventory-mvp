@@ -510,3 +510,12 @@ label.checkbox.is-on { border-color: var(--accent-line, #cfe0f8); background: va
   .details-grid { grid-template-columns: 1fr; }
   tbody .action-row { opacity: 1; }
 }
+
+/* Replaces the old reorder-point number: how long it lasts, which pace is
+   raising the alarm, and how deep the hole gets if nothing is ordered. */
+.cover-cell { white-space: normal !important; min-width: 210px; max-width: 300px; line-height: 1.35; }
+.cover-days { display: block; font-weight: 600; color: var(--ink); }
+.cover-why { display: block; font-size: .85em; color: var(--ink-2); }
+.cover-short { display: block; font-size: .85em; font-weight: 600; color: var(--danger); }
+.compact-rows td.cover-cell { max-width: 300px; overflow: visible; text-overflow: clip; }
+button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events: none; }
