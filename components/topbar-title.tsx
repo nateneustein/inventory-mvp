@@ -24,7 +24,7 @@ const TITLES: Array<[string, string]> = [
   ['/products', 'Finished Products'],
   ['/boms', 'BOM / Master File'],
   ['/mapping-rules', 'Mapping Rules'],
-  ['/usage', 'Usage'],
+  ['/usage', 'Usage & History'],
   ['/predictions/basic', 'Basic Prediction'],
   ['/predictions/advanced', 'Advanced Prediction'],
   ['/predictions', 'Prediction'],
