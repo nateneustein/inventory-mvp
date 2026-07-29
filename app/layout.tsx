@@ -42,7 +42,7 @@ const navGroups = [
       ['Finished Products', '/products', 'canManageMasterData'],
       ['BOM / Master File', '/boms', 'canManageMasterData'],
       ['Mapping Rules', '/mapping-rules', 'canUploadOrders'],
-      ['Usage', '/usage'],
+      ['Usage & History', '/usage'],
     ]
   },
   {
