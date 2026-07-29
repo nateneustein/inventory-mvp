@@ -38,7 +38,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
 
       <div className="grid">
         <div className="card">
-          <h2>Create PO</h2>
+          <details className="add-panel"><summary className="button">+ Create PO</summary></details>
           <form className="stack" action={createPurchaseOrder}>
             <label>PO number<input name="po_number" required placeholder="PO-1001" /></label>
             <label>Supplier
@@ -60,12 +60,12 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
             </div>
             <label>Tracking number<input name="tracking_number" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Create PO</button>
+            <button type="submit">Create PO</button><button type="button" className="button secondary cancel-btn">Cancel</button>
           </form>
         </div>
 
         <div className="card">
-          <h2>Add item to PO</h2>
+          <details className="add-panel"><summary className="button">+ Add item to PO</summary></details>
           <form className="stack" action={addPurchaseOrderItem}>
             <label>PO
               <SearchSelect name="purchase_order_id" required placeholder="Type a PO number or supplier" options={shownPos.map((po: any) => ({ value: po.id, label: `${po.po_number} - ${po.suppliers?.name}` }))} />
@@ -78,7 +78,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
               <label>Unit cost<input name="unit_cost" type="number" step="0.0001" defaultValue="0" /></label>
             </div>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Add PO item</button>
+            <button type="submit">Add PO item</button><button type="button" className="button secondary cancel-btn">Cancel</button>
           </form>
         </div>
       </div>
