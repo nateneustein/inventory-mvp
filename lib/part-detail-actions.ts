@@ -78,6 +78,29 @@ export async function setPartReorderHorizon(formData: FormData) {
 }
 
 /**
+ * How much to buy when this part comes up, and why that was changed.
+ *
+ * Free text on purpose. "3 months of usage, but check either side of a seasonal
+ * spike" is the instruction someone actually needs; a number cannot hold it.
+ *
+ * Goes through an RPC so the new amount and the reason for it land in the
+ * history in one transaction and can never come apart. Together with the
+ * reorder window these are the two levers pulled when stock goes wrong, so both
+ * keep the same kind of record.
+ */
+export async function setPartOrderMonths(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.rpc('set_part_order_months', {
+    p_part_id: id,
+    p_months: value(formData, 'months_of_usage_to_order') || null,
+    p_note: value(formData, 'order_months_note') || null,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePart(id)
+}
+
+/**
  * Save whatever the form actually sent, and nothing else.
  *
  * The part page used to be one enormous form, so this could safely write every
