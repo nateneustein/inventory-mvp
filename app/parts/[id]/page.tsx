@@ -281,6 +281,14 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <label>Safety days<input name="safety_stock_days" type="number" step="0.01" defaultValue={details.safety_stock_days || 0} /></label>
           </div>
           <div className="form-row">
+            {/* Free text, not a number: "3 months" and "6 if they hold the
+                price" are both real answers, and this is a note for whoever
+                places the order rather than something that triggers. */}
+            <label>How many months of usage to order
+              <input name="months_of_usage_to_order" defaultValue={details.months_of_usage_to_order || ''} />
+            </label>
+          </div>
+          <div className="form-row">
             {/* Dropdowns, not checkboxes: an unticked checkbox sends nothing at
                 all, so archiving from this form could never actually save. */}
             <label className="compact">Critical part
