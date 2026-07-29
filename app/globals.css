@@ -522,3 +522,10 @@ label.checkbox.is-on { border-color: var(--accent-line, #cfe0f8); background: va
 .compact-rows .sku-cell { max-width: 150px; }
 .compact-rows td { max-width: 240px; }
 button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events: none; }
+
+/* The window this part is meant to keep, next to how it is actually doing. */
+.target-cell { white-space: nowrap; font-weight: 600; color: var(--ink); }
+.target-cell .sku-under { display: block; font-weight: 400; font-size: .85em; color: var(--muted); }
+.compact-rows td.target-cell { max-width: 120px; overflow: visible; }
+/* Report sheets: keep the week column readable and the part names tight. */
+.usage-grid th .sku-under { display: block; font-weight: 400; font-size: .8em; color: var(--muted); text-transform: none; letter-spacing: 0; }
