@@ -21,7 +21,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
           <form className="stack" action={updateSupplier}>
             <input type="hidden" name="id" value={id} />
             <div className="form-row"><label>Name<input name="name" defaultValue={supplier.name || ''} required /></label><label>Contact<input name="contact_name" defaultValue={supplier.contact_name || ''} /></label></div>
-            <div className="form-row"><label>Email<input name="email" type="email" defaultValue={supplier.email || ''} /></label><label>Phone<input name="phone" defaultValue={supplier.phone || ''} /></label></div>
+            <div className="form-row"><label>Email<input name="email" defaultValue={supplier.email || ''} /></label><label>Phone<input name="phone" defaultValue={supplier.phone || ''} /></label></div>
             <label>Website<input name="website" defaultValue={supplier.website || ''} /></label>
             <label>Notes<textarea name="notes" defaultValue={supplier.notes || ''} /></label>
             <button type="submit">Save supplier</button>
