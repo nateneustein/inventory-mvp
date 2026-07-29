@@ -50,7 +50,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
       </div>
 
       <div className="card">
-        <h2>Add part</h2>
+        <details className="add-panel"><summary className="button">+ Add part</summary></details>
         <form className="stack" action={createPart}>
           <div className="form-row"><label>Part name<input name="name" required /></label><label>Internal SKU<input name="sku" required placeholder="LED-BASE-WHITE" /></label><label>Category<input name="category" placeholder="Acrylic, packaging, base, etc." /></label></div>
           <div className="form-row"><label>Supplier<SearchSelect name="supplier_id" placeholder="No supplier yet" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} /></label><label>Supplier part #<input name="supplier_part_number" /></label><label>Unit<input name="unit" defaultValue="each" /></label></div>
@@ -60,7 +60,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
 <label>Target stock<input name="target_stock" type="number" step="0.01" defaultValue="0" /></label><label>Default order qty<input name="default_order_quantity" type="number" step="0.01" defaultValue="0" /></label></div>
           <label className="checkbox"><input name="critical" type="checkbox" />Critical part, production stops if this runs out</label>
           <label>Notes<textarea name="notes" /></label>
-          <ActionButton busyLabel="Adding…" doneLabel="Part added">Add part</ActionButton>
+          <ActionButton busyLabel="Adding…" doneLabel="Part added">Add part</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
         </form>
       </div>
 
