@@ -30,6 +30,7 @@ export function SearchSelect({
   required = false,
   disabled = false,
   emptyLabel = 'No matches',
+  actionOption,
 }: {
   name: string
   options: PickerOption[]
@@ -38,6 +39,8 @@ export function SearchSelect({
   required?: boolean
   disabled?: boolean
   emptyLabel?: string
+  /** An extra first row in the menu that opens a panel instead of picking a value. */
+  actionOption?: { label: string, targetId: string }
 }) {
   const byValue = useMemo(() => {
     const m = new Map<string, PickerOption>()
@@ -132,6 +135,20 @@ export function SearchSelect({
     el?.scrollIntoView({ block: 'nearest' })
   }, [active, open])
 
+  // "Add a new supplier" belongs in the list, because the list is where
+  // someone looks when the one they want is not there. It never becomes the
+  // value - it opens the panel that creates one.
+  function runAction() {
+    if (!actionOption) return
+    setOpen(false)
+    const panel = document.getElementById(actionOption.targetId) as HTMLDetailsElement | null
+    if (!panel) return
+    panel.open = true
+    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    const first = panel.querySelector('input, textarea, select') as HTMLElement | null
+    setTimeout(() => first?.focus(), 80)
+  }
+
   function commit(o: PickerOption) {
     setValue(o.value)
     setQuery(o.label)
@@ -198,6 +215,14 @@ export function SearchSelect({
             width: rect.width,
           }}
         >
+          {actionOption && (
+            <li
+              className="search-select-action"
+              onMouseDown={e => { e.preventDefault(); runAction() }}
+            >
+              {actionOption.label}
+            </li>
+          )}
           {filtered.length === 0 && <li className="search-select-empty">{emptyLabel}</li>}
           {filtered.slice(0, 300).map((o, i) => (
             <li
