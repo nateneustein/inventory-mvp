@@ -106,6 +106,9 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <span className="muted small">{HORIZON_PRESETS.map((h) => `${h.days} = ${h.label}`).join(' · ')}</span>
             </div>
           </div>
+          <label>Why are you changing it? (saved to the history below)
+            <input name="reorder_note" placeholder="Had an issue with report zeros, so making the cover time longer" />
+          </label>
           <ActionButton busyLabel="Saving…" doneLabel="Window saved">Save reorder window</ActionButton>
         </form>
         <p className="muted small">
