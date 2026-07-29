@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getPermissions } from '@/lib/permissions'
 import { NavLink } from '@/components/nav-link'
 import { TopbarTitle } from '@/components/topbar-title'
+import { FormGuard } from '@/components/form-guard'
 
 export const metadata = {
   title: 'Inventory Control Center',
@@ -70,6 +71,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
+        {/* One listener for the whole app: confirms anything destructive and
+            marks buttons busy. Covers every page, including ones added later. */}
+        <FormGuard />
         <div className="app-shell">
           {user && (
             <aside className="sidebar">
