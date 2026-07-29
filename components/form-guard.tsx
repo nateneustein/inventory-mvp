@@ -63,6 +63,68 @@ function messageFor(button: HTMLElement, form: HTMLFormElement): string | null {
 
 export function FormGuard() {
   useEffect(() => {
+    // ---------------------------------------------------------- unsaved work
+    // These pages are mostly boxes you type into and then have to remember to
+    // save. Anything typed but not saved is tracked here, so leaving the page
+    // has to be a decision rather than an accident.
+    //
+    // The browser's own dialog only ever offers two buttons and its wording
+    // cannot be changed, so the in-app one is worded to match what those two
+    // buttons actually do.
+    const dirty = new Set<HTMLFormElement>()
+
+    // Search and filter bars post to a URL and lose nothing when you leave.
+    // Only forms that run a server action hold real unsaved work.
+    function holdsWork(form: HTMLFormElement) {
+      if (form.classList.contains('filter-bar')) return false
+      return !/^(\/|https?:)/.test(form.getAttribute('action') || '')
+    }
+
+    function onEdit(event: Event) {
+      const target = event.target as HTMLInputElement | null
+      if (!target || !target.closest) return
+      if (['hidden', 'search', 'submit', 'button', 'reset'].includes(target.type)) return
+      const form = target.closest('form') as HTMLFormElement | null
+      if (form && holdsWork(form)) dirty.add(form)
+    }
+
+    function onReset(event: Event) { dirty.delete(event.target as HTMLFormElement) }
+
+    // A form that has been re-rendered away took its unsaved edits with it.
+    function unsavedWork() {
+      for (const form of dirty) if (document.body.contains(form)) return true
+      dirty.clear()
+      return false
+    }
+
+    const LEAVE = 'You have typed something here that has not been saved yet.'
+      + '\n\nOK - leave the page and throw those changes away.'
+      + '\nCancel - stay here so you can save them first.'
+
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!unsavedWork()) return
+      // Closing the tab, reloading, or going to another site. The browser
+      // writes its own wording here; all we can do is ask it to ask.
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    // Moving around inside the app never reloads the page, so the browser
+    // never gets a chance to ask. This asks for it.
+    function onLeave(event: MouseEvent) {
+      if (event.defaultPrevented || event.button !== 0) return
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      const link = target?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!link) return
+      const href = link.getAttribute('href') || ''
+      if (!href || href.startsWith('#')) return
+      if (link.target === '_blank' || link.hasAttribute('download')) return
+      if (!unsavedWork()) return
+      if (window.confirm(LEAVE)) dirty.clear()
+      else { event.preventDefault(); event.stopImmediatePropagation() }
+    }
+
     function onSubmit(event: Event) {
       const form = event.target as HTMLFormElement
       if (!(form instanceof HTMLFormElement)) return
@@ -84,6 +146,9 @@ export function FormGuard() {
       // swapped innerHTML, which React knows nothing about — so a label like
       // "Window saved" could survive the re-render and sit there until the page
       // was reloaded. Styling and disabling are safe; text is left to React.
+      // Saved, so nothing is hanging any more.
+      dirty.clear()
+
       const button = submitter as HTMLButtonElement
       if (button.disabled) return
       setTimeout(() => {
@@ -106,7 +171,7 @@ export function FormGuard() {
       event.preventDefault()
       event.stopPropagation()
       const form = button.closest('form') as HTMLFormElement | null
-      if (form) form.reset()
+      if (form) { form.reset(); dirty.delete(form) }
       const panel = (button.closest('details')
         || button.closest('.card')?.querySelector(':scope > .add-panel')) as HTMLDetailsElement | null
       if (panel) panel.open = false
@@ -114,9 +179,19 @@ export function FormGuard() {
 
     document.addEventListener('submit', onSubmit, true)
     document.addEventListener('click', onCancel, true)
+    document.addEventListener('input', onEdit, true)
+    document.addEventListener('change', onEdit, true)
+    document.addEventListener('reset', onReset, true)
+    document.addEventListener('click', onLeave, true)
+    window.addEventListener('beforeunload', onBeforeUnload)
     return () => {
       document.removeEventListener('submit', onSubmit, true)
       document.removeEventListener('click', onCancel, true)
+      document.removeEventListener('input', onEdit, true)
+      document.removeEventListener('change', onEdit, true)
+      document.removeEventListener('reset', onReset, true)
+      document.removeEventListener('click', onLeave, true)
+      window.removeEventListener('beforeunload', onBeforeUnload)
     }
   }, [])
 
