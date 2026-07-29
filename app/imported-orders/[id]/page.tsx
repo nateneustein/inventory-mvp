@@ -64,8 +64,8 @@ export default async function ImportedOrderRowPage({ params, searchParams }: { p
           <form className="stack" action={updateImportedOrderRow}>
             <input type="hidden" name="id" value={id}/>
             <label>Mapping status<select name="mapping_status" defaultValue={row.mapping_status}><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label>
-            <label>Actual variation used<SearchSelect name="mapped_variation_id" defaultValue={row.mapped_variation_id || ''} placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.products?.name || ''} · ${v.variation_name || ''}`, hint: v.internal_sku }))} /></label>
-            <label>Demand variation<SearchSelect name="demand_variation_id" defaultValue={row.demand_variation_id || ''} placeholder="Same as actual" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.products?.name || ''} · ${v.variation_name || ''}`, hint: v.internal_sku }))} /></label>
+            <label>Actual variation used<SearchSelect name="mapped_variation_id" defaultValue={row.mapped_variation_id || ''} placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.variation_name || ''} · ${v.products?.name || ''}`, hint: v.internal_sku }))} /></label>
+            <label>Demand variation<SearchSelect name="demand_variation_id" defaultValue={row.demand_variation_id || ''} placeholder="Same as actual" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.variation_name || ''} · ${v.products?.name || ''}`, hint: v.internal_sku }))} /></label>
             <ActionButton busyLabel="Saving…" doneLabel="Saved">Save mapping</ActionButton>
           </form>
           <form action={deleteImportedOrderRow}><input type="hidden" name="id" value={id}/><ActionButton className="danger" confirm="Permanently delete this source row?" busyLabel="Deleting…" doneLabel="Deleted">Delete imported row</ActionButton></form>
