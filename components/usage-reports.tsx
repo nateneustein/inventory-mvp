@@ -2,211 +2,179 @@ import { requireUser } from '@/lib/require-user'
 import { date, num } from '@/lib/format'
 
 /**
- * The reports that only existed in the spreadsheet until now: what was bought,
- * what the stock opened and closed at, what was produced, and usage rolled up
- * by month and quarter.
+ * The spreadsheet's reports, in the same shape as the weekly usage timeline:
+ * one row per week, one column per part, newest week first. Read straight
+ * across and the reports line up with each other and with the timeline.
  *
- * All of it is derived from the same movement ledger the rest of the app uses,
- * so these numbers cannot drift away from the stock figures on other pages.
+ * Everything is derived from the movement ledger, so these can never drift
+ * away from the stock figures on the rest of the app.
  */
 
-function monthLabel(iso: string) {
-  const d = new Date(`${iso}T00:00:00Z`)
-  return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })
-}
+const WEEKS_SHOWN = 26
 
-/** Pivot [{key, period_start, value}] into rows keyed by name with a column per period. */
-function pivot(rows: any[], keyOf: (r: any) => string, valueOf: (r: any) => number) {
-  const periods = Array.from(new Set(rows.map((r) => r.period_start as string))).sort()
-  const byKey = new Map<string, { label: string, cells: Map<string, number>, total: number }>()
-  for (const r of rows) {
-    const label = keyOf(r)
-    if (!byKey.has(label)) byKey.set(label, { label, cells: new Map(), total: 0 })
-    const entry = byKey.get(label)!
-    const v = Number(valueOf(r) || 0)
-    entry.cells.set(r.period_start, (entry.cells.get(r.period_start) || 0) + v)
-    entry.total += v
-  }
-  return {
-    periods,
-    rows: Array.from(byKey.values()).sort((a, b) => b.total - a.total),
-  }
-}
+type Col = { id: string, name: string, sku?: string }
+type Row = { week_start: string, week_end?: string, month_name?: string, year?: number, values: any, total?: number }
 
-function PivotTable({ title, note, data, unit = '' }: { title: string, note: string, data: ReturnType<typeof pivot>, unit?: string }) {
+function SheetGrid({
+  title, note, badge, rows, cols, periodLabel = 'Week range', danger = false,
+}: {
+  title: string
+  note: string
+  badge?: string
+  rows: Row[]
+  cols: Col[]
+  periodLabel?: string
+  /** Colour negatives red — right for a stock balance, wrong for usage. */
+  danger?: boolean
+}) {
+  // Only show columns that actually have a number somewhere in this window,
+  // otherwise every report is 90 columns of blank.
+  const used = cols.filter((c) => rows.some((r) => r.values && r.values[c.id] != null && Number(r.values[c.id]) !== 0))
+
   return (
     <div className="card table-card">
       <div className="table-head">
         <h2>{title}</h2>
-        <span className="badge info">{data.rows.length} rows</span>
+        <span className="badge info">{badge || `${rows.length} weeks · ${used.length} columns`}</span>
       </div>
       <p className="muted small">{note}</p>
-      <div className="wide-table"><table>
-        <thead><tr>
-          <th className="sticky-col">Name</th>
-          {data.periods.map((p) => <th key={p} style={{ textAlign: 'right' }}>{monthLabel(p)}</th>)}
-          <th style={{ textAlign: 'right' }}>Total</th>
-        </tr></thead>
-        <tbody>
-          {data.rows.map((r) => (
-            <tr key={r.label}>
-              <td className="sticky-col name-cell">{r.label}</td>
-              {data.periods.map((p) => (
-                <td key={p} style={{ textAlign: 'right' }}>{r.cells.has(p) ? num(r.cells.get(p)) : ''}</td>
-              ))}
-              <td style={{ textAlign: 'right', fontWeight: 600 }}>{num(r.total)}{unit}</td>
-            </tr>
-          ))}
-          {data.rows.length === 0 && <tr><td colSpan={data.periods.length + 2}><div className="empty-state">Nothing recorded in this window.</div></td></tr>}
-        </tbody>
-      </table></div>
+      {rows.length === 0 || used.length === 0 ? (
+        <div className="empty-state">Nothing recorded in this window.</div>
+      ) : (
+        <div className="wide-table sheet-scroll sheet-sticky-head sheet-zoom-100 usage-grid"><table>
+          <thead><tr>
+            <th className="sticky-col date-col">{periodLabel}</th>
+            <th>Month</th>
+            <th>Year</th>
+            {used.map((c) => (
+              <th key={c.id} title={`${c.name}${c.sku ? ` · ${c.sku}` : ''}`}>
+                {c.name}{c.sku && <span className="sku-under">{c.sku}</span>}
+              </th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.week_start}>
+                <td className="sticky-col date-col">
+                  {date(r.week_start)}{r.week_end && <><br />to {date(r.week_end)}</>}
+                </td>
+                <td>{r.month_name}</td>
+                <td>{r.year}</td>
+                {used.map((c) => {
+                  const raw = r.values ? r.values[c.id] : null
+                  const v = raw == null ? null : Number(raw)
+                  return (
+                    <td key={c.id} className={danger && v != null && v < 0 ? 'cell-danger' : undefined}>
+                      {v == null ? '' : num(v)}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table></div>
+      )}
     </div>
   )
 }
 
-export async function UsageReports({ months = 6 }: { months?: number }) {
+/** Turn a long table of {key, period_start, value} into the grid shape above. */
+function toGrid(rows: any[], keyField: string, valueField: string) {
+  const byPeriod = new Map<string, any>()
+  for (const r of rows) {
+    const p = r.period_start
+    if (!byPeriod.has(p)) {
+      const d = new Date(`${p}T00:00:00Z`)
+      byPeriod.set(p, {
+        week_start: p,
+        month_name: d.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' }),
+        year: d.getUTCFullYear(),
+        values: {},
+      })
+    }
+    byPeriod.get(p).values[r[keyField]] = Number(r[valueField] || 0)
+  }
+  return Array.from(byPeriod.values()).sort((a, b) => b.week_start.localeCompare(a.week_start))
+}
+
+export async function UsageReports() {
   const { supabase } = await requireUser()
 
-  // Window: the last N months that actually contain data, not calendar months
-  // from today — the ledger ends when the last upload ended.
-  const { data: allPeriods } = await supabase
-    .from('stock_ledger_monthly')
-    .select('period_start')
-    .order('period_start', { ascending: false })
-    .limit(400)
-  const periods = Array.from(new Set((allPeriods || []).map((r: any) => r.period_start))).sort().reverse()
-  const window = periods.slice(0, months).sort()
-  const from = window[0] || '1900-01-01'
-  const latest = periods[0] || null
-
-  const [{ data: ledger }, { data: purchases }, { data: produced }, { data: usage }, { data: quarterly }] = await Promise.all([
-    supabase.from('stock_ledger_monthly').select('*').eq('period_start', latest).order('name'),
-    supabase.from('purchases_received').select('*').gte('period_start', from).order('movement_date', { ascending: false }).limit(500),
-    supabase.from('units_produced_monthly').select('*').gte('period_start', from).limit(2000),
-    supabase.from('part_usage_monthly').select('*').gte('period_start', from).not('used_qty', 'is', null).limit(2000),
-    supabase.from('part_usage_quarterly').select('*').order('period_start', { ascending: false }).limit(1000),
+  const [parts, variations, purchases, produced, stock, monthly, quarterly] = await Promise.all([
+    supabase.from('parts').select('id, name, sku, sort_order').order('sort_order', { ascending: true, nullsFirst: false }).order('name'),
+    supabase.from('product_variations').select('id, variation_name, internal_sku').order('variation_name'),
+    supabase.from('weekly_purchases_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
+    supabase.from('weekly_produced_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
+    supabase.from('weekly_stock_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
+    supabase.from('part_usage_monthly').select('part_id, period_start, used_qty').not('used_qty', 'is', null).order('period_start', { ascending: false }).limit(3000),
+    supabase.from('part_usage_quarterly').select('part_id, period_start, used_qty').order('period_start', { ascending: false }).limit(3000),
   ])
 
-  const purchaseRows = purchases || []
-  const purchasePivot = pivot(purchaseRows, (r) => r.name, (r) => r.quantity)
+  const partCols: Col[] = (parts.data || []).map((p: any) => ({ id: p.id, name: p.name, sku: p.sku }))
+  const varCols: Col[] = (variations.data || []).map((v: any) => ({ id: v.id, name: v.variation_name, sku: v.internal_sku }))
 
-  const quarterAll = quarterly || []
-  const quarterPeriods = Array.from(new Set(quarterAll.map((r: any) => r.period_start))).sort().reverse().slice(0, 6)
-  const quarterPivot = pivot(quarterAll.filter((r: any) => quarterPeriods.includes(r.period_start)), (r) => r.name, (r) => r.used_qty)
+  const stockRows = stock.data || []
+  const monthlyRows = toGrid(monthly.data || [], 'part_id', 'used_qty').slice(0, 18)
+  const quarterRows = toGrid(quarterly.data || [], 'part_id', 'used_qty').slice(0, 10)
 
   return (
     <>
       <div className="card">
         <h2>Reports</h2>
         <p className="muted">
-          Everything below comes from the same movement history as the stock figures on the
-          rest of the app, so the two can never disagree. Showing the last {window.length} month(s)
-          of recorded activity{latest ? `, ending ${monthLabel(latest)}` : ''}.
+          Each report below reads the same way as the weekly usage timeline above: newest week at
+          the top, one column per part. Showing the last {WEEKS_SHOWN} weeks. Columns with nothing
+          in them are hidden so the sheets stay readable.
         </p>
       </div>
 
-      {/* ------------------------------------------- opening / remaining -- */}
-      <div className="card table-card">
-        <div className="table-head">
-          <h2>Opening and remaining stock{latest ? ` — ${monthLabel(latest)}` : ''}</h2>
-          <span className="badge info">{(ledger || []).length} parts</span>
-        </div>
-        <p className="muted small">
-          What each part started the month with, what came in, what was used, and what was left.
-          &ldquo;Other&rdquo; covers counts, damage, switches and manual adjustments.
-        </p>
-        <div className="wide-table compact-rows"><table>
-          <thead><tr>
-            <th>Part</th><th>Category</th>
-            <th style={{ textAlign: 'right' }}>Opening</th>
-            <th style={{ textAlign: 'right' }}>Received</th>
-            <th style={{ textAlign: 'right' }}>Used</th>
-            <th style={{ textAlign: 'right' }}>Other</th>
-            <th style={{ textAlign: 'right' }}>Remaining</th>
-          </tr></thead>
-          <tbody>
-            {(ledger || []).map((r: any) => (
-              <tr key={r.part_id}>
-                <td className="name-cell">{r.name}<span className="sku-under">{r.sku}</span></td>
-                <td>{r.category}</td>
-                <td style={{ textAlign: 'right' }}>{num(r.opening_stock)}</td>
-                <td style={{ textAlign: 'right' }}>{Number(r.received) ? num(r.received) : ''}</td>
-                <td style={{ textAlign: 'right' }}>{Number(r.used) ? num(r.used) : ''}</td>
-                <td style={{ textAlign: 'right' }}>{Number(r.other_change) ? num(r.other_change) : ''}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }} className={Number(r.remaining_stock) < 0 ? 'cell-danger' : undefined}>{num(r.remaining_stock)}</td>
-              </tr>
-            ))}
-            {(ledger || []).length === 0 && <tr><td colSpan={7}><div className="empty-state">No ledger data yet.</div></td></tr>}
-          </tbody>
-        </table></div>
-      </div>
-
-      {/* ------------------------------------------------------ purchases -- */}
-      <PivotTable
-        title="Purchases received"
-        note="Stock booked in from suppliers, by part and month."
-        data={purchasePivot}
+      <SheetGrid
+        title="Purchases received — by week"
+        note="Stock booked in from suppliers. A negative figure is a correction that was imported as a purchase."
+        rows={purchases.data || []}
+        cols={partCols}
       />
 
-      <div className="card table-card">
-        <div className="table-head"><h2>Recent purchases</h2><span className="badge info">{purchaseRows.length} lines</span></div>
-        <div className="wide-table compact-rows"><table>
-          <thead><tr><th>Date</th><th>Part</th><th style={{ textAlign: 'right' }}>Qty</th><th>Reason</th><th>Notes</th></tr></thead>
-          <tbody>
-            {purchaseRows.slice(0, 100).map((r: any) => (
-              <tr key={r.id}>
-                <td>{date(r.movement_date)}</td>
-                <td className="name-cell">{r.name}<span className="sku-under">{r.sku}</span></td>
-                <td style={{ textAlign: 'right' }}>{num(r.quantity)}</td>
-                <td>{r.reason}</td><td>{r.notes}</td>
-              </tr>
-            ))}
-            {purchaseRows.length === 0 && <tr><td colSpan={5}><div className="empty-state">No purchases recorded in this window.</div></td></tr>}
-          </tbody>
-        </table></div>
-      </div>
-
-      {/* ----------------------------------------------- units produced -- */}
-      <PivotTable
-        title="Units produced / sold"
-        note="Finished products made and sold, per month, from the production history."
-        data={pivot(produced || [], (r) => r.variation_name || r.product_name, (r) => r.units)}
+      <SheetGrid
+        title="Units produced / sold — by week"
+        note="Finished products made and sold, per week, from the production history."
+        rows={produced.data || []}
+        cols={varCols}
       />
 
-      {/* ------------------------------------------------ usage rollups -- */}
-      <PivotTable
-        title="Parts used — monthly"
-        note="How much of each part was consumed by orders, month by month."
-        data={pivot(usage || [], (r) => r.name, (r) => r.used_qty)}
+      <SheetGrid
+        title="Remaining stock — end of each week"
+        note="What was actually left on the shelf when the week closed. This is the accurate figure for the week."
+        rows={stockRows.map((r: any) => ({ ...r, values: r.closing_values }))}
+        cols={partCols}
+        danger
       />
 
-      <div className="card table-card">
-        <div className="table-head">
-          <h2>Parts used — quarterly</h2>
-          <span className="badge info">{quarterPivot.rows.length} parts</span>
-        </div>
-        <p className="muted small">The same consumption rolled up into quarters, newest six.</p>
-        <div className="wide-table"><table>
-          <thead><tr>
-            <th className="sticky-col">Part</th>
-            {quarterPivot.periods.map((p) => {
-              const d = new Date(`${p}T00:00:00Z`)
-              return <th key={p} style={{ textAlign: 'right' }}>{`Q${Math.floor(d.getUTCMonth() / 3) + 1} ${String(d.getUTCFullYear()).slice(2)}`}</th>
-            })}
-            <th style={{ textAlign: 'right' }}>Total</th>
-          </tr></thead>
-          <tbody>
-            {quarterPivot.rows.map((r) => (
-              <tr key={r.label}>
-                <td className="sticky-col name-cell">{r.label}</td>
-                {quarterPivot.periods.map((p) => <td key={p} style={{ textAlign: 'right' }}>{r.cells.has(p) ? num(r.cells.get(p)) : ''}</td>)}
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{num(r.total)}</td>
-              </tr>
-            ))}
-            {quarterPivot.rows.length === 0 && <tr><td colSpan={quarterPivot.periods.length + 2}><div className="empty-state">No quarterly usage yet.</div></td></tr>}
-          </tbody>
-        </table></div>
-      </div>
+      <SheetGrid
+        title="Opening stock — start of each week"
+        note="What each part started the week with. Kept as its own report because the opening figure belongs to the week before it closed — it is effectively the previous week's closing balance carried in, so it reads a week behind the remaining-stock sheet."
+        rows={stockRows.map((r: any) => ({ ...r, values: r.opening_values }))}
+        cols={partCols}
+        danger
+      />
+
+      <SheetGrid
+        title="Parts used — by month"
+        note="The same consumption as the weekly timeline, rolled up into calendar months."
+        rows={monthlyRows}
+        cols={partCols}
+        periodLabel="Month"
+        badge={`${monthlyRows.length} months`}
+      />
+
+      <SheetGrid
+        title="Parts used — by quarter"
+        note="Consumption rolled up into quarters."
+        rows={quarterRows}
+        cols={partCols}
+        periodLabel="Quarter"
+        badge={`${quarterRows.length} quarters`}
+      />
     </>
   )
 }
