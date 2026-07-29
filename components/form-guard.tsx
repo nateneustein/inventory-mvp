@@ -95,8 +95,29 @@ export function FormGuard() {
       }, 0)
     }
 
+    // Cancel puts the boxes back and shuts the panel the form opened in, so a
+    // half-typed entry is never left sitting there half-open. Handled here,
+    // once, so every panel on every page behaves the same way.
+    function onCancel(event: Event) {
+      const target = event.target as HTMLElement
+      if (!target || !target.closest) return
+      const button = target.closest('.cancel-btn') as HTMLElement | null
+      if (!button) return
+      event.preventDefault()
+      event.stopPropagation()
+      const form = button.closest('form') as HTMLFormElement | null
+      if (form) form.reset()
+      const panel = (button.closest('details')
+        || button.closest('.card')?.querySelector(':scope > .add-panel')) as HTMLDetailsElement | null
+      if (panel) panel.open = false
+    }
+
     document.addEventListener('submit', onSubmit, true)
-    return () => document.removeEventListener('submit', onSubmit, true)
+    document.addEventListener('click', onCancel, true)
+    return () => {
+      document.removeEventListener('submit', onSubmit, true)
+      document.removeEventListener('click', onCancel, true)
+    }
   }, [])
 
   return null
