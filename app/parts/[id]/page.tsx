@@ -181,7 +181,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           <form className="stack card flat" action={reportZeroStock} data-confirm-label={part.name}>
             <input type="hidden" name="part_id" value={id} />
             <label>What did you find?<textarea name="notes" placeholder="Scanned bin and there are none left" /></label>
-            <ActionButton confirm={'Report ' + part.name + ' as completely out of stock?'} busyLabel="Reporting…" doneLabel="Reported">Report zero</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><ActionButton confirm={'Report ' + part.name + ' as completely out of stock?'} busyLabel="Reporting…" doneLabel="Reported">Report zero</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </details>
 
@@ -196,7 +196,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               </select>
             </label>
             <label>Notes<textarea name="notes" /></label>
-            <ActionButton confirm={'Write off damaged stock on ' + part.name + '?'} busyLabel="Reporting…" doneLabel="Reported">Report damage</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><ActionButton confirm={'Write off damaged stock on ' + part.name + '?'} busyLabel="Reporting…" doneLabel="Reported">Report damage</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </details>
 
@@ -207,7 +207,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <input type="hidden" name="reason" value="Part page manual adjustment" />
             <label>Adjustment qty<input name="quantity_change" type="number" step="0.01" required placeholder="-3 or 10" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <ActionButton confirm={'Adjust the stock on ' + part.name + '?'} busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><ActionButton confirm={'Adjust the stock on ' + part.name + '?'} busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </details>
       </div>
@@ -342,7 +342,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                 <label>Usual unit price<input name="unit_price" placeholder="36.31 a box" /></label>
                 <label>Min order quantity<input name="moq" placeholder="500, or 250 if they split it" /></label>
               </div>
-              <ActionButton className="small-btn" busyLabel="Adding…" doneLabel="Added">Add supplier</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+              <div className="action-row"><ActionButton className="small-btn" busyLabel="Adding…" doneLabel="Added">Add supplier</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
             </form>
           </details>
 
@@ -361,7 +361,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                 <label>Website / supplier link<input name="website" /></label>
               </div>
               <label>Notes<textarea name="notes" placeholder="MOQ, shipping rules, price notes, backup contact, prepared message, etc." /></label>
-              <ActionButton className="small-btn" busyLabel="Creating…" doneLabel="Supplier created">Create supplier</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+              <div className="action-row"><ActionButton className="small-btn" busyLabel="Creating…" doneLabel="Supplier created">Create supplier</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
               <p className="muted small">Once created, pick them in the supplier box above and save.</p>
             </form>
           </details>
@@ -407,7 +407,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                 <label>File<input name="file" type="file" required /></label>
                 <label>Caption<input name="caption" placeholder="Colour reference — match this exactly" /></label>
                 <label className="checkbox"><input name="send_to_supplier" type="checkbox" defaultChecked />Send this one to the supplier</label>
-                <ActionButton className="small-btn" busyLabel="Uploading…" doneLabel="Uploaded">Upload</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+                <div className="action-row"><ActionButton className="small-btn" busyLabel="Uploading…" doneLabel="Uploaded">Upload</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
               </form>
             </details>
           </div>
@@ -437,7 +437,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                 <input type="hidden" name="part_id" value={id} />
                 <label>What is it?<input name="label" placeholder="Where we buy it" /></label>
                 <label>Link<input name="url" required placeholder="https://..." /></label>
-                <ActionButton className="small-btn" busyLabel="Adding…" doneLabel="Added">Add link</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+                <div className="action-row"><ActionButton className="small-btn" busyLabel="Adding…" doneLabel="Added">Add link</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
               </form>
             </details>
           </div>
