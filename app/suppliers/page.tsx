@@ -20,12 +20,12 @@ export default async function SuppliersPage({ searchParams }: { searchParams?: P
       <div className="card"><form className="filter-bar" action="/suppliers"><label>Search suppliers<input name="q" defaultValue={q} placeholder="Supplier, email, notes, website" /></label><button type="submit">Filter</button><Link className="button ghost" href="/suppliers">Clear</Link></form></div>
 
       <div className="card">
-        <h2>Add supplier</h2>
+        <details className="add-panel"><summary className="button">+ Add supplier</summary></details>
         <form className="stack" action={createSupplier}>
           <div className="form-row"><label>Name<input name="name" required /></label><label>Contact name<input name="contact_name" /></label></div>
-          <div className="form-row"><label>Email<input name="email" type="email" /></label><label>Phone<input name="phone" /></label><label>Website / supplier link<input name="website" /></label></div>
+          <div className="form-row"><label>Email<input name="email" /></label><label>Phone<input name="phone" /></label><label>Website / supplier link<input name="website" /></label></div>
           <label>Notes<textarea name="notes" placeholder="MOQ, shipping rules, price notes, backup contact, prepared message, etc." /></label>
-          <button type="submit">Add supplier</button>
+          <button type="submit">Add supplier</button><button type="button" className="button secondary cancel-btn">Cancel</button>
         </form>
       </div>
 
