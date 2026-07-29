@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { createManualAdjustment, reportZeroStock, reportDamage, archivePart, createSupplier, setPartIgnoreAlerts } from '@/lib/actions'
 import {
-  setPartReorderHorizon, updatePartDetails,
+  setPartReorderHorizon, setPartOrderMonths, updatePartDetails,
   savePartSupplier, deletePartSupplier,
   savePartLink, deletePartLink,
   uploadPartFile, deletePartFile,
@@ -10,6 +10,7 @@ import {
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ReorderWindowHistory } from '@/components/reorder-window-history'
+import { OrderMonthsHistory } from '@/components/order-months-history'
 import { ActionButton } from '@/components/action-button'
 
 // The prediction sheet's own windows, so the reorder trigger is set in the same
@@ -265,6 +266,33 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
 
       <ReorderWindowHistory partId={id} />
 
+      {/* The second lever, and it belongs next to the first one. The window
+          above decides WHEN a part shouts; this decides how much to buy when it
+          does. Both are what get adjusted when stock goes wrong, so both carry
+          a reason and a history rather than quietly changing. */}
+      <div className="card">
+        <div className="table-head">
+          <h2>How much should be ordered?</h2>
+        </div>
+        <p className="muted">
+          Written in plain words rather than a fixed quantity, because the right amount
+          depends on the usage the buyer is looking at when they place the order.
+        </p>
+        <form className="stack" action={setPartOrderMonths}>
+          <input type="hidden" name="id" value={id} />
+          <label>How many months of usage to order
+            <textarea name="months_of_usage_to_order" rows={3}
+              defaultValue={details.months_of_usage_to_order || ''} />
+          </label>
+          <label>Why are you changing it? (saved to the history below)
+            <input name="order_months_note" />
+          </label>
+          <ActionButton busyLabel="Saving…" doneLabel="Saved">Save order amount</ActionButton>
+        </form>
+      </div>
+
+      <OrderMonthsHistory partId={id} />
+
       <div className="card">
         <h2>Edit part / ordering settings</h2>
 
@@ -284,9 +312,6 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             {/* Free text, not a number: "3 months" and "6 if they hold the
                 price" are both real answers, and this is a note for whoever
                 places the order rather than something that triggers. */}
-            <label>How many months of usage to order
-              <input name="months_of_usage_to_order" defaultValue={details.months_of_usage_to_order || ''} />
-            </label>
           </div>
           <div className="form-row">
             {/* Dropdowns, not checkboxes: an unticked checkbox sends nothing at
