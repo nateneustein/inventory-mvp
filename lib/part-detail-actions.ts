@@ -97,6 +97,7 @@ export async function updatePartDetails(formData: FormData) {
 
   const TEXT = [
     'category', 'unit', 'supplier_part_number', 'currency',
+    'months_of_usage_to_order',
     'size_dimensions', 'color_finish', 'material_spec', 'supplier_link',
     'supplier_order_instructions', 'packaging_notes', 'backup_supplier_notes', 'notes',
   ]
