@@ -73,6 +73,11 @@ export function FormGuard() {
     // buttons actually do.
     const dirty = new Set<HTMLFormElement>()
 
+    function clearAllDirty() {
+      dirty.clear()
+      document.querySelectorAll('form.is-dirty').forEach((f) => f.classList.remove('is-dirty'))
+    }
+
     // Search and filter bars post to a URL and lose nothing when you leave.
     // Only forms that run a server action hold real unsaved work.
     function holdsWork(form: HTMLFormElement) {
@@ -86,14 +91,16 @@ export function FormGuard() {
       if (['hidden', 'search', 'submit', 'button', 'reset'].includes(target.type)) return
       const form = target.closest('form') as HTMLFormElement | null
       if (form && holdsWork(form)) dirty.add(form)
+      form.classList.add('is-dirty')
     }
 
-    function onReset(event: Event) { dirty.delete(event.target as HTMLFormElement) }
+    function onReset(event: Event) { dirty.delete(event.target as HTMLFormElement)
+      ;(event.target as HTMLFormElement).classList.remove('is-dirty') }
 
     // A form that has been re-rendered away took its unsaved edits with it.
     function unsavedWork() {
       for (const form of dirty) if (document.body.contains(form)) return true
-      dirty.clear()
+      clearAllDirty()
       return false
     }
 
@@ -121,7 +128,7 @@ export function FormGuard() {
       if (!href || href.startsWith('#')) return
       if (link.target === '_blank' || link.hasAttribute('download')) return
       if (!unsavedWork()) return
-      if (window.confirm(LEAVE)) dirty.clear()
+      if (window.confirm(LEAVE)) clearAllDirty()
       else { event.preventDefault(); event.stopImmediatePropagation() }
     }
 
@@ -135,6 +142,21 @@ export function FormGuard() {
         || form.querySelector('button[type="submit"], button:not([type])')
       if (!submitter) return
 
+      // Each save button only saves ITS OWN form. Somebody who types in two
+      // places and presses one button used to lose the other silently - and
+      // the browser refilling text boxes on a refresh made it look saved.
+      const elsewhere = [...dirty].filter((f) => f !== form && document.body.contains(f))
+      if (elsewhere.length) {
+        const carryOn = window.confirm(
+          'Only this section is being saved.\n\n' +
+          'You have typed something in ' + elsewhere.length + ' other place' +
+          (elsewhere.length > 1 ? 's' : '') + ' on this page that has its own save button. ' +
+          'That typing will NOT be saved by this button and will be lost.\n\n' +
+          'Save just this section anyway?'
+        )
+        if (!carryOn) { event.preventDefault(); event.stopImmediatePropagation(); return }
+      }
+
       const message = messageFor(submitter, form)
       if (message && !window.confirm(message)) {
         event.preventDefault()
@@ -147,7 +169,7 @@ export function FormGuard() {
       // "Window saved" could survive the re-render and sit there until the page
       // was reloaded. Styling and disabling are safe; text is left to React.
       // Saved, so nothing is hanging any more.
-      dirty.clear()
+      clearAllDirty()
 
       const button = submitter as HTMLButtonElement
       if (button.disabled) return
@@ -171,7 +193,8 @@ export function FormGuard() {
       event.preventDefault()
       event.stopPropagation()
       const form = button.closest('form') as HTMLFormElement | null
-      if (form) { form.reset(); dirty.delete(form) }
+      if (form) { form.reset(); dirty.delete(form)
+      form.classList.remove('is-dirty') }
       const panel = (button.closest('details')
         || button.closest('.card')?.querySelector(':scope > .add-panel')) as HTMLDetailsElement | null
       if (panel) panel.open = false
