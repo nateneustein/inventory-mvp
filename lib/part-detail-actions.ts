@@ -51,10 +51,13 @@ export async function setPartReorderHorizon(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
   const days = num(formData, 'reorder_horizon_days', 90)
-  const { error } = await supabase
-    .from('parts')
-    .update({ reorder_horizon_days: days, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  // Goes through an RPC so the change and the reason it was made land in the
+  // history table in one transaction.
+  const { error } = await supabase.rpc('set_part_reorder_horizon', {
+    p_part_id: id,
+    p_days: days,
+    p_note: value(formData, 'reorder_note') || null,
+  })
   if (error) throw new Error(error.message)
   revalidatePart(id)
 }
