@@ -27,22 +27,22 @@ export default async function ProductsPage({ searchParams }: { searchParams?: Pr
 
       <div className="grid two">
         <div className="card">
-          <h2>Add product</h2>
+          <details className="add-panel"><summary className="button">+ Add product</summary></details>
           <form className="stack" action={createProduct}>
             <label>Product name<input name="name" required placeholder="Custom Night Light" /></label>
             <label>Product SKU, optional<input name="sku" placeholder="NL" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Add product</button>
+            <button type="submit">Add product</button><button type="button" className="button secondary cancel-btn">Cancel</button>
           </form>
         </div>
         <div className="card">
-          <h2>Add variation</h2>
+          <details className="add-panel"><summary className="button">+ Add variation</summary></details>
           <form className="stack" action={createVariation}>
             <label>Product<select name="product_id" required><option value="">Choose product</option>{(allProducts || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
             <label>Variation name<input name="variation_name" required placeholder="Pink Holder + Tag" /></label>
             <label>Internal SKU<input name="internal_sku" required placeholder="PH-PINK-HOLDER-TAG" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Add variation</button>
+            <button type="submit">Add variation</button><button type="button" className="button secondary cancel-btn">Cancel</button>
           </form>
         </div>
       </div>
