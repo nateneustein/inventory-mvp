@@ -52,7 +52,7 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
             <label>Approved by<input name="approved_by" placeholder="Nathan" /></label>
           </div>
           <label>Notes<textarea name="notes" /></label>
-          <button type="submit">Create replacement and consume BOM parts</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+          <div className="action-row"><button type="submit">Create replacement and consume BOM parts</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
         </form>
       </div>
 
