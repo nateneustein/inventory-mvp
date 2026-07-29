@@ -60,7 +60,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
             </div>
             <label>Tracking number<input name="tracking_number" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Create PO</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><button type="submit">Create PO</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </div>
 
@@ -78,7 +78,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
               <label>Unit cost<input name="unit_cost" type="number" step="0.0001" defaultValue="0" /></label>
             </div>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Add PO item</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><button type="submit">Add PO item</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </div>
       </div>
