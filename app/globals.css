@@ -370,6 +370,12 @@ tbody tr:hover .action-row, tbody .action-row:focus-within { opacity: 1; }
 .compact-rows .sku-cell { color: var(--ink-2); font-size: .92em; max-width: 260px; }
 .name-cell { font-weight: 600; color: var(--ink); }
 .name-cell .sku-under { display: block; font-weight: 400; font-size: .85em; color: var(--muted); }
+
+/* The thing you actually recognise a row by comes first and biggest; the
+   product family and the SKU sit under it as lookup detail. */
+.row-name { display: block; font-weight: 650; font-size: 1.05em; color: var(--ink); line-height: 1.25; }
+.row-name + .sku-under { display: block; font-weight: 400; font-size: .85em; color: var(--muted); }
+.product-col .row-name { white-space: normal; }
 th .sku-under { display: block; font-weight: 400; font-size: .85em; color: var(--muted); text-transform: none; letter-spacing: 0; }
 /* The action column pins to the right edge, so it is still reachable on a wide
    table that has to scroll sideways. */
