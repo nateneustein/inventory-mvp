@@ -529,3 +529,51 @@ button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events:
 .compact-rows td.target-cell { max-width: 120px; overflow: visible; }
 /* Report sheets: keep the week column readable and the part names tight. */
 .usage-grid th .sku-under { display: block; font-weight: 400; font-size: .8em; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+
+/* ---------------------------------------------- part page: quick actions --
+   Report zero / report damage / adjust stock used to live in a card two
+   thirds of the way down the part page. They are the three things someone
+   standing at the shelf actually does, so they sit at the top now and each
+   opens its own form when clicked. */
+.quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; align-items: flex-start; }
+.quick-action { min-width: 0; }
+.quick-action > summary { list-style: none; cursor: pointer; display: inline-block; }
+.quick-action > summary::-webkit-details-marker { display: none; }
+.quick-action > summary::marker { content: ''; }
+.quick-action > form { margin-top: 8px; width: min(420px, 92vw); }
+.quick-action[open] > summary { box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ------------------------------------------------ part page: suppliers -- */
+.supplier-row {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px; margin-bottom: 12px; background: var(--card-sunken);
+}
+.supplier-row + .supplier-row { margin-top: 0; }
+.supplier-contact { display: flex; flex-direction: column; gap: 2px; justify-content: flex-end; padding-bottom: 4px; }
+.supplier-contact .row-name { font-weight: 600; }
+.supplier-remove { margin-top: 8px; }
+
+/* ------------------------------- part page: small photo and link blocks --
+   Deliberately short to start with. They grow as things are added, which is
+   the whole point of the plus buttons. */
+.mini-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 14px; }
+.mini-section { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px; }
+.mini-section h3 { margin: 0; }
+.mini-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mini-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mini-list li .push-right { margin-left: auto; }
+.mini-add { display: inline-block; }
+.mini-add > summary { list-style: none; cursor: pointer; display: inline-block; }
+.mini-add > summary::-webkit-details-marker { display: none; }
+.mini-add > summary::marker { content: ''; }
+.mini-add > form { margin-top: 8px; width: min(420px, 92vw); }
+.action-row.wrap { flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+
+/* The "add a new supplier" row inside a picker menu. Reads as an action, not
+   as one of the things you can choose. */
+.search-select-action {
+  padding: 7px 10px; cursor: pointer; font-weight: 600; color: var(--accent);
+  border-bottom: 1px solid var(--border-soft);
+}
+.search-select-action:hover { background: var(--accent-soft); }
