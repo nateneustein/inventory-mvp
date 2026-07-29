@@ -21,7 +21,7 @@ export default async function SlackPage() {
             <label className="small"><input name="notify_overdue_shipments" type="checkbox" defaultChecked style={{ width: 'auto' }} /> Overdue shipment alerts</label>
             <label className="small"><input name="notify_zero_stock" type="checkbox" defaultChecked style={{ width: 'auto' }} /> Zero stock alerts</label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Save Slack rule</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><button type="submit">Save Slack rule</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </div>
         <div className="card">
