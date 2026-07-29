@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { acknowledgeNotification } from '@/lib/actions'
 import { num, date } from '@/lib/format'
+import { CoverCell } from '@/components/cover-cell'
 
 function statusBadge(status: string) {
   const cls = status === 'out' ? 'danger' : status === 'ok' ? 'ok' : 'warning'
@@ -101,11 +102,11 @@ export default async function DashboardPage() {
         <div className="table-head"><h2>Needs attention</h2><div className="table-tools">{ignoredCount > 0 && <Link className="badge ignored-alerts" href="/parts?alerts=off" title="Parts you have told the app not to alert on">{ignoredCount} ignored</Link>}<Link className="button small-btn secondary" href="/predictions/basic">Prediction sheet</Link></div></div>
         <div className="wide-table compact-rows">
           <table>
-            <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Reorder point</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
+            <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Incoming</th><th>Projected</th><th>Cover / risk</th><th>Status</th><th className="actions-cell">Actions</th></tr></thead>
             <tbody>
               {alerting.filter((r: any) => r.stock_status !== 'ok').map((r: any) => (
                 <tr key={r.part_id}>
-                  <td title={r.name}><Link className="link" href={`/parts/${r.part_id}`}>{r.name}</Link></td><td className="sku-cell" title={r.sku}>{r.sku}</td><td>{num(r.on_hand)}</td><td>{num(r.incoming_qty)}</td><td>{num(r.projected_qty)}</td><td>{num(r.reorder_point)}</td><td>{statusBadge(r.stock_status)}</td>
+                  <td title={r.name}><Link className="link" href={`/parts/${r.part_id}`}>{r.name}</Link></td><td className="sku-cell" title={r.sku}>{r.sku}</td><td>{num(r.on_hand)}</td><td>{num(r.incoming_qty)}</td><td>{num(r.projected_qty)}</td><CoverCell row={r} /><td>{statusBadge(r.stock_status)}</td>
                   <td className="actions-cell"><div className="action-row"><Link className="button small-btn secondary" href={`/parts/${r.part_id}`}>Open</Link><Link className="button small-btn" href={`/predictions/advanced?part_id=${r.part_id}`}>Calculate</Link></div></td>
                 </tr>
               ))}
