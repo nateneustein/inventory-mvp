@@ -115,7 +115,7 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
                           ? 'Changing the quantity will add a correction line so stock and this report stay in step.'
                           : 'This damage never came out of stock, so changing it will not move any inventory.'}
                       </p>
-                      <button type="submit">Save</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+                      <div className="action-row"><button type="submit">Save</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
                     </form>
                     <form action={deleteDamageReport}>
                       <input type="hidden" name="id" value={r.id} />
