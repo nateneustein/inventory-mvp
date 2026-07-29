@@ -58,7 +58,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <input type="hidden" name="id" value={id} />
             <input type="hidden" name="ignore_alerts" value={part.ignore_alerts ? 'false' : 'true'} />
             <ActionButton className="button secondary" confirm={part.ignore_alerts ? `Alert on ${part.name} again?` : `Stop alerts for ${part.name}?`} busyLabel="…" doneLabel="Saved">
-              {part.ignore_alerts ? 'Turn alerts back on' : 'Ignore stock alerts'}
+              {part.ignore_alerts ? 'Alerts are OFF — turn them ON' : 'Alerts are ON — turn them OFF'}
             </ActionButton>
           </form>
           <Link className="button" href={`/predictions/advanced?part_id=${id}`}>Calculate reorder</Link>
@@ -108,7 +108,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           <ActionButton busyLabel="Saving…" doneLabel="Window saved">Save reorder window</ActionButton>
         </form>
         <p className="muted small">
-          Reorder point, target stock, lead times and safety days are kept below as notes for
+          Target stock, lead times and safety days are kept below as notes for
           whoever places the order. None of them trigger anything.
         </p>
       </div>
@@ -134,7 +134,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <label>Safety days<input name="safety_stock_days" type="number" step="0.01" defaultValue={details.safety_stock_days || 0} /></label>
             </div>
             <div className="form-row">
-              <label>Reorder point<input name="reorder_point" type="number" step="0.01" defaultValue={details.reorder_point || 0} /></label>
+              <input type="hidden" name="reorder_point" value={details.reorder_point || 0} />
               <label>Target stock<input name="target_stock" type="number" step="0.01" defaultValue={details.target_stock || 0} /></label>
               <label>Default order qty<input name="default_order_quantity" type="number" step="0.01" defaultValue={details.default_order_quantity || 0} /></label>
             </div>
