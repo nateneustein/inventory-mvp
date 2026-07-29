@@ -2,7 +2,7 @@ import { updateManualUnitsSold, archiveManualUnitsSold, deleteManualUnitsSold } 
 import { num, date } from '@/lib/format'
 
 function variationLabel(v:any) {
-  return `${v.products?.name || ''} · ${v.variation_name || ''}`
+  return `${v.variation_name || ''} · ${v.products?.name || ''}`
 }
 
 export function ManualUsageRows({ rows, variations }: { rows: any[], variations: any[] }) {
@@ -12,7 +12,7 @@ export function ManualUsageRows({ rows, variations }: { rows: any[], variations:
         <tr key={r.id}>
           <td>{date(r.sale_date)}</td>
           <td>{date(r.week_start)}</td>
-          <td className="name-cell">{r.product_variations?.variation_name}<span className="sku-under">{r.product_variations?.internal_sku}</span></td>
+          <td className="name-cell">{r.product_variations?.variation_name}<span className="sku-under">{r.product_variations?.products?.name} · {r.product_variations?.internal_sku}</span></td>
           <td>{num(r.quantity)}</td>
           <td>{r.order_reference}</td>
           <td>{r.reason}</td>
