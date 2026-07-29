@@ -40,7 +40,7 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
                 placeholder="Type a product or variation"
                 options={(variations || []).map((v: any) => ({
                   value: v.id,
-                  label: `${v.products?.name || ''} · ${v.variation_name || ''}`,
+                  label: `${v.variation_name || ''} · ${v.products?.name || ''}`,
                   hint: v.internal_sku,
                 }))}
               />
