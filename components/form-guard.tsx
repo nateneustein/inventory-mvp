@@ -90,8 +90,10 @@ export function FormGuard() {
       if (!target || !target.closest) return
       if (['hidden', 'search', 'submit', 'button', 'reset'].includes(target.type)) return
       const form = target.closest('form') as HTMLFormElement | null
-      if (form && holdsWork(form)) dirty.add(form)
-      form.classList.add('is-dirty')
+      if (form && holdsWork(form)) {
+        dirty.add(form)
+        form.classList.add('is-dirty')
+      }
     }
 
     function onReset(event: Event) { dirty.delete(event.target as HTMLFormElement)
@@ -194,7 +196,7 @@ export function FormGuard() {
       event.stopPropagation()
       const form = button.closest('form') as HTMLFormElement | null
       if (form) { form.reset(); dirty.delete(form)
-      form.classList.remove('is-dirty') }
+      form?.classList.remove('is-dirty') }
       const panel = (button.closest('details')
         || button.closest('.card')?.querySelector(':scope > .add-panel')) as HTMLDetailsElement | null
       if (panel) panel.open = false
