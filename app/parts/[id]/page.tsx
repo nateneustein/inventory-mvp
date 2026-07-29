@@ -47,7 +47,7 @@ function SupplierRow({
   partId: string
   row: any | null
   supplier: any | null
-  supplierOptions: { value: string, label: string }[]
+  supplierOptions: { value: string, label: string, hint?: string }[]
   isPrimary: boolean
 }) {
   return (
@@ -140,7 +140,14 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
 
   if (!part || !details) return <div className="card"><h1>Part not found</h1><Link className="button" href="/parts">Back to parts</Link></div>
 
-  const supplierOptions = (suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))
+  // The contact is often how someone remembers a supplier ("the one Sruli
+  // handles"), so the picker searches and shows the contact name, email and
+  // phone alongside the company name rather than the company name alone.
+  const supplierOptions = (suppliers || []).map((s: any) => ({
+    value: s.id,
+    label: s.name,
+    hint: [s.contact_name, s.email, s.phone].filter(Boolean).join(' · ') || undefined,
+  }))
   const supplierById = new Map<string, any>((suppliers || []).map((s: any) => [s.id as string, s] as [string, any]))
   const supplierRows = partSuppliers || []
   const files = partFiles || []
