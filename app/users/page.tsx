@@ -84,7 +84,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
                               <option value="admin">Admin</option>
                             </select>
                           </label>
-                          <button type="submit">Save role</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+                          <div className="action-row"><button type="submit">Save role</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
                         </form>
                         <form action={setUserActive}>
                           <input type="hidden" name="id" value={p.id} />
