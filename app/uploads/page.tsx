@@ -13,10 +13,10 @@ export default async function UploadsPage() {
       <div className="page-head"><div><h1>Uploads / Connections</h1><p className="muted">CSV uploads now. Direct platform connections can be added later without changing the rest of the system.</p></div><Link className="button secondary" href="/imported-orders">Imported rows</Link></div>
 
       <div className="card highlight">
-        <h2>Upload order spreadsheet</h2>
+        <details className="add-panel"><summary className="button">+ Upload order spreadsheet</summary></details>
         <form className="stack" action={importOrderCsv} encType="multipart/form-data">
           <div className="form-row"><label>Source platform<select name="platform" required><option value="etsy">Etsy</option><option value="amazon">Amazon</option><option value="tiktok">TikTok Shop</option><option value="shopify">Shopify</option></select></label><label>Shop/account name<input name="account_name" placeholder="Blueview Gifts, Etsy Shop 2, Amazon, etc." /></label><label>CSV file<input name="file" type="file" accept=".csv,text/csv" required /></label></div>
-          <button type="submit">Import CSV</button>
+          <button type="submit">Import CSV</button><button type="button" className="button secondary cancel-btn">Cancel</button>
         </form>
       </div>
 
