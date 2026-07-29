@@ -55,7 +55,9 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
           <div className="form-row"><label>Part name<input name="name" required /></label><label>Internal SKU<input name="sku" required placeholder="LED-BASE-WHITE" /></label><label>Category<input name="category" placeholder="Acrylic, packaging, base, etc." /></label></div>
           <div className="form-row"><label>Supplier<SearchSelect name="supplier_id" placeholder="No supplier yet" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} /></label><label>Supplier part #<input name="supplier_part_number" /></label><label>Unit<input name="unit" defaultValue="each" /></label></div>
           <div className="form-row"><label>Lead time min days<input name="lead_time_days_min" type="number" step="0.01" defaultValue="0" /></label><label>Lead time max days<input name="lead_time_days_max" type="number" step="0.01" defaultValue="0" /></label><label>Safety stock days<input name="safety_stock_days" type="number" step="0.01" defaultValue="30" /></label></div>
-          <div className="form-row"><label>Reorder point<input name="reorder_point" type="number" step="0.01" defaultValue="0" /></label><label>Target stock<input name="target_stock" type="number" step="0.01" defaultValue="0" /></label><label>Default order qty<input name="default_order_quantity" type="number" step="0.01" defaultValue="0" /></label></div>
+          <div className="form-row">{/* Reorder point is no longer used - cover days drive the alerts now. Kept as a hidden zero so existing rows and the create action keep working. */}
+<input type="hidden" name="reorder_point" value="0" />
+<label>Target stock<input name="target_stock" type="number" step="0.01" defaultValue="0" /></label><label>Default order qty<input name="default_order_quantity" type="number" step="0.01" defaultValue="0" /></label></div>
           <label className="checkbox"><input name="critical" type="checkbox" />Critical part, production stops if this runs out</label>
           <label>Notes<textarea name="notes" /></label>
           <ActionButton busyLabel="Adding…" doneLabel="Part added">Add part</ActionButton>
