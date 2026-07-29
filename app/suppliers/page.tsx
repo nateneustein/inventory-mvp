@@ -25,7 +25,7 @@ export default async function SuppliersPage({ searchParams }: { searchParams?: P
           <div className="form-row"><label>Name<input name="name" required /></label><label>Contact name<input name="contact_name" /></label></div>
           <div className="form-row"><label>Email<input name="email" /></label><label>Phone<input name="phone" /></label><label>Website / supplier link<input name="website" /></label></div>
           <label>Notes<textarea name="notes" placeholder="MOQ, shipping rules, price notes, backup contact, prepared message, etc." /></label>
-          <button type="submit">Add supplier</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+          <div className="action-row"><button type="submit">Add supplier</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
         </form>
       </div>
 
