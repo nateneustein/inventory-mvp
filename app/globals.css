@@ -537,7 +537,14 @@ button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events:
    standing at the shelf actually does, so they sit at the top now and each
    opens its own form when clicked. */
 .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; align-items: flex-start; }
-.quick-action { min-width: 0; }
+.quick-action { min-width: 0; position: relative; }
+/* The open form floats over what is below it instead of widening its button,
+   which used to shove the other two buttons sideways as soon as one opened. */
+.quick-action[open] > form {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+  background: var(--card-bg); border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 28px rgba(16,24,40,.14);
+}
 .quick-action > summary { list-style: none; cursor: pointer; display: inline-block; }
 .quick-action > summary::-webkit-details-marker { display: none; }
 .quick-action > summary::marker { content: ''; }
