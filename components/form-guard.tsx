@@ -80,23 +80,18 @@ export function FormGuard() {
         return
       }
 
-      // Let the submit proceed, then mark the button busy. Deferred so the
-      // form data is already collected before the control is disabled.
+      // Mark the button busy WITHOUT rewriting its text. The previous version
+      // swapped innerHTML, which React knows nothing about — so a label like
+      // "Window saved" could survive the re-render and sit there until the page
+      // was reloaded. Styling and disabling are safe; text is left to React.
       const button = submitter as HTMLButtonElement
       if (button.disabled) return
-      const original = button.innerHTML
       setTimeout(() => {
-        button.disabled = true
+        if (!document.body.contains(button)) return
         button.classList.add('is-busy')
-        button.innerHTML = button.dataset.busyLabel || 'Working…'
-        // If the page never navigates (validation error, no-op action) put the
-        // button back rather than leaving it dead.
-        setTimeout(() => {
-          if (!document.body.contains(button)) return
-          button.disabled = false
-          button.classList.remove('is-busy')
-          button.innerHTML = original
-        }, 12000)
+        // Anything still sitting here after 4s has either finished quietly or
+        // failed; either way the button goes back to normal on its own.
+        setTimeout(() => button.classList.remove('is-busy'), 4000)
       }, 0)
     }
 
