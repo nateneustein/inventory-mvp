@@ -16,7 +16,7 @@ export default async function UploadsPage() {
         <details className="add-panel"><summary className="button">+ Upload order spreadsheet</summary></details>
         <form className="stack" action={importOrderCsv} encType="multipart/form-data">
           <div className="form-row"><label>Source platform<select name="platform" required><option value="etsy">Etsy</option><option value="amazon">Amazon</option><option value="tiktok">TikTok Shop</option><option value="shopify">Shopify</option></select></label><label>Shop/account name<input name="account_name" placeholder="Blueview Gifts, Etsy Shop 2, Amazon, etc." /></label><label>CSV file<input name="file" type="file" accept=".csv,text/csv" required /></label></div>
-          <button type="submit">Import CSV</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+          <div className="action-row"><button type="submit">Import CSV</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
         </form>
       </div>
 
