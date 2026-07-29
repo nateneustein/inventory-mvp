@@ -4,6 +4,7 @@ import { getPermissions } from '@/lib/permissions'
 import { createManualUnitsSold } from '@/lib/actions'
 import { ManualUsageRows } from '@/components/manual-usage-actions'
 import { date, num } from '@/lib/format'
+import { UsageReports } from '@/components/usage-reports'
 import { SearchSelect } from '@/components/search-select'
 
 export const dynamic = 'force-dynamic'
@@ -58,7 +59,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
 
   return (
     <>
-      <div className="page-head"><div><h1>Inventory Usage</h1><p className="muted">Sunday-to-Saturday usage timeline. This is the replacement for the weekly usage section in the spreadsheet.</p></div></div>
+      <div className="page-head"><div><h1>Usage &amp; History</h1><p className="muted">Sunday-to-Saturday usage timeline. This is the replacement for the weekly usage section in the spreadsheet.</p></div></div>
       {params.error && <div className="card danger-soft"><strong>Manual usage was not saved:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
       {weekError && <div className="card danger-soft"><strong>Usage timeline could not be loaded:</strong> {weekError.message}</div>}
@@ -116,6 +117,8 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
         <div className="table-head"><h2>Recent manual sold/produced entries</h2></div>
         <div className="wide-table"><table><thead><tr><th>Date</th><th>Week start</th><th>Variation</th><th>Qty</th><th>Reference</th><th>Reason</th><th>Notes</th><th>Actions</th></tr></thead><tbody><ManualUsageRows rows={manualRows || []} variations={variations || []} />{(manualRows || []).length === 0 && <tr><td colSpan={8}><div className="empty-state">No manual sold/produced entries yet.</div></td></tr>}</tbody></table></div>
       </div>
+
+      <UsageReports />
     </>
   )
 }
