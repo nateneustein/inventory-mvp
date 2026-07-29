@@ -8,6 +8,7 @@ import {
 } from '@/lib/part-detail-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
+import { ReorderWindowHistory } from '@/components/reorder-window-history'
 import { ActionButton } from '@/components/action-button'
 
 // The prediction sheet's own windows, so the reorder trigger is set in the same
@@ -112,6 +113,8 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           whoever places the order. None of them trigger anything.
         </p>
       </div>
+
+      <ReorderWindowHistory partId={id} />
 
       <div className="grid two">
         <div className="card">
