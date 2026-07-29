@@ -4,7 +4,7 @@ import { saveBomMatrix } from '@/lib/actions'
 import { num } from '@/lib/format'
 
 function variationLabel(v:any) {
-  return `${v.products?.name || ''} · ${v.variation_name || ''}`
+  return `${v.variation_name || ''} · ${v.products?.name || ''}`
 }
 
 function zoomValue(raw?: string) {
@@ -43,7 +43,7 @@ export default async function BomsPage({ searchParams }: { searchParams?: Promis
           <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} bom-grid`}><table>
             <thead><tr><th className="sticky-col product-col">Finished product / variation</th>{parts.map((p:any)=><th key={p.id} title={`${p.name} · ${p.sku}`}><strong>{p.name}</strong><span className="sku-under">{p.sku}</span></th>)}</tr></thead>
             <tbody>
-              {variations.map((v:any) => <tr key={v.id}><td className="sticky-col product-col"><Link className="link" href={`/products/${v.product_id}`}>{v.products?.name}</Link><br/><strong>{v.variation_name}</strong><br/><span className="muted small">{v.internal_sku}</span></td>{parts.map((p:any) => { const current = bomMap.get(`${v.id}__${p.id}`) || 0; return <td key={p.id}><input className="tiny-input" name={`bom__${v.id}__${p.id}`} type="number" step="0.0001" min="0" defaultValue={current ? num(current, 4) : ''} /></td> })}</tr>)}
+              {variations.map((v:any) => <tr key={v.id}><td className="sticky-col product-col"><strong className="row-name">{v.variation_name}</strong><span className="sku-under"><Link className="link" href={`/products/${v.product_id}`}>{v.products?.name}</Link> · {v.internal_sku}</span></td>{parts.map((p:any) => { const current = bomMap.get(`${v.id}__${p.id}`) || 0; return <td key={p.id}><input className="tiny-input" name={`bom__${v.id}__${p.id}`} type="number" step="0.0001" min="0" defaultValue={current ? num(current, 4) : ''} /></td> })}</tr>)}
               {variations.length === 0 && <tr><td colSpan={parts.length + 1}><div className="empty-state">No variations match this search.</div></td></tr>}
             </tbody>
           </table></div>
