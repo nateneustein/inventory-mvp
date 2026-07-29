@@ -31,9 +31,16 @@ function contextFor(button: HTMLElement): string {
 
   const row = button.closest('tr')
   if (row) {
-    const cell = row.querySelector('td')
-    const text = cell ? labelOf(cell as HTMLElement) : ''
-    if (text) return text.slice(0, 80)
+    // The first cell is often a date or a status chip, which says nothing about
+    // WHAT is being deleted. Prefer the most descriptive of the leading cells.
+    const cells = Array.from(row.querySelectorAll('td')).slice(0, 5)
+    const named = cells
+      .map((c) => labelOf(c as HTMLElement))
+      .filter((t) => t && !/^[\d\s/.,:%$+-]+$/.test(t)
+                       && !/^(new line|duplicate|voided|active|inactive|mapped|unmapped|ok|out)$/i.test(t))
+    if (named.length) return named.sort((x, y) => y.length - x.length)[0].slice(0, 90)
+    const first = cells[0] ? labelOf(cells[0] as HTMLElement) : ''
+    if (first) return first.slice(0, 90)
   }
 
   const heading = button.closest('.card')?.querySelector('h1, h2, h3')
