@@ -14,14 +14,14 @@ export default async function SlackPage() {
 
       <div className="grid">
         <div className="card">
-          <h2>Add notification rule</h2>
+          <details className="add-panel"><summary className="button">+ Add notification rule</summary></details>
           <form className="stack" action={saveSlackSettings}>
             <label>Slack channel name<input name="channel_name" placeholder="inventory-alerts" required /></label>
             <label className="small"><input name="notify_low_stock" type="checkbox" defaultChecked style={{ width: 'auto' }} /> Low stock alerts</label>
             <label className="small"><input name="notify_overdue_shipments" type="checkbox" defaultChecked style={{ width: 'auto' }} /> Overdue shipment alerts</label>
             <label className="small"><input name="notify_zero_stock" type="checkbox" defaultChecked style={{ width: 'auto' }} /> Zero stock alerts</label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Save Slack rule</button>
+            <button type="submit">Save Slack rule</button><button type="button" className="button secondary cancel-btn">Cancel</button>
           </form>
         </div>
         <div className="card">
