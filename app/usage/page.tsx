@@ -9,7 +9,7 @@ import { SearchSelect } from '@/components/search-select'
 export const dynamic = 'force-dynamic'
 
 function iso(d: Date) { return d.toISOString().slice(0, 10) }
-function variationLabel(v: any) { return `${v.products?.name || ''} · ${v.variation_name || ''}` }
+function variationLabel(v: any) { return `${v.variation_name || ''} · ${v.products?.name || ''}` }
 
 function zoomValue(raw?: string) {
   const allowed = ['50', '60', '70', '80', '90', '100', '110', '125', '150']
