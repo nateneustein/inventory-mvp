@@ -584,3 +584,23 @@ button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events:
   border-bottom: 1px solid var(--border-soft);
 }
 .search-select-action:hover { background: var(--accent-soft); }
+
+
+/* ------------------------------------------------- add forms on a button --
+   Every list page used to carry its whole "add a new one" form open above the
+   list, so the list itself started half a screen down. The form now sits
+   behind a button at the top of the card and opens IN PLACE rather than as a
+   floating panel, because these forms are tall and a popover would cover the
+   list you are adding to.
+
+   The card hides its own contents while the panel is shut, so a page only has
+   to swap its heading for the panel - no wrapper, no client component. */
+.add-panel > summary { list-style: none; cursor: pointer; display: inline-block; }
+.add-panel > summary::-webkit-details-marker { display: none; }
+.add-panel > summary::marker { content: ''; }
+.card:has(> .add-panel:not([open])) > *:not(.add-panel) { display: none; }
+.card:has(> .add-panel) { padding-bottom: 14px; }
+.card:has(> .add-panel[open]) > .add-panel { margin-bottom: 12px; }
+
+/* Cancel sits beside the save button in anything that opens. */
+button.cancel-btn { margin-left: 6px; }
