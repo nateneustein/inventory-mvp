@@ -604,3 +604,17 @@ button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events:
 
 /* Cancel sits beside the save button in anything that opens. */
 button.cancel-btn { margin-left: 6px; }
+
+
+/* --------------------------------------------------------- unsaved typing --
+   A page such as the part card is several small forms, and each save button
+   only saves its own. Once a section has been typed in, say so on its own save
+   button, so it is obvious which button still needs pressing. */
+form.is-dirty { position: relative; }
+form.is-dirty button[type="submit"]::after {
+  content: ' - not saved yet';
+  font-weight: 600;
+  opacity: .9;
+}
+form.is-dirty > label,
+form.is-dirty > .form-row > label { --unsaved: 1; }
