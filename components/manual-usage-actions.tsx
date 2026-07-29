@@ -33,7 +33,7 @@ export function ManualUsageRows({ rows, variations }: { rows: any[], variations:
                   <label>Order/reference<input name="order_reference" defaultValue={r.order_reference || ''}/></label>
                 </div>
                 <label>Notes<textarea name="notes" defaultValue={r.notes || ''}/></label>
-                <button type="submit">Save edit</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+                <div className="action-row"><button type="submit">Save edit</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
               </form>
               <div className="action-row">
                 <form action={archiveManualUnitsSold}><input type="hidden" name="id" value={r.id}/><input type="hidden" name="redirect_to" value="/usage"/><button className="small-btn ghost" type="submit">Archive</button></form>
