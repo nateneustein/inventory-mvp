@@ -60,7 +60,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
 <label>Target stock<input name="target_stock" type="number" step="0.01" defaultValue="0" /></label><label>Default order qty<input name="default_order_quantity" type="number" step="0.01" defaultValue="0" /></label></div>
           <label className="checkbox"><input name="critical" type="checkbox" />Critical part, production stops if this runs out</label>
           <label>Notes<textarea name="notes" /></label>
-          <ActionButton busyLabel="Adding…" doneLabel="Part added">Add part</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button>
+          <div className="action-row"><ActionButton busyLabel="Adding…" doneLabel="Part added">Add part</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
         </form>
       </div>
 
