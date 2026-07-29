@@ -29,7 +29,7 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
       <p className="muted">Replacements consume inventory like normal orders so stock does not quietly disappear.</p>
 
       <div className="card">
-        <h2>Add replacement</h2>
+        <details className="add-panel"><summary className="button">+ Add replacement</summary></details>
         <form className="stack" action={createReplacementOrder}>
           <div className="form-row">
             <label>Original order reference<input name="original_order_reference" placeholder="Etsy #12345" /></label>
@@ -52,7 +52,7 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
             <label>Approved by<input name="approved_by" placeholder="Nathan" /></label>
           </div>
           <label>Notes<textarea name="notes" /></label>
-          <button type="submit">Create replacement and consume BOM parts</button>
+          <button type="submit">Create replacement and consume BOM parts</button><button type="button" className="button secondary cancel-btn">Cancel</button>
         </form>
       </div>
 
