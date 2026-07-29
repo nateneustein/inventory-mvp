@@ -32,7 +32,7 @@ export default async function ProductsPage({ searchParams }: { searchParams?: Pr
             <label>Product name<input name="name" required placeholder="Custom Night Light" /></label>
             <label>Product SKU, optional<input name="sku" placeholder="NL" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Add product</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><button type="submit">Add product</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </div>
         <div className="card">
@@ -42,7 +42,7 @@ export default async function ProductsPage({ searchParams }: { searchParams?: Pr
             <label>Variation name<input name="variation_name" required placeholder="Pink Holder + Tag" /></label>
             <label>Internal SKU<input name="internal_sku" required placeholder="PH-PINK-HOLDER-TAG" /></label>
             <label>Notes<textarea name="notes" /></label>
-            <button type="submit">Add variation</button><button type="button" className="button secondary cancel-btn">Cancel</button>
+            <div className="action-row"><button type="submit">Add variation</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </div>
       </div>
