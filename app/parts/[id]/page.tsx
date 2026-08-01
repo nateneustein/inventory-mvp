@@ -12,6 +12,7 @@ import { SearchSelect } from '@/components/search-select'
 import { ReorderWindowHistory } from '@/components/reorder-window-history'
 import { OrderMonthsHistory } from '@/components/order-months-history'
 import { ActionButton } from '@/components/action-button'
+import { PhotoInput } from '@/components/photo-input'
 
 // The prediction sheet's own windows, so the reorder trigger is set in the same
 // language the sheet speaks rather than in raw days.
@@ -444,7 +445,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               <form className="stack card flat" action={uploadPartFile}>
                 <input type="hidden" name="part_id" value={id} />
                 <input type="hidden" name="kind" value="reference_photo" />
-                <label>File<input name="file" type="file" required /></label>
+                <label>File<PhotoInput name="file" required /></label>
                 <label>Caption<input name="caption" placeholder="Colour reference — match this exactly" /></label>
                 <label className="checkbox"><input name="send_to_supplier" type="checkbox" defaultChecked />Send this one to the supplier</label>
                 <div className="action-row"><ActionButton className="small-btn" busyLabel="Uploading…" doneLabel="Uploaded">Upload</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
