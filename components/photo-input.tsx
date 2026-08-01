@@ -17,11 +17,31 @@ import { useState } from 'react'
  * through untouched.
  */
 
-const MAX_EDGE = 1600
-const QUALITY = 0.82
+// 2400px on the long edge at high JPEG quality. A phone photo is 4000px, so
+// this does lose some resolution - but it still prints at roughly 8 inches
+// wide and holds up to zooming, while landing comfortably inside the 4 MB the
+// server will accept. Raise these if a part ever needs finer detail than that.
+const MAX_EDGE = 2400
+const QUALITY = 0.9
+
+// Below this, a photo is already small enough to send untouched, and
+// re-encoding it would throw away quality for nothing.
+const LEAVE_ALONE_BYTES = 3 * 1024 * 1024
 
 function kb(bytes: number) {
   return Math.round(bytes / 1024) + ' KB'
+}
+
+/** True when the picture is already within the size we would resize it to. */
+async function fitsAsIs(file: File) {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const fits = Math.max(bitmap.width, bitmap.height) <= MAX_EDGE
+    bitmap.close()
+    return fits
+  } catch {
+    return false
+  }
 }
 
 async function shrink(file: File): Promise<File | null> {
@@ -61,6 +81,11 @@ export function PhotoInput({ name = 'file', required = false }: { name?: string,
 
     setNote('Preparing the photo...')
     try {
+      // Already a sensible size? Send exactly what was chosen, untouched.
+      if (file.size <= LEAVE_ALONE_BYTES && await fitsAsIs(file)) {
+        setNote(kb(file.size) + ' - sent as it is')
+        return
+      }
       const smaller = await shrink(file)
       if (smaller && smaller.size < file.size) {
         const transfer = new DataTransfer()
