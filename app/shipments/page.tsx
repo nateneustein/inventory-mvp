@@ -148,11 +148,17 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
                 </div>
 
                 <p className="muted small">
-                  {(po.supplier_names || []).length > 1
-                    ? (po.supplier_names || []).join(' + ')
-                    : po.supplier_name}
-                  {po.supplier_contact && <> · {po.supplier_contact}</>}
-                  {po.supplier_phone && <> · {po.supplier_phone}</>}
+                  {(po.supplier_names || []).length > 1 ? (
+                    // A consolidated container is from several factories, so one
+                    // contact name beside the list would be misleading.
+                    (po.supplier_names || []).join(' + ')
+                  ) : (
+                    <>
+                      {po.supplier_name}
+                      {po.supplier_contact && <> · {po.supplier_contact}</>}
+                      {po.supplier_phone && <> · {po.supplier_phone}</>}
+                    </>
+                  )}
                 </p>
 
                 <p className="shipment-headline">{headline(po)}</p>
