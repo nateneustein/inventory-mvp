@@ -5,6 +5,7 @@ import { updatePurchaseOrder, deletePurchaseOrder, addPurchaseOrderItem, updateP
 import { date, num, supplierHint } from '@/lib/format'
 import { ActionButton } from '@/components/action-button'
 import { SearchSelect } from '@/components/search-select'
+import { ShipmentTimeline } from '@/components/shipment-timeline'
 
 export default async function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,7 +21,8 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   return (
     <>
       <div className="page-head"><div><h1>{po.po_number}</h1><p className="muted">Shipment / purchase order detail.</p></div><div className="action-row"><Link className="button secondary" href="/shipments">Back</Link><Link className="button" href="/receiving">Receiving screen</Link></div></div>
-      <div className="grid two">
+      <ShipmentTimeline po={po} />
+<div className="grid two">
         <div className="card"><h2>Edit shipment</h2><form className="stack" action={updatePurchaseOrder}><input type="hidden" name="id" value={id}/><label>PO number<input name="po_number" defaultValue={po.po_number || ''} required /></label><label>Supplier<SearchSelect name="supplier_id" defaultValue={po.supplier_id} placeholder="Type a supplier" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name, hint: supplierHint(s) }))} /></label><div className="form-row"><label>Status<select name="status" defaultValue={po.status}><option value="draft">Draft</option><option value="ordered">Ordered</option><option value="in_production">In production</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="receiving_check">Receiving check</option><option value="partially_received">Partially received</option><option value="received">Received</option><option value="closed">Closed</option><option value="cancelled">Cancelled</option></select></label><label>Order date<input name="order_date" type="date" defaultValue={po.order_date || ''}/></label><label>Expected date<input name="expected_date" type="date" defaultValue={po.expected_date || ''}/></label></div><label>Tracking<input name="tracking_number" defaultValue={po.tracking_number || ''}/></label><label>Notes<textarea name="notes" defaultValue={po.notes || ''}/></label><button type="submit">Save shipment</button></form><form action={deletePurchaseOrder}><input type="hidden" name="id" value={id}/><button className="danger" type="submit">Delete shipment</button></form></div>
         <div className="card"><details className="add-panel"><summary className="button">+ Add item</summary></details><form className="stack" action={addPurchaseOrderItem}><input type="hidden" name="purchase_order_id" value={id}/><label>Part<SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} /></label><div className="form-row"><label>Qty ordered<input name="quantity_ordered" type="number" step="0.01" required/></label><label>Unit cost<input name="unit_cost" type="number" step="0.01" defaultValue="0"/></label></div><label>Notes<textarea name="notes"/></label><div className="action-row"><button type="submit">Add item</button><button type="button" className="button secondary cancel-btn">Cancel</button></div></form></div>
       </div>
