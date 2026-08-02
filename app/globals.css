@@ -648,3 +648,10 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 /* Updates typed in by a person are tinted, so at a glance you can tell what
    came from the carrier and what came from the supplier. */
 .manual-update td { background: var(--accent-soft); }
+
+/* What is actually in the box. The quantity leads because that is what you
+   compare against what you have on the shelf. */
+.shipment-items { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border-soft); }
+.shipment-items li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+.shipment-item-qty { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 42px; text-align: right; }
+.shipment-item-name { overflow-wrap: anywhere; }
