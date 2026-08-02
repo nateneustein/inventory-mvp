@@ -1,26 +1,58 @@
 import { randomUUID } from 'crypto'
+import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
-import { date, num } from '@/lib/format'
+import { receiveShipmentLines } from '@/lib/shipment-actions'
+import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
+import { ActionButton } from '@/components/action-button'
 import { rowMatches } from '@/lib/search'
 
-export default async function ReceivingPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+const FINISHED = ['received', 'closed', 'cancelled']
+
+export default async function ReceivingPage({ searchParams }: { searchParams?: Promise<{ q?: string, po?: string, error?: string, notice?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
+  const poId = params.po || ''
   const { supabase } = await requireUser()
-  // No .limit(): the Data API caps the response anyway, and an arbitrary 200
-  // meant that past 200 open lines the warehouse simply could not select the
-  // item it was holding. Ordered so the oldest expected arrivals come first.
+
+  // Every shipment that could still have something to receive. Oldest expected
+  // arrival first, because that is the one most likely sitting on the dock.
+  const { data: board } = await supabase
+    .from('shipment_dashboard')
+    .select('*')
+    .order('expected_date', { ascending: true, nullsFirst: false })
+
+  const shipments = (board || []).filter((po: any) => !FINISHED.includes(po.status))
+  const chosen = (board || []).find((po: any) => po.id === poId) || null
+
+  const { data: lineRows } = poId
+    ? await supabase
+        .from('purchase_order_items')
+        .select('*, parts(name, sku)')
+        .eq('purchase_order_id', poId)
+        .order('created_at')
+    : { data: [] as any[] }
+
+  const lines = (lineRows || []).map((line: any) => ({
+    ...line,
+    outstanding: Math.max(Number(line.quantity_ordered || 0) - Number(line.quantity_accounted || 0), 0),
+  }))
+  const openLines = lines.filter((line: any) => line.outstanding > 0)
+
+  // No .limit() on the fallback picker: the Data API caps the response anyway,
+  // and an arbitrary 200 meant that past 200 open lines the warehouse simply
+  // could not select the item it was holding.
   const { data: openItems } = await supabase
     .from('open_po_items')
     .select('*')
     .order('expected_date', { ascending: true, nullsFirst: false })
 
-  // One-shot token: if Confirm is double-clicked or the form is resubmitted via
-  // browser-back, the database replays the original receipt instead of adding
-  // the shipment to stock a second time.
+  // One-shot token. Every line receipt derives its own key from this, so a
+  // double-click or a browser-back resubmit replays the original receipt
+  // instead of adding the delivery to stock a second time.
   const idempotencyKey = randomUUID()
+
   const { data: events } = await supabase
     .from('receiving_events')
     .select('*, parts(name, sku), purchase_orders(po_number)')
@@ -32,33 +64,131 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
 
   return (
     <>
-      <h1>Receiving Check</h1>
-      <p className="muted">Delivered shipments become real inventory only after the warehouse confirms the quantity received.</p>
+      <div className="page-head">
+        <div>
+          <h1>Receiving Check</h1>
+          <p className="muted">Delivered shipments become real inventory only after the quantity is confirmed here.</p>
+        </div>
+        <Link className="button secondary" href="/shipments">Shipments</Link>
+      </div>
+
+      {params.error && <div className="card danger-soft"><strong>Nothing was received:</strong> {params.error}</div>}
+      {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
 
       <div className="card">
-        <h2>Receive shipment item</h2>
-        <form className="stack" action={receivePurchaseOrderItem}>
-          <input type="hidden" name="idempotency_key" value={idempotencyKey} />
-          <label>Open PO item
+        <h2>Which shipment arrived?</h2>
+        <form className="filter-bar" action="/receiving">
+          <label>Shipment
             <SearchSelect
-              name="purchase_order_item_id"
+              name="po"
+              defaultValue={poId}
               required
-              placeholder="Type a PO number, supplier or part"
-              options={(openItems || []).map((i: any) => ({
-                value: i.purchase_order_item_id,
-                label: `${i.po_number} - ${i.supplier_name} - ${i.part_sku} ${i.part_name}`,
-                hint: `remaining ${num(i.remaining_qty)} · expected ${date(i.expected_date)}`,
+              placeholder="Type a shipment, supplier or contact name"
+              options={shipments.map((po: any) => ({
+                value: po.id,
+                label: po.po_number,
+                hint: [po.supplier_name, po.supplier_contact, po.expected_date ? 'expected ' + date(po.expected_date) : null].filter(Boolean).join(' · '),
               }))}
             />
           </label>
-          <div className="form-row">
-            <label>Qty received usable<input name="quantity_received" type="number" step="0.01" defaultValue="0" /></label>
-            <label>Qty damaged from supplier<input name="quantity_damaged" type="number" step="0.01" defaultValue="0" /></label>
-            <label>Qty missing / short<input name="quantity_missing" type="number" step="0.01" defaultValue="0" /></label>
-          </div>
-          <label>Notes<textarea name="notes" placeholder="Example: Box 3 had 5 broken bases. Supplier shipped 492 instead of 500." /></label>
-          <button type="submit">Confirm receiving</button>
+          <button type="submit">Show its parts</button>
+          {poId && <Link className="button ghost" href="/receiving">Clear</Link>}
         </form>
+      </div>
+
+      {chosen && (
+        <div className="card table-card">
+          <div className="table-head">
+            <div>
+              <h2>{chosen.po_number}</h2>
+              <p className="muted small">
+                {chosen.supplier_name}
+                {chosen.supplier_contact && <> · {chosen.supplier_contact}</>}
+                {chosen.expected_date && <> · expected {date(chosen.expected_date)}</>}
+              </p>
+            </div>
+            <Link className="button small-btn secondary" href={'/shipments/' + chosen.id}>Open shipment</Link>
+          </div>
+
+          {openLines.length === 0 ? (
+            <div className="empty-state">Every part on this shipment has already been accounted for.</div>
+          ) : (
+            <form action={receiveShipmentLines}>
+              <input type="hidden" name="purchase_order_id" value={chosen.id} />
+              <input type="hidden" name="idempotency_key" value={idempotencyKey} />
+
+              <p className="muted small">
+                Fill in only the parts that turned up. Anything left at zero is treated as still
+                outstanding. Damaged units are never added to stock - they are recorded against the
+                supplier and close out the ordered quantity.
+              </p>
+
+              <div className="wide-table"><table>
+                <thead><tr>
+                  <th>Part</th><th>Ordered</th><th>Already in</th><th>Still to come</th>
+                  <th>Good now</th><th>Damaged</th><th>Missing / short</th>
+                </tr></thead>
+                <tbody>
+                  {openLines.map((line: any) => (
+                    <tr key={line.id}>
+                      <td className="name-cell">
+                        <input type="hidden" name="item_id" value={line.id} />
+                        <Link className="link" href={'/parts/' + line.part_id}>{line.parts?.name}</Link>
+                        <span className="sku-under">{line.parts?.sku}</span>
+                      </td>
+                      <td>{num(line.quantity_ordered)}</td>
+                      <td>{num(line.quantity_received)}</td>
+                      <td><strong>{num(line.outstanding)}</strong></td>
+                      <td><input className="tiny-input" name="quantity_received" type="number" step="0.01" min="0" max={line.outstanding} defaultValue="0" /></td>
+                      <td><input className="tiny-input" name="quantity_damaged" type="number" step="0.01" min="0" max={line.outstanding} defaultValue="0" /></td>
+                      <td><input className="tiny-input" name="quantity_missing" type="number" step="0.01" min="0" max={line.outstanding} defaultValue="0" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table></div>
+
+              <label>Notes for this delivery<textarea name="notes" placeholder="Box 3 had 5 broken sheets. Supplier shipped 492 instead of 500." /></label>
+              <div className="action-row">
+                <ActionButton confirm={'Add this delivery of ' + chosen.po_number + ' to stock?'} busyLabel="Receiving…" doneLabel="Received">Confirm receiving</ActionButton>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {!chosen && (
+        <div className="card"><div className="empty-state">Pick a shipment above and its parts come up here with what is still outstanding.</div></div>
+      )}
+
+      <div className="card">
+        <details className="mini-add">
+          <summary className="button small-btn secondary">+ Receive a single line instead</summary>
+          <form className="stack card flat" action={receivePurchaseOrderItem}>
+            <input type="hidden" name="idempotency_key" value={idempotencyKey + ':single'} />
+            <label>Open PO item
+              <SearchSelect
+                name="purchase_order_item_id"
+                required
+                placeholder="Type a PO number, supplier or part"
+                options={(openItems || []).map((i: any) => ({
+                  value: i.purchase_order_item_id,
+                  label: i.part_name,
+                  hint: [i.po_number, i.supplier_name, i.part_sku, 'remaining ' + num(i.remaining_qty)].filter(Boolean).join(' · '),
+                }))}
+              />
+            </label>
+            <div className="form-row">
+              <label>Qty received usable<input name="quantity_received" type="number" step="0.01" defaultValue="0" /></label>
+              <label>Qty damaged from supplier<input name="quantity_damaged" type="number" step="0.01" defaultValue="0" /></label>
+              <label>Qty missing / short<input name="quantity_missing" type="number" step="0.01" defaultValue="0" /></label>
+            </div>
+            <label>Notes<textarea name="notes" /></label>
+            <div className="action-row">
+              <button type="submit">Confirm receiving</button>
+              <button type="button" className="button secondary cancel-btn">Cancel</button>
+            </div>
+          </form>
+        </details>
       </div>
 
       <div className="card table-card">
@@ -72,17 +202,23 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
             <span className="badge info">{shown.length} shown</span>
           </div>
         </div>
-        <table>
+        <div className="wide-table"><table>
           <thead><tr><th>Date</th><th>PO</th><th>Part</th><th>Received</th><th>Damaged</th><th>Missing</th><th>Notes</th></tr></thead>
           <tbody>
             {shown.map((e: any) => (
               <tr key={e.id}>
-                <td>{date(e.created_at)}</td><td>{e.purchase_orders?.po_number}</td><td>{e.parts?.sku} - {e.parts?.name}</td><td>{num(e.quantity_received)}</td><td>{num(e.quantity_damaged)}</td><td>{num(e.quantity_missing)}</td><td>{e.notes}</td>
+                <td>{date(e.created_at)}</td>
+                <td>{e.purchase_orders?.po_number}</td>
+                <td className="name-cell">{e.parts?.name}<span className="sku-under">{e.parts?.sku}</span></td>
+                <td>{num(e.quantity_received)}</td>
+                <td>{num(e.quantity_damaged)}</td>
+                <td>{num(e.quantity_missing)}</td>
+                <td>{e.notes}</td>
               </tr>
             ))}
             {shown.length === 0 && <tr><td colSpan={7}><div className="empty-state">{q ? 'No receiving events match that search.' : 'No receiving events yet.'}</div></td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   )
