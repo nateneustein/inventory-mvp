@@ -100,12 +100,13 @@ function toGrid(rows: any[], keyField: string, valueField: string) {
 export async function UsageReports() {
   const { supabase } = await requireUser()
 
-  const [parts, variations, purchases, produced, stock, monthly, quarterly] = await Promise.all([
+  const [parts, variations, purchases, produced, stock, actualUsage, monthly, quarterly] = await Promise.all([
     supabase.from('parts').select('id, name, sku, sort_order').order('sort_order', { ascending: true, nullsFirst: false }).order('name'),
     supabase.from('product_variations').select('id, variation_name, internal_sku').order('variation_name'),
     supabase.from('weekly_purchases_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
     supabase.from('weekly_produced_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
     supabase.from('weekly_stock_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
+    supabase.from('weekly_actual_usage_grid').select('*').order('week_start', { ascending: false }).limit(WEEKS_SHOWN),
     supabase.from('part_usage_monthly').select('part_id, period_start, used_qty').not('used_qty', 'is', null).order('period_start', { ascending: false }).limit(3000),
     supabase.from('part_usage_quarterly').select('part_id, period_start, used_qty').order('period_start', { ascending: false }).limit(3000),
   ])
@@ -122,15 +123,17 @@ export async function UsageReports() {
       <div className="card">
         <h2>Reports</h2>
         <p className="muted">
-          Each report below reads the same way as the weekly usage timeline above: newest week at
-          the top, one column per part. Showing the last {WEEKS_SHOWN} weeks. Columns with nothing
-          in them are hidden so the sheets stay readable.
+          Each report below reads the same way as the demand timeline above: newest week at the top,
+          one column per part. Showing the last {WEEKS_SHOWN} weeks. Columns with nothing in them
+          are hidden so the sheets stay readable. Between them these reports account for every
+          stock movement there has ever been - anything that is not usage lands in purchases and
+          adjustments, so nothing can quietly go missing from the backlog.
         </p>
       </div>
 
       <SheetGrid
-        title="Purchases received — by week"
-        note="Stock booked in from suppliers. A negative figure is a correction that was imported as a purchase."
+        title="Purchases & stock adjustments — by week"
+        note="Everything that moved stock without being usage: supplier receipts, manual adjustments, damage write-offs, count corrections and opening balances. Signed, so a write-off reads as a negative. Damage found while receiving is not here - that stock never entered."
         rows={purchases.data || []}
         cols={partCols}
       />
@@ -159,17 +162,27 @@ export async function UsageReports() {
       />
 
       <SheetGrid
-        title="Parts used — by month"
-        note="The same consumption as the weekly timeline, rolled up into calendar months."
+        title="Demand usage — by month"
+        note="What customers asked for, rolled up into calendar months. Matches the weekly demand timeline above."
         rows={monthlyRows}
         cols={partCols}
         periodLabel="Month"
         badge={`${monthlyRows.length} months`}
       />
 
+      {/* The complete picture of what physically left the shelf. Kept separate
+          from demand on purpose: a forced switch and a replacement order both
+          consume stock without a customer ever asking for that part. */}
       <SheetGrid
-        title="Parts used — by quarter"
-        note="Consumption rolled up into quarters."
+        title="Actual usage — by week"
+        note="What actually left the shelf, week by week: order consumption plus forced switches and replacement orders. Where this is higher than the demand timeline, stock went out without anyone ordering it."
+        rows={(actualUsage.data || []).map((r: any) => ({ ...r, values: r.usage }))}
+        cols={partCols}
+      />
+
+      <SheetGrid
+        title="Demand usage — by quarter"
+        note="What customers asked for, rolled up into quarters."
         rows={quarterRows}
         cols={partCols}
         periodLabel="Quarter"
