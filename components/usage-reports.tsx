@@ -170,6 +170,14 @@ export async function UsageReports() {
         badge={`${monthlyRows.length} months`}
       />
 
+      <SheetGrid
+        title="Demand usage — by quarter"
+        note="What customers asked for, rolled up into quarters."
+        rows={quarterRows}
+        cols={partCols}
+        periodLabel="Quarter"
+        badge={`${quarterRows.length} quarters`}
+      />
       {/* The complete picture of what physically left the shelf. Kept separate
           from demand on purpose: a forced switch and a replacement order both
           consume stock without a customer ever asking for that part. */}
@@ -180,14 +188,6 @@ export async function UsageReports() {
         cols={partCols}
       />
 
-      <SheetGrid
-        title="Demand usage — by quarter"
-        note="What customers asked for, rolled up into quarters."
-        rows={quarterRows}
-        cols={partCols}
-        periodLabel="Quarter"
-        badge={`${quarterRows.length} quarters`}
-      />
     </>
   )
 }
