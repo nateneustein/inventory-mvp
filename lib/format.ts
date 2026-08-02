@@ -14,3 +14,14 @@ export function date(value: string | null | undefined) {
   if (Number.isNaN(d.getTime())) return text
   return d.toLocaleDateString()
 }
+
+/**
+ * The second line shown under a supplier in a picker.
+ *
+ * People remember the person, not the company - "Trevor" rather than
+ * "E&T Plastics" - so the contact details travel with the option and the
+ * picker searches them alongside the supplier name.
+ */
+export function supplierHint(s: any) {
+  return [s?.contact_name, s?.email, s?.phone].filter(Boolean).join(' · ')
+}
