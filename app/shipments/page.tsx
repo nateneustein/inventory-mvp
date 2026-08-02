@@ -14,6 +14,9 @@ const FINISHED = ['received', 'closed', 'cancelled']
 /** How old carrier information is allowed to get before the page re-checks it. */
 const STALE_HOURS = 6
 
+/** Enough to recognise the shipment; the rest are one click away. */
+const ITEMS_ON_CARD = 6
+
 function matchPo(po: any, q: string) {
   const hay = [po.po_number, po.supplier_name, po.supplier_contact, po.status, po.tracking_number, po.carrier_name, po.notes]
     .filter(Boolean).join(' ').toLowerCase()
@@ -169,6 +172,23 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
                   <div><dt>Carrier</dt><dd>{po.carrier_name || (po.tracking_number ? 'Not identified yet' : 'No tracking number')}</dd></div>
                   <div><dt>Received</dt><dd>{num(po.qty_received)} of {num(po.qty_ordered)} · {num(po.qty_outstanding)} still to come</dd></div>
                 </dl>
+
+                {(po.items || []).length > 0 && (
+                  <ul className="shipment-items">
+                    {(po.items || []).slice(0, ITEMS_ON_CARD).map((item: any) => (
+                      <li key={item.part_id}>
+                        <span className="shipment-item-qty">{num(item.ordered)}</span>
+                        <span className="shipment-item-name">{item.name || item.sku}</span>
+                        {Number(item.received) > 0 && (
+                          <span className="muted small">{num(item.received)} in</span>
+                        )}
+                      </li>
+                    ))}
+                    {(po.items || []).length > ITEMS_ON_CARD && (
+                      <li className="muted small">and {(po.items || []).length - ITEMS_ON_CARD} more — open the shipment to see them all</li>
+                    )}
+                  </ul>
+                )}
 
                 <div className="action-row">
                   <Link className="button small-btn secondary" href={'/shipments/' + po.id}>Open</Link>
