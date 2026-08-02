@@ -624,3 +624,27 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .usage-lines { display: flex; flex-direction: column; gap: 6px; }
 .usage-line + .usage-line { border-top: 1px dashed var(--border); padding-top: 8px; }
 .usage-line-actions { display: flex; align-items: flex-end; padding-bottom: 4px; }
+
+
+/* ------------------------------------------------- shipments dashboard --
+   Cards rather than a table row, because the useful information about a
+   shipment is a sentence - "left Ningbo, 12 days ago, 3 days late" - and a
+   sentence does not survive being cut into columns. */
+.shipment-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.shipment-card {
+  border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius);
+  padding: 12px; background: var(--card-bg);
+}
+.shipment-card.ok { border-left-color: var(--ok-line); }
+.shipment-card.warning { border-left-color: var(--warning-line); background: var(--warning-soft); }
+.shipment-card.out { border-left-color: var(--danger-line); background: var(--danger-soft); }
+.shipment-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.shipment-card p { margin: 4px 0; }
+/* The line that answers "where is it". It should read before anything else. */
+.shipment-headline { font-weight: 600; overflow-wrap: anywhere; }
+.shipment-card .detail-list { margin-top: 8px; }
+.compact-detail div { grid-template-columns: 110px 1fr; padding: 5px 10px; }
+.tracking-summary { margin-bottom: 12px; }
+/* Updates typed in by a person are tinted, so at a glance you can tell what
+   came from the carrier and what came from the supplier. */
+.manual-update td { background: var(--accent-soft); }
