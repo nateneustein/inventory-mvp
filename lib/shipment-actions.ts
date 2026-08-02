@@ -259,3 +259,83 @@ export async function receiveShipmentLines(formData: FormData) {
   revalidatePath('/damage')
   redirect(back('notice', done + ' part line(s) received'))
 }
+
+/**
+ * Take back a receiving that was entered wrong.
+ *
+ * The database does the whole reversal in one transaction - stock, damage
+ * report and the quantity closed out on the shipment line - because undoing
+ * only part of it would leave the line looking accounted for and the shipment
+ * would never ask to be received again.
+ */
+export async function undoReceivingEvent(formData: FormData) {
+  const { supabase, userId } = await currentUser()
+  const eventId = value(formData, 'event_id')
+  const poId = value(formData, 'purchase_order_id')
+
+  const { error } = await supabase.rpc('undo_receiving_event', {
+    p_event_id: eventId,
+    p_user: userId,
+  })
+  if (error) redirect('/receiving?error=' + encodeURIComponent(error.message))
+
+  revalidateShipments(poId)
+  revalidatePath('/parts')
+  revalidatePath('/damage')
+  redirect('/receiving?notice=' + encodeURIComponent('That receiving was undone'))
+}
+
+/**
+ * Correct a receiving that was entered wrong.
+ *
+ * Deliberately an undo followed by a fresh receipt rather than an in-place
+ * edit: the quantities have to be re-checked against what is still outstanding
+ * on the line, and the stock movement has to be rebuilt anyway. Doing it as two
+ * known-good operations is safer than a second code path that has to get all
+ * the same arithmetic right.
+ */
+export async function editReceivingEvent(formData: FormData) {
+  const { supabase, userId } = await currentUser()
+  const eventId = value(formData, 'event_id')
+  const poId = value(formData, 'purchase_order_id')
+  const itemId = value(formData, 'purchase_order_item_id')
+
+  const numberAt = (key: string) => {
+    const parsed = Number(value(formData, key))
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  }
+  const received = numberAt('quantity_received')
+  const damaged = numberAt('quantity_damaged')
+  const missing = numberAt('quantity_missing')
+
+  const fail = (message: string) =>
+    redirect('/receiving?error=' + encodeURIComponent(message))
+
+  if (received + damaged + missing <= 0) fail('Enter at least one quantity, or use Undo to remove the receipt entirely.')
+
+  const { error: undoError } = await supabase.rpc('undo_receiving_event', {
+    p_event_id: eventId,
+    p_user: userId,
+  })
+  if (undoError) fail(undoError.message)
+
+  const { error } = await supabase.rpc('receive_po_item', {
+    p_item_id: itemId,
+    p_qty_received: received,
+    p_qty_damaged: damaged,
+    p_qty_missing: missing,
+    p_notes: value(formData, 'notes') || null,
+    p_user: userId,
+    // A new key: this is a different receipt from the one just undone, and
+    // reusing the old key would make the database replay rather than record it.
+    p_idempotency_key: null,
+  })
+  // The original is already gone at this point, so a failure here has to be
+  // loud rather than silent.
+  if (error) fail('The correction could not be saved and the original receipt was removed: ' + error.message)
+
+  revalidateShipments(poId)
+  revalidatePath('/parts')
+  revalidatePath('/damage')
+  redirect('/receiving?notice=' + encodeURIComponent('Receiving corrected'))
+}
