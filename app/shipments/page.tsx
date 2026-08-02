@@ -188,9 +188,6 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
                       <li key={item.part_id}>
                         <span className="shipment-item-qty">{num(item.ordered)}</span>
                         <span className="shipment-item-name">{item.name || item.sku}</span>
-                        {(po.supplier_names || []).length > 1 && item.supplier && (
-                          <span className="muted small">{item.supplier}</span>
-                        )}
                         {Number(item.received) > 0 && (
                           <span className="muted small">{num(item.received)} in</span>
                         )}
