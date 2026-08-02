@@ -144,11 +144,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
   // The contact is often how someone remembers a supplier ("the one Sruli
   // handles"), so the picker searches and shows the contact name, email and
   // phone alongside the company name rather than the company name alone.
-  const supplierOptions = (suppliers || []).map((s: any) => ({
-    value: s.id,
-    label: s.name,
-    hint: [s.contact_name, s.email, s.phone].filter(Boolean).join(' · ') || undefined,
-  }))
+  const supplierOptions = (suppliers || []).map((s: any) => ({ value: s.id, label: s.name, hint: supplierHint(s) }))
   const supplierById = new Map<string, any>((suppliers || []).map((s: any) => [s.id as string, s] as [string, any]))
   const supplierRows = partSuppliers || []
   const files = partFiles || []
