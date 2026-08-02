@@ -7,7 +7,7 @@ import {
   savePartLink, deletePartLink,
   uploadPartFile, deletePartFile,
 } from '@/lib/part-detail-actions'
-import { date, num } from '@/lib/format'
+import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ReorderWindowHistory } from '@/components/reorder-window-history'
 import { OrderMonthsHistory } from '@/components/order-months-history'
