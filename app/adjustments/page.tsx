@@ -7,6 +7,10 @@ import { ActionButton } from '@/components/action-button'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
 
+/** Defaults to today, but the box exists so a movement can be back-dated into
+ *  the week it really happened - the weekly sheets are read as history. */
+function today() { return new Date().toISOString().slice(0, 10) }
+
 export default async function AdjustmentsPage({ searchParams }: { searchParams?: Promise<{ error?: string, notice?: string, q?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
@@ -36,7 +40,7 @@ export default async function AdjustmentsPage({ searchParams }: { searchParams?:
       </div>
 
       <div className="grid">
-        <div className="card"><h2>Manual inventory adjustment</h2><form className="stack" action={createManualAdjustment}><label>Part<SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} /></label><label>Quantity change<input name="quantity_change" type="number" step="0.01" required placeholder="-5 or 12" /></label><label>Reason<input name="reason" placeholder="Count correction, missing, sample, etc." /></label><label>Notes<textarea name="notes" /></label><ActionButton confirm="Confirm this stock adjustment?" busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton></form></div>
+        <div className="card"><h2>Manual inventory adjustment</h2><form className="stack" action={createManualAdjustment}><label>Part<SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} /></label><div className="form-row"><label>Quantity change<input name="quantity_change" type="number" step="0.01" required placeholder="-5 or 12" /></label><label>Date it happened<input name="movement_date" type="date" defaultValue={today()} /></label></div><label>Reason<input name="reason" placeholder="Count correction, missing, sample, etc." /></label><label>Notes<textarea name="notes" /></label><ActionButton confirm="Confirm this stock adjustment?" busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton></form></div>
         <div className="card"><h2>Inventory switch</h2><form className="stack" action={createInventorySwitch}><label>Original part demanded, optional<SearchSelect name="from_part_id" placeholder="Type the original part" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} /></label><label>Actual part used<SearchSelect name="to_part_id" required placeholder="Type the part actually used" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} /></label><div className="form-row"><label>Quantity<input name="quantity" type="number" step="0.01" required /></label><label>Order reference<input name="order_reference" /></label></div><label>Change type<select name="change_type" required><option value="voluntary_customer_change">Voluntary customer change</option><option value="forced_due_to_stockout">Forced because we ran out</option></select></label><label>Notes<textarea name="notes" /></label><ActionButton confirm="Confirm this inventory switch?" busyLabel="Saving…" doneLabel="Saved">Save switch</ActionButton></form></div>
       </div>
 
