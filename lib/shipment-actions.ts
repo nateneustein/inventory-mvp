@@ -197,3 +197,65 @@ export async function refreshAllShipmentTracking() {
   }
   revalidateShipments()
 }
+
+/**
+ * Receive a whole shipment in one go, part by part.
+ *
+ * Receiving used to be one line at a time through a picker, which meant a
+ * five-part delivery was five separate confirmations and no view of what was
+ * actually meant to be in the box. Here every outstanding line of the shipment
+ * is on screen with what was ordered, and good / damaged / missing are typed
+ * next to each one.
+ *
+ * Damaged units never enter stock. Only the good quantity creates a stock
+ * movement; the damaged quantity is written to the damage report against the
+ * supplier and closes out the ordered line, so the shipment can be marked
+ * complete without ever counting units you cannot use.
+ */
+export async function receiveShipmentLines(formData: FormData) {
+  const { supabase, userId } = await currentUser()
+  const poId = value(formData, 'purchase_order_id')
+  const token = value(formData, 'idempotency_key')
+  const notes = value(formData, 'notes') || null
+
+  const numbers = (key: string) => formData.getAll(key).map((raw) => {
+    const parsed = Number(String(raw).trim())
+    return Number.isFinite(parsed) ? parsed : 0
+  })
+
+  const ids = formData.getAll('item_id').map((raw) => String(raw))
+  const received = numbers('quantity_received')
+  const damaged = numbers('quantity_damaged')
+  const missing = numbers('quantity_missing')
+
+  const back = (key: string, message: string) =>
+    '/receiving?po=' + encodeURIComponent(poId) + '&' + key + '=' + encodeURIComponent(message)
+
+  let done = 0
+  for (let i = 0; i < ids.length; i++) {
+    const total = (received[i] || 0) + (damaged[i] || 0) + (missing[i] || 0)
+    // A line nobody typed into is simply not part of this delivery.
+    if (total <= 0) continue
+
+    const { error } = await supabase.rpc('receive_po_item', {
+      p_item_id: ids[i],
+      p_qty_received: received[i] || 0,
+      p_qty_damaged: damaged[i] || 0,
+      p_qty_missing: missing[i] || 0,
+      p_notes: notes,
+      p_user: userId,
+      // One token per line, derived from the form's token, so a double-click
+      // replays the same receipt instead of adding the delivery twice.
+      p_idempotency_key: token ? token + ':' + ids[i] : null,
+    })
+    if (error) redirect(back('error', error.message))
+    done++
+  }
+
+  if (done === 0) redirect(back('error', 'Enter a quantity against at least one part.'))
+
+  revalidateShipments(poId)
+  revalidatePath('/parts')
+  revalidatePath('/damage')
+  redirect(back('notice', done + ' part line(s) received'))
+}
