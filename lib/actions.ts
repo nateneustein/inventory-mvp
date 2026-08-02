@@ -1022,61 +1022,89 @@ export async function createInventorySwitch(formData: FormData) {
 
 export async function createManualUnitsSold(formData: FormData) {
   const { supabase, userId } = await currentUserId()
-  const variationId = value(formData, 'variation_id')
-  const qty = num(formData, 'quantity', 0)
   const saleDate = value(formData, 'sale_date') || new Date().toISOString().slice(0, 10)
   const notes = value(formData, 'notes') || null
 
   function fail(message: string) {
-    redirect(`/usage?error=${encodeURIComponent(message)}`)
+    redirect('/usage?error=' + encodeURIComponent(message))
   }
 
-  if (!variationId) fail('Choose a finished product / variation.')
-  if (qty <= 0) fail('Quantity must be above zero.')
+  // One entry can cover several finished products. A bulk order that was half
+  // Navy Holder and half Tan Holder is ONE order with one date, one reference
+  // and one note - not two entries. The form repeats the variation and
+  // quantity boxes under the same names, so they come back as parallel lists.
+  const variationIds = formData.getAll('variation_id').map((v) => String(v).trim())
+  const quantities = formData.getAll('quantity').map((v) => Number(String(v).trim()))
 
-  const { data: bomItems, error: bomError } = await supabase
-    .from('bom_items')
-    .select('part_id, quantity_per_unit')
-    .eq('variation_id', variationId)
-  if (bomError) fail(bomError.message)
-  if (!bomItems || bomItems.length === 0) fail('This variation has no BOM yet. Add the BOM first, then enter manual units sold.')
+  const lines: { variationId: string, qty: number }[] = []
+  for (let i = 0; i < variationIds.length; i++) {
+    const variationId = variationIds[i]
+    const qty = quantities[i]
+    // A line someone opened and then did not use is not a mistake, just skip it.
+    if (!variationId && !(qty > 0)) continue
+    if (!variationId) fail('Line ' + (i + 1) + ': choose a finished product / variation.')
+    if (!(qty > 0)) fail('Line ' + (i + 1) + ': quantity must be above zero.')
+    lines.push({ variationId, qty })
+  }
+  if (lines.length === 0) fail('Add at least one product line.')
 
-  const { data: sale, error: saleError } = await supabase.from('manual_units_sold').insert({
-    variation_id: variationId,
-    quantity: qty,
-    sale_date: saleDate,
-    week_start: weekStartSundayFromDate(saleDate),
-    order_reference: value(formData, 'order_reference') || null,
-    reason: value(formData, 'reason') || 'bulk_order_manual_entry',
-    notes,
-    created_by: userId,
-  }).select('id').single()
-  if (saleError || !sale) fail(saleError?.message || 'Could not add manual sold units')
-  const saleId = (sale as any).id
+  // Every line is checked BEFORE anything is written. Otherwise a missing BOM
+  // on the second product would leave the first one already booked in, with
+  // stock consumed for half an order.
+  const boms = new Map<string, any[]>()
+  for (const line of lines) {
+    if (boms.has(line.variationId)) continue
+    const { data: bomItems, error: bomError } = await supabase
+      .from('bom_items')
+      .select('part_id, quantity_per_unit')
+      .eq('variation_id', line.variationId)
+    if (bomError) fail(bomError.message)
+    if (!bomItems || bomItems.length === 0) {
+      fail('One of the products on this entry has no BOM yet. Add the BOM first, then enter manual units sold.')
+    }
+    boms.set(line.variationId, bomItems || [])
+  }
 
-  const bomRows = bomItems || []
-  const movements = bomRows.map((item: any) => ({
-    part_id: item.part_id,
-    movement_type: 'order_consumption',
-    quantity: -Number(item.quantity_per_unit) * qty,
-    source_type: 'manual_units_sold',
-    source_id: saleId,
-    reason: 'Manual units sold / produced entry',
-    notes,
-    created_by: userId,
-    movement_date: saleDate,
-  }))
-  const { error: movementError } = await supabase.from('inventory_movements').insert(movements)
-  if (movementError) fail(movementError.message)
+  const reason = value(formData, 'reason') || 'bulk_order_manual_entry'
+  const orderReference = value(formData, 'order_reference') || null
+  const weekStart = weekStartSundayFromDate(saleDate)
+
+  for (const line of lines) {
+    const { data: sale, error: saleError } = await supabase.from('manual_units_sold').insert({
+      variation_id: line.variationId,
+      quantity: line.qty,
+      sale_date: saleDate,
+      week_start: weekStart,
+      order_reference: orderReference,
+      reason,
+      notes,
+      created_by: userId,
+    }).select('id').single()
+    if (saleError || !sale) fail(saleError?.message || 'Could not add manual sold units')
+    const saleId = (sale as any).id
+
+    const movements = (boms.get(line.variationId) || []).map((item: any) => ({
+      part_id: item.part_id,
+      movement_type: 'order_consumption',
+      quantity: -Number(item.quantity_per_unit) * line.qty,
+      source_type: 'manual_units_sold',
+      source_id: saleId,
+      reason: 'Manual units sold / produced entry',
+      notes,
+      created_by: userId,
+      movement_date: saleDate,
+    }))
+    const { error: movementError } = await supabase.from('inventory_movements').insert(movements)
+    if (movementError) fail(movementError.message)
+  }
 
   revalidatePath('/usage')
   revalidatePath('/adjustments')
   revalidatePath('/predictions/basic')
   revalidatePath('/parts')
   revalidatePath('/dashboard')
-  redirect('/usage?notice=Manual%20sold%2Fproduced%20units%20were%20added')
+  redirect('/usage?notice=' + encodeURIComponent(lines.length + ' product line(s) added'))
 }
-
 export async function saveBomMatrix(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const entries = Array.from(formData.entries())
