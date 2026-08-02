@@ -13,6 +13,18 @@ function value(formData: FormData, key: string) {
   return typeof raw === 'string' ? raw.trim() : ''
 }
 
+/**
+ * The day a movement actually happened, not the day it was typed in.
+ *
+ * The weekly sheets are the backlog of everything, so a correction entered on
+ * Monday for something that happened a fortnight ago has to land in that
+ * fortnight-old week or the history quietly rewrites itself.
+ */
+function movementDate(formData: FormData, key = 'movement_date') {
+  const raw = value(formData, key)
+  return raw || new Date().toISOString().slice(0, 10)
+}
+
 function num(formData: FormData, key: string, fallback = 0) {
   const raw = value(formData, key)
   if (!raw) return fallback
@@ -937,6 +949,7 @@ export async function createManualAdjustment(formData: FormData) {
     movement_type: 'manual_adjustment',
     quantity: qty,
     source_type: 'manual_adjustment',
+    movement_date: movementDate(formData),
     reason: value(formData, 'reason') || 'Manual adjustment',
     notes: value(formData, 'notes') || null,
     created_by: userId,
@@ -949,6 +962,8 @@ export async function createManualAdjustment(formData: FormData) {
 
 export async function createInventorySwitch(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  // Both halves of a switch share one date so they never straddle two weeks.
+  const when = movementDate(formData)
   const fromPartId = value(formData, 'from_part_id')
   const toPartId = value(formData, 'to_part_id')
   const qty = num(formData, 'quantity', 0)
@@ -989,6 +1004,7 @@ export async function createInventorySwitch(formData: FormData) {
       movement_type: 'inventory_switch',
       quantity: -qty,
       source_type: 'inventory_switch',
+      movement_date: when,
       source_id: switchRow.id,
       reason: `${reason} — substitute part consumed`,
       notes,
@@ -1003,6 +1019,7 @@ export async function createInventorySwitch(formData: FormData) {
       movement_type: 'inventory_switch',
       quantity: qty,
       source_type: 'inventory_switch',
+      movement_date: when,
       source_id: switchRow.id,
       reason: `${reason} — original part returned, was not used`,
       notes,
