@@ -19,6 +19,7 @@ const ITEMS_ON_CARD = 6
 
 function matchPo(po: any, q: string) {
   const hay = [po.po_number, po.supplier_name, po.supplier_contact, po.status, po.tracking_number, po.carrier_name, po.notes]
+    .concat(po.supplier_names || [])
     .filter(Boolean).join(' ').toLowerCase()
   return hay.includes(q.toLowerCase())
 }
@@ -147,7 +148,9 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
                 </div>
 
                 <p className="muted small">
-                  {po.supplier_name}
+                  {(po.supplier_names || []).length > 1
+                    ? (po.supplier_names || []).join(' + ')
+                    : po.supplier_name}
                   {po.supplier_contact && <> · {po.supplier_contact}</>}
                   {po.supplier_phone && <> · {po.supplier_phone}</>}
                 </p>
@@ -179,6 +182,9 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
                       <li key={item.part_id}>
                         <span className="shipment-item-qty">{num(item.ordered)}</span>
                         <span className="shipment-item-name">{item.name || item.sku}</span>
+                        {(po.supplier_names || []).length > 1 && item.supplier && (
+                          <span className="muted small">{item.supplier}</span>
+                        )}
                         {Number(item.received) > 0 && (
                           <span className="muted small">{num(item.received)} in</span>
                         )}
@@ -207,7 +213,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
         <div className="card"><details className="add-panel"><summary className="button">+ Add item to shipment</summary></details><form className="stack" action={addPurchaseOrderItem}><label>Shipment / PO<SearchSelect name="purchase_order_id" required placeholder="Type a PO number or supplier" options={all.map((po: any) => ({ value: po.id, label: po.po_number, hint: po.supplier_name }))} /></label><label>Part<SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} /></label><div className="form-row"><label>Qty ordered<input name="quantity_ordered" type="number" step="0.01" required /></label><label>Unit cost<input name="unit_cost" type="number" step="0.01" defaultValue="0" /></label></div><label>Notes<textarea name="notes" /></label><div className="action-row"><button type="submit">Add shipment item</button><button type="button" className="button secondary cancel-btn">Cancel</button></div></form></div>
       </div>
 
-      <div className="card table-card"><div className="table-head"><h2>All shipments</h2><span className="badge info">{pos.length} shown</span></div><div className="wide-table"><table><thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>Carrier</th><th>Last heard</th><th>Order date</th><th>Expected</th><th>Tracking</th><th>Actions</th></tr></thead><tbody>{pos.map((po: any) => <tr key={po.id}><td className="name-cell"><Link className="link" href={'/shipments/' + po.id}>{po.po_number}</Link></td><td>{po.supplier_name}<span className="sku-under">{po.supplier_contact}</span></td><td><span className="badge info">{po.status}</span></td><td>{po.carrier_name}<span className="sku-under">{po.tracking_status}</span></td><td>{when(po.tracking_last_event_at || po.last_update_at)}</td><td>{date(po.order_date)}</td><td>{date(po.expected_date)}</td><td>{po.tracking_number}</td><td><div className="action-row"><Link className="button small-btn secondary" href={'/shipments/' + po.id}>Open</Link><form action={deletePurchaseOrder}><input type="hidden" name="id" value={po.id} /><button className="small-btn danger" type="submit">Delete</button></form></div></td></tr>)}{pos.length === 0 && <tr><td colSpan={9}><div className="empty-state">No shipments match this filter.</div></td></tr>}</tbody></table></div></div>
+      <div className="card table-card"><div className="table-head"><h2>All shipments</h2><span className="badge info">{pos.length} shown</span></div><div className="wide-table"><table><thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>Carrier</th><th>Last heard</th><th>Order date</th><th>Expected</th><th>Tracking</th><th>Actions</th></tr></thead><tbody>{pos.map((po: any) => <tr key={po.id}><td className="name-cell"><Link className="link" href={'/shipments/' + po.id}>{po.po_number}</Link></td><td>{(po.supplier_names || []).length > 1 ? (po.supplier_names || []).join(' + ') : po.supplier_name}<span className="sku-under">{po.supplier_contact}</span></td><td><span className="badge info">{po.status}</span></td><td>{po.carrier_name}<span className="sku-under">{po.tracking_status}</span></td><td>{when(po.tracking_last_event_at || po.last_update_at)}</td><td>{date(po.order_date)}</td><td>{date(po.expected_date)}</td><td>{po.tracking_number}</td><td><div className="action-row"><Link className="button small-btn secondary" href={'/shipments/' + po.id}>Open</Link><form action={deletePurchaseOrder}><input type="hidden" name="id" value={po.id} /><button className="small-btn danger" type="submit">Delete</button></form></div></td></tr>)}{pos.length === 0 && <tr><td colSpan={9}><div className="empty-state">No shipments match this filter.</div></td></tr>}</tbody></table></div></div>
 
       <div className="card table-card"><div className="table-head"><h2>Open shipment items</h2><span className="badge info">{(overdue || []).length} overdue line(s)</span></div><div className="wide-table"><table><thead><tr><th>PO</th><th>Supplier</th><th>Part</th><th>Expected</th><th>Ordered</th><th>Received</th><th>Remaining</th><th>Tracking</th><th></th></tr></thead><tbody>{(openItems || []).map((r: any) => <tr key={r.purchase_order_item_id}><td><Link className="link" href={'/shipments/' + r.purchase_order_id}>{r.po_number}</Link></td><td>{r.supplier_name}</td><td className="name-cell"><Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link><span className="sku-under">{r.part_sku}</span></td><td>{date(r.expected_date)}</td><td>{num(r.quantity_ordered)}</td><td>{num(r.quantity_received)}</td><td>{num(r.remaining_qty)}</td><td>{r.tracking_number}</td><td><Link className="button small-btn secondary" href={'/shipments/' + r.purchase_order_id}>Receive</Link></td></tr>)}{(openItems || []).length === 0 && <tr><td colSpan={9}><div className="empty-state">No open shipment items.</div></td></tr>}</tbody></table></div></div>
     </>
