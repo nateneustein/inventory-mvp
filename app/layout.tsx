@@ -31,6 +31,7 @@ const navGroups = [
       ['Receiving', '/receiving'],
       ['Adjustments / Switches', '/adjustments', 'canAdjustStock'],
       ['Damage / Scrap', '/damage'],
+      ['Replacement Orders', '/replacements'],
       ['Report Zero', '/zero'],
       ['Counts', '/counts', 'canRecordCycleCount'],
       ['Scanner / QR', '/scanner'],
