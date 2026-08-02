@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
-import { receiveShipmentLines } from '@/lib/shipment-actions'
+import { receiveShipmentLines, undoReceivingEvent, editReceivingEvent } from '@/lib/shipment-actions'
 import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
@@ -60,7 +60,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
 
   const { data: events } = await supabase
     .from('receiving_events')
-    .select('*, parts(name, sku), purchase_orders(po_number)')
+    .select('*, parts(name, sku), purchase_orders(po_number, id)')
     .order('created_at', { ascending: false })
     .limit(50)
 
@@ -274,7 +274,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
           </div>
         </div>
         <div className="wide-table"><table>
-          <thead><tr><th>Date</th><th>PO</th><th>Part</th><th>Received</th><th>Damaged</th><th>Missing</th><th>Notes</th></tr></thead>
+          <thead><tr><th>Date</th><th>PO</th><th>Part</th><th>Received</th><th>Damaged</th><th>Missing</th><th>Notes</th><th className="actions-cell">Actions</th></tr></thead>
           <tbody>
             {shown.map((e: any) => (
               <tr key={e.id}>
@@ -285,9 +285,40 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
                 <td>{num(e.quantity_damaged)}</td>
                 <td>{num(e.quantity_missing)}</td>
                 <td>{e.notes}</td>
+                <td className="actions-cell" data-confirm-label={(e.parts?.name || 'this line') + ' on ' + (e.purchase_orders?.po_number || 'this shipment')}>
+                  <div className="action-row">
+                    <details className="mini-add">
+                      <summary className="button small-btn secondary">Edit</summary>
+                      <form className="stack card flat" action={editReceivingEvent}>
+                        <input type="hidden" name="event_id" value={e.id} />
+                        <input type="hidden" name="purchase_order_id" value={e.purchase_order_id} />
+                        <input type="hidden" name="purchase_order_item_id" value={e.purchase_order_item_id} />
+                        <p className="muted small">
+                          Correcting this puts the original receipt back and books the new figures
+                          in its place, so stock and the shipment line both follow.
+                        </p>
+                        <div className="form-row">
+                          <label>Good<input name="quantity_received" type="number" step="0.01" min="0" defaultValue={e.quantity_received ?? 0} /></label>
+                          <label>Damaged<input name="quantity_damaged" type="number" step="0.01" min="0" defaultValue={e.quantity_damaged ?? 0} /></label>
+                          <label>Missing<input name="quantity_missing" type="number" step="0.01" min="0" defaultValue={e.quantity_missing ?? 0} /></label>
+                        </div>
+                        <label>Notes<textarea name="notes" defaultValue={e.notes || ''} /></label>
+                        <div className="action-row">
+                          <ActionButton className="small-btn" confirm="Replace this receiving with the new figures?" busyLabel="Saving…" doneLabel="Corrected">Save correction</ActionButton>
+                          <button type="button" className="button secondary cancel-btn">Cancel</button>
+                        </div>
+                      </form>
+                    </details>
+                    <form className="inline-form" action={undoReceivingEvent}>
+                      <input type="hidden" name="event_id" value={e.id} />
+                      <input type="hidden" name="purchase_order_id" value={e.purchase_order_id} />
+                      <ActionButton className="small-btn danger" busyLabel="Undoing…" doneLabel="Undone">Undo</ActionButton>
+                    </form>
+                  </div>
+                </td>
               </tr>
             ))}
-            {shown.length === 0 && <tr><td colSpan={7}><div className="empty-state">{q ? 'No receiving events match that search.' : 'No receiving events yet.'}</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={8}><div className="empty-state">{q ? 'No receiving events match that search.' : 'No receiving events yet.'}</div></td></tr>}
           </tbody>
         </table></div>
       </div>
