@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { createPart, archivePart, setPartIgnoreAlerts } from '@/lib/actions'
 import { deletePart } from '@/lib/record-actions'
-import { num } from '@/lib/format'
+import { num, supplierHint } from '@/lib/format'
 import { CoverCell } from '@/components/cover-cell'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
@@ -19,7 +19,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
   const category = params.category || ''
   const alerts = params.alerts || ''
   const { supabase } = await requireUser()
-  const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
+  const { data: suppliers } = await supabase.from('suppliers').select('id, name, contact_name, email, phone').order('name')
   const { data: allParts } = await supabase.from('inventory_status').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
 
   const categories = Array.from(new Set((allParts || []).map((p: any) => p.category).filter(Boolean))).sort()
@@ -53,7 +53,7 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
         <details className="add-panel"><summary className="button">+ Add part</summary></details>
         <form className="stack" action={createPart}>
           <div className="form-row"><label>Part name<input name="name" required /></label><label>Internal SKU<input name="sku" required placeholder="LED-BASE-WHITE" /></label><label>Category<input name="category" placeholder="Acrylic, packaging, base, etc." /></label></div>
-          <div className="form-row"><label>Supplier<SearchSelect name="supplier_id" placeholder="No supplier yet" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} /></label><label>Supplier part #<input name="supplier_part_number" /></label><label>Unit<input name="unit" defaultValue="each" /></label></div>
+          <div className="form-row"><label>Supplier<SearchSelect name="supplier_id" placeholder="No supplier yet" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name, hint: supplierHint(s) }))} /></label><label>Supplier part #<input name="supplier_part_number" /></label><label>Unit<input name="unit" defaultValue="each" /></label></div>
           <div className="form-row"><label>Lead time min days<input name="lead_time_days_min" type="number" step="0.01" defaultValue="0" /></label><label>Lead time max days<input name="lead_time_days_max" type="number" step="0.01" defaultValue="0" /></label><label>Safety stock days<input name="safety_stock_days" type="number" step="0.01" defaultValue="30" /></label></div>
           <div className="form-row">{/* Reorder point is no longer used - cover days drive the alerts now. Kept as a hidden zero so existing rows and the create action keep working. */}
 <input type="hidden" name="reorder_point" value="0" />
