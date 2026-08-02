@@ -339,3 +339,34 @@ export async function editReceivingEvent(formData: FormData) {
   revalidatePath('/damage')
   redirect('/receiving?notice=' + encodeURIComponent('Receiving corrected'))
 }
+
+/**
+ * Another supplier packed into the same shipment.
+ *
+ * Kept as a plain list against the shipment rather than against each part
+ * line: when a container comes from three factories you want to know who is on
+ * it, not to attribute every sheet to one of them.
+ */
+export async function addShipmentSupplier(formData: FormData) {
+  const { supabase, userId } = await currentUser()
+  const poId = value(formData, 'purchase_order_id')
+  const supplierId = value(formData, 'supplier_id')
+  if (!poId || !supplierId) return
+
+  // Already on the shipment, or the main supplier - either way, nothing to do.
+  const { error } = await supabase
+    .from('purchase_order_suppliers')
+    .upsert({ purchase_order_id: poId, supplier_id: supplierId, created_by: userId },
+            { onConflict: 'purchase_order_id,supplier_id', ignoreDuplicates: true })
+  if (error) throw new Error(error.message)
+  revalidateShipments(poId)
+}
+
+export async function removeShipmentSupplier(formData: FormData) {
+  const { supabase } = await currentUser()
+  const poId = value(formData, 'purchase_order_id')
+  const rowId = value(formData, 'row_id')
+  const { error } = await supabase.from('purchase_order_suppliers').delete().eq('id', rowId)
+  if (error) throw new Error(error.message)
+  revalidateShipments(poId)
+}
