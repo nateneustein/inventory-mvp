@@ -618,3 +618,9 @@ form.is-dirty button[type="submit"]::after {
 }
 form.is-dirty > label,
 form.is-dirty > .form-row > label { --unsaved: 1; }
+
+
+/* ------------------------------------- several products in one entry -- */
+.usage-lines { display: flex; flex-direction: column; gap: 6px; }
+.usage-line + .usage-line { border-top: 1px dashed var(--border); padding-top: 8px; }
+.usage-line-actions { display: flex; align-items: flex-end; padding-bottom: 4px; }
