@@ -1,6 +1,6 @@
 import { requireUser } from '@/lib/require-user'
 import { addPurchaseOrderItem, createPurchaseOrder, updatePurchaseOrderStatus } from '@/lib/actions'
-import { date, num } from '@/lib/format'
+import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
 
@@ -8,7 +8,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const { supabase } = await requireUser()
-  const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name')
+  const { data: suppliers } = await supabase.from('suppliers').select('id, name, contact_name, email, phone').order('name')
   const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: purchaseOrders } = await supabase
     .from('purchase_orders')
@@ -42,7 +42,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
           <form className="stack" action={createPurchaseOrder}>
             <label>PO number<input name="po_number" required placeholder="PO-1001" /></label>
             <label>Supplier
-              <SearchSelect name="supplier_id" required placeholder="Type a supplier" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name }))} />
+              <SearchSelect name="supplier_id" required placeholder="Type a supplier" options={(suppliers || []).map((s: any) => ({ value: s.id, label: s.name, hint: supplierHint(s) }))} />
             </label>
             <div className="form-row">
               <label>Status
