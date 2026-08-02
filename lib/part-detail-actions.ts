@@ -387,8 +387,16 @@ export async function deletePartFile(formData: FormData) {
   const { error } = await supabase.from('part_files').delete().eq('id', fileId)
   if (error) throw new Error(error.message)
 
+  // The same photo is listed on every part in a family - all nine watch case
+  // colours share one picture. Only clear the stored file once no row points at
+  // it any more, otherwise removing a photo from one colour would blank it on
+  // all the others.
   if (row?.storage_path) {
-    await supabase.storage.from('part-files').remove([row.storage_path])
+    const { count } = await supabase
+      .from('part_files')
+      .select('id', { count: 'exact', head: true })
+      .eq('storage_path', row.storage_path)
+    if (!count) await supabase.storage.from('part-files').remove([row.storage_path])
   }
 
   revalidatePart(partId)
