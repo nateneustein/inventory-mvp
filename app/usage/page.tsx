@@ -59,7 +59,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
 
   return (
     <>
-      <div className="page-head"><div><h1>Usage &amp; History</h1><p className="muted">Sunday-to-Saturday usage timeline. This is the replacement for the weekly usage section in the spreadsheet.</p></div></div>
+      <div className="page-head"><div><h1>Usage &amp; History</h1><p className="muted">Sunday-to-Saturday demand timeline, plus the full backlog of every stock movement below. This is the replacement for the weekly usage section in the spreadsheet.</p></div></div>
       {params.error && <div className="card danger-soft"><strong>Manual usage was not saved:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
       {weekError && <div className="card danger-soft"><strong>Usage timeline could not be loaded:</strong> {weekError.message}</div>}
@@ -83,9 +83,9 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
       <div className="card table-card">
         <div className="table-head">
           <div>
-            <h2>Weekly usage timeline</h2>
+            <h2>Weekly demand usage timeline</h2>
             <p className="muted small">
-              Each row is one Sunday-to-Saturday week. Columns are parts/components.
+              Each row is one Sunday-to-Saturday week. Columns are parts/components. This is DEMAND - what customers asked for. A switch forced by a stockout leaves the original part counted here, because that is what was wanted; the actual usage sheet at the bottom of the page shows what physically left instead.
               {anchorDate
                 ? ` Usage imported through ${date(anchorDate)} — ${num(anchorRow?.usage_row_count, 0)} usage records from ${date(anchorRow?.earliest_date)} onward.`
                 : ' No usage has been imported yet.'}
