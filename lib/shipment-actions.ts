@@ -180,6 +180,8 @@ export async function refreshShipmentTracking(formData: FormData) {
  * Delivered and closed orders are skipped - they cannot change, and each check
  * would spend quota for nothing.
  */
+// Returns nothing on purpose: this is used directly as a <form action>, and
+// React requires a form action to resolve to void.
 export async function refreshAllShipmentTracking() {
   const { supabase } = await currentUser()
   const { data: orders } = await supabase
@@ -194,5 +196,4 @@ export async function refreshAllShipmentTracking() {
     await refreshOne(supabase, po)
   }
   revalidateShipments()
-  return list.length
 }
