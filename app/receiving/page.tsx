@@ -24,6 +24,11 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
     .order('expected_date', { ascending: true, nullsFirst: false })
 
   const shipments = (board || []).filter((po: any) => !FINISHED.includes(po.status))
+
+  // Shipments the team should be walking to the shelf for: the carrier says it
+  // landed, or its expected day has arrived, and parts are still unaccounted
+  // for. This is the whole reason the page exists, so it goes at the top.
+  const waiting = shipments.filter((po: any) => po.needs_receiving)
   const chosen = (board || []).find((po: any) => po.id === poId) || null
 
   const { data: lineRows } = poId
@@ -74,6 +79,72 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
 
       {params.error && <div className="card danger-soft"><strong>Nothing was received:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
+
+      {waiting.length > 0 && (
+        <div className="card table-card">
+          <div className="table-head">
+            <h2>Waiting to be checked in</h2>
+            <span className="badge out">{waiting.length}</span>
+          </div>
+          <p className="muted small">
+            The carrier says these arrived, or their expected day has come, and parts on them are
+            still unaccounted for.
+          </p>
+          <div className="shipment-cards">
+            {waiting.map((po: any) => (
+              <div key={po.id} className={'shipment-card ' + (po.is_overdue ? 'out' : 'warning')}>
+                <div className="shipment-card-head">
+                  <Link className="link row-name" href={'/receiving?po=' + po.id}>{po.po_number}</Link>
+                  <span className={'badge ' + (po.is_overdue ? 'out' : 'warning')}>
+                    {po.is_overdue ? 'overdue' : 'arrived'}
+                  </span>
+                </div>
+
+                <p className="muted small">
+                  {(po.supplier_names || []).length > 1
+                    ? (po.supplier_names || []).join(' + ')
+                    : po.supplier_name}
+                  {po.supplier_contact && <> · {po.supplier_contact}</>}
+                </p>
+
+                <p className="shipment-headline">
+                  {po.tracking_last_event
+                    || po.last_update_status
+                    || (po.expected_date ? 'Expected ' + date(po.expected_date) : 'Expected date has passed')}
+                </p>
+
+                <dl className="detail-list compact-detail">
+                  <div><dt>Carrier says</dt><dd>{po.tracking_status || 'Nothing reported'}</dd></div>
+                  <div><dt>Expected</dt><dd>{po.expected_date ? date(po.expected_date) : 'Not set'}
+                    {po.days_until_expected != null && po.days_until_expected < 0 && (
+                      <span className="muted small"> · {num(Math.abs(po.days_until_expected), 0)} day(s) ago</span>
+                    )}
+                  </dd></div>
+                  <div><dt>Still to check in</dt><dd>{num(po.qty_outstanding)} of {num(po.qty_ordered)}</dd></div>
+                </dl>
+
+                {(po.items || []).length > 0 && (
+                  <ul className="shipment-items">
+                    {(po.items || []).slice(0, 6).map((item: any) => (
+                      <li key={item.part_id}>
+                        <span className="shipment-item-qty">{num(item.ordered)}</span>
+                        <span className="shipment-item-name">{item.name || item.sku}</span>
+                      </li>
+                    ))}
+                    {(po.items || []).length > 6 && (
+                      <li className="muted small">and {(po.items || []).length - 6} more</li>
+                    )}
+                  </ul>
+                )}
+
+                <div className="action-row">
+                  <Link className="button small-btn" href={'/receiving?po=' + po.id}>Check this one in</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h2>Which shipment arrived?</h2>
