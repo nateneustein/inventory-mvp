@@ -655,3 +655,4 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .shipment-items li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
 .shipment-item-qty { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 42px; text-align: right; }
 .shipment-item-name { overflow-wrap: anywhere; }
+.shipment-card .action-row { margin-top: 10px; }
