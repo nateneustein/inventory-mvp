@@ -733,9 +733,6 @@ export async function addPurchaseOrderItem(formData: FormData) {
   const { error } = await supabase.from('purchase_order_items').insert({
     purchase_order_id: value(formData, 'purchase_order_id'),
     part_id: value(formData, 'part_id'),
-    // Blank means "whoever the shipment is from". A consolidated container can
-    // carry lines from several factories, so the supplier lives on the line.
-    supplier_id: value(formData, 'supplier_id') || null,
     quantity_ordered: num(formData, 'quantity_ordered', 0),
     unit_cost: num(formData, 'unit_cost', 0),
     notes: value(formData, 'notes') || null,
@@ -1559,7 +1556,6 @@ export async function updatePurchaseOrderItem(formData: FormData) {
   const poId = value(formData, 'purchase_order_id')
   const { error } = await supabase.from('purchase_order_items').update({
     part_id: value(formData, 'part_id'),
-    supplier_id: value(formData, 'supplier_id') || null,
     quantity_ordered: num(formData, 'quantity_ordered', 0),
     unit_cost: num(formData, 'unit_cost', 0),
     notes: value(formData, 'notes') || null,
