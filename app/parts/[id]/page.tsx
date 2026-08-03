@@ -186,11 +186,18 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           are the first thing on it, each opening its own form when clicked. */}
       <div className="quick-actions">
         <details className="quick-action">
-          <summary className="button">Report zero</summary>
+          <summary className="button">Report zero / running low</summary>
           <form className="stack card flat" action={reportZeroStock} data-confirm-label={part.name}>
             <input type="hidden" name="part_id" value={id} />
+            <label>What is the situation?
+              <select name="report_type" defaultValue="zero">
+                <option value="zero">There are none left</option>
+                <option value="running_low">Running low — order more</option>
+              </select>
+            </label>
+            <label>How many are actually there?<input name="warehouse_quantity_reported" type="number" step="0.01" defaultValue="0" /></label>
             <label>What did you find?<textarea name="notes" placeholder="Scanned bin and there are none left" /></label>
-            <div className="action-row"><ActionButton confirm={'Report ' + part.name + ' as completely out of stock?'} busyLabel="Reporting…" doneLabel="Reported">Report zero</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
+            <div className="action-row"><ActionButton confirm={'Send a stock report for ' + part.name + '?'} busyLabel="Reporting…" doneLabel="Reported">Send report</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </details>
 
@@ -326,6 +333,15 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           <div className="form-row">
             {/* Dropdowns, not checkboxes: an unticked checkbox sends nothing at
                 all, so archiving from this form could never actually save. */}
+            <label className="compact">Is it tracked?
+              {/* Tracked parts are reordered from the forecast and a zero report
+                  on one is an alarm. Untracked parts are reordered when the
+                  warehouse asks, and their reports are jobs, not failures. */}
+              <select name="tracked" defaultValue={details.tracked === false ? 'false' : 'true'}>
+                <option value="true">Tracked — reorder from the forecast</option>
+                <option value="false">Not tracked — reorder when the warehouse asks</option>
+              </select>
+            </label>
             <label className="compact">Critical part
               <select name="critical" defaultValue={details.critical ? 'yes' : 'no'}>
                 <option value="no">No</option>
