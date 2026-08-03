@@ -459,6 +459,11 @@ th.ignored-col { color: var(--muted-alert); box-shadow: inset 0 -2px 0 var(--mut
 .shipment-card.covered { border-left-color: var(--border-strong); background: var(--card-sunken); }
 .shipment-card.covered .row-name { color: var(--ink-2); text-decoration: line-through; }
 .covered-note { color: var(--ink-2); }
+
+/* One extra supplier on a shipment being created: the picker takes the room,
+   the remove button only takes what it needs and lines up with the input. */
+.supplier-line { display: flex; align-items: end; gap: 8px; }
+.supplier-line > label { flex: 1; min-width: 0; }
 .voided-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px;
   flex-wrap: wrap; border-color: var(--danger-line); background: var(--danger-soft); }
 
