@@ -32,9 +32,9 @@ const navGroups = [
       ['Adjustments / Switches', '/adjustments', 'canAdjustStock'],
       ['Damage / Scrap', '/damage'],
       ['Replacement Orders', '/replacements'],
-      ['Report Zero', '/zero'],
+      ['Report Zero / Running Low', '/zero'],
       ['Counts', '/counts', 'canRecordCycleCount'],
-      ['Scanner / QR', '/scanner'],
+      ['Reorder List', '/reorder'],
     ]
   },
   {
