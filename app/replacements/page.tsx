@@ -4,6 +4,10 @@ import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
 
+/** Defaults to today, but the box exists so a movement can be back-dated into
+ *  the week it really happened - the weekly sheets are read as history. */
+function today() { return new Date().toISOString().slice(0, 10) }
+
 export default async function ReplacementsPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
@@ -49,7 +53,7 @@ export default async function ReplacementsPage({ searchParams }: { searchParams?
           </div>
           <div className="form-row">
             <label>Reason<input name="reason" required placeholder="Broken in shipping, wrong item, etc." /></label>
-            <label>Approved by<input name="approved_by" placeholder="Nathan" /></label>
+            <label>Approved by<input name="approved_by" placeholder="Nathan" /></label><label>Date it happened<input name="movement_date" type="date" defaultValue={today()} /></label>
           </div>
           <label>Notes<textarea name="notes" /></label>
           <div className="action-row"><button type="submit">Create replacement and consume BOM parts</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
