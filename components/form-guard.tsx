@@ -195,8 +195,17 @@ export function FormGuard() {
       event.preventDefault()
       event.stopPropagation()
       const form = button.closest('form') as HTMLFormElement | null
-      if (form) { form.reset(); dirty.delete(form)
-      form?.classList.remove('is-dirty') }
+      if (form) {
+        /* Marked so fields that hold their own value can tell a real Cancel from
+           the automatic clear React does once a save finishes. Cancel means put
+           back what was saved; the clear after a save must leave it alone, or
+           the choice just made flips back to the old one. */
+        form.dataset.cancelling = 'yes'
+        form.reset()
+        delete form.dataset.cancelling
+        dirty.delete(form)
+        form.classList.remove('is-dirty')
+      }
       const panel = (button.closest('details')
         || button.closest('.card')?.querySelector(':scope > .add-panel')) as HTMLDetailsElement | null
       if (panel) panel.open = false
