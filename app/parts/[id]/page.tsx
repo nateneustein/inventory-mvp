@@ -9,6 +9,7 @@ import {
 } from '@/lib/part-detail-actions'
 import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
+import { StickySelect } from '@/components/sticky-select'
 import { ReorderWindowHistory } from '@/components/reorder-window-history'
 import { OrderMonthsHistory } from '@/components/order-months-history'
 import { ActionButton } from '@/components/action-button'
@@ -337,22 +338,22 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               {/* Tracked parts are reordered from the forecast and a zero report
                   on one is an alarm. Untracked parts are reordered when the
                   warehouse asks, and their reports are jobs, not failures. */}
-              <select name="tracked" defaultValue={details.tracked === false ? 'false' : 'true'}>
+              <StickySelect name="tracked" value={details.tracked === false ? 'false' : 'true'}>
                 <option value="true">Tracked — reorder from the forecast</option>
                 <option value="false">Not tracked — reorder when the warehouse asks</option>
-              </select>
+              </StickySelect>
             </label>
             <label className="compact">Critical part
-              <select name="critical" defaultValue={details.critical ? 'yes' : 'no'}>
+              <StickySelect name="critical" value={details.critical ? 'yes' : 'no'}>
                 <option value="no">No</option>
                 <option value="yes">Yes</option>
-              </select>
+              </StickySelect>
             </label>
             <label className="compact">Status
-              <select name="active" defaultValue={details.active ? 'on' : 'off'}>
+              <StickySelect name="active" value={details.active ? 'on' : 'off'}>
                 <option value="on">Active</option>
                 <option value="off">Archived</option>
-              </select>
+              </StickySelect>
             </label>
           </div>
           <ActionButton busyLabel="Saving…" doneLabel="Saved">Save part</ActionButton>
