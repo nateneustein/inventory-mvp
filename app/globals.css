@@ -453,14 +453,13 @@ th.ignored-col { color: var(--muted-alert); box-shadow: inset 0 -2px 0 var(--mut
 .muted-row td { color: var(--ink-2); background: var(--card-sunken); }
 .voided-row td { color: var(--ink-2); background: #fdf7f7; text-decoration: line-through; }
 .voided-row td:last-child { text-decoration: none; }
-/* A report that already had a shipment on the way when it was made. It stays
-   visible but crossed off, so nobody chases something that is already handled. */
-.covered-row td { color: var(--ink-2); background: var(--card-sunken); text-decoration: line-through; }
-.covered-row td:last-child { text-decoration: none; }
+/* A report that already had a shipment on the way when it was made. Greyed
+   back rather than struck through - the row still has to be readable, and the
+   text beside it says in words that a shipment is already coming. */
+.covered-row td { color: var(--ink-2); background: var(--card-sunken); }
 .covered-row td a { color: var(--ink-2); }
-.covered-row td .badge { text-decoration: none; }
 .shipment-card.covered { border-left-color: var(--border-strong); background: var(--card-sunken); }
-.shipment-card.covered .row-name { color: var(--ink-2); text-decoration: line-through; }
+.shipment-card.covered .row-name { color: var(--ink-2); }
 .covered-note { color: var(--ink-2); }
 
 /* One extra supplier on a shipment being created: the picker takes the room,
