@@ -31,7 +31,7 @@ export function ExtraSuppliers({ options }: { options: PickerOption[] }) {
   return (
     <div className="stack" ref={rootRef}>
       {lines.map((key) => (
-        <div key={key} className="form-row">
+        <div key={key} className="supplier-line">
           <label>
             Also shipping from
             <SearchSelect
