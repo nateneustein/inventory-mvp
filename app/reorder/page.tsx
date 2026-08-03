@@ -50,7 +50,7 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
 
         {r.covered_by_incoming ? (
           <p className="shipment-headline covered-note">
-            Already ordered — {r.po_number} was placed {date(r.incoming_order_date)} and is due {date(r.incoming_expected_date)}
+            This already has an incoming shipment - {r.po_number}, placed {date(r.incoming_order_date)} and due {date(r.incoming_expected_date)}
           </p>
         ) : (
           <p className="shipment-headline">Needs ordering</p>
