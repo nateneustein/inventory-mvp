@@ -14,6 +14,10 @@ import { OrderMonthsHistory } from '@/components/order-months-history'
 import { ActionButton } from '@/components/action-button'
 import { PhotoInput } from '@/components/photo-input'
 
+/** Defaults to today, but the box exists so a movement can be back-dated into
+ *  the week it really happened - the weekly sheets are read as history. */
+function today() { return new Date().toISOString().slice(0, 10) }
+
 // The prediction sheet's own windows, so the reorder trigger is set in the same
 // language the sheet speaks rather than in raw days.
 const HORIZON_PRESETS = [
