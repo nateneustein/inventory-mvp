@@ -38,7 +38,7 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
 
   function Card({ r }: { r: any }) {
     return (
-      <div className={'shipment-card ' + (r.is_done ? 'ok' : r.covered_by_incoming ? '' : r.report_type === 'zero' ? 'out' : 'warning')}>
+      <div className={'shipment-card ' + (r.is_done ? 'ok' : r.covered_by_incoming ? 'covered' : r.report_type === 'zero' ? 'out' : 'warning')}>
         <div className="shipment-card-head">
           <Link className="link row-name" href={'/parts/' + r.part_id}>{r.part_name}</Link>
           <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>
