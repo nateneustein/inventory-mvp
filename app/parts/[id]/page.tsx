@@ -199,6 +199,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           <form className="stack card flat" action={reportDamage} data-confirm-label={part.name}>
             <input type="hidden" name="part_id" value={id} />
             <label>Damaged qty<input name="quantity" type="number" step="0.01" required /></label>
+            <label>Date it happened<input name="movement_date" type="date" defaultValue={today()} /></label>
             <label>Reason
               <select name="reason">
                 {DAMAGE_REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -215,6 +216,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <input type="hidden" name="part_id" value={id} />
             <input type="hidden" name="reason" value="Part page manual adjustment" />
             <label>Adjustment qty<input name="quantity_change" type="number" step="0.01" required placeholder="-3 or 10" /></label>
+            <label>Date it happened<input name="movement_date" type="date" defaultValue={today()} /></label>
             <label>Notes<textarea name="notes" /></label>
             <div className="action-row"><ActionButton confirm={'Adjust the stock on ' + part.name + '?'} busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
