@@ -10,6 +10,11 @@ function value(formData: FormData, key: string) {
   return typeof raw === 'string' ? raw.trim() : ''
 }
 
+/** The day it happened, not the day it was typed. Falls back to today. */
+function movementDate(formData: FormData) {
+  return value(formData, 'movement_date') || new Date().toISOString().slice(0, 10)
+}
+
 async function currentUser() {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -231,6 +236,9 @@ export async function receiveShipmentLines(formData: FormData) {
   const back = (key: string, message: string) =>
     '/receiving?po=' + encodeURIComponent(poId) + '&' + key + '=' + encodeURIComponent(message)
 
+  // One date for the whole delivery: it all turned up together.
+  const when = movementDate(formData)
+
   let done = 0
   for (let i = 0; i < ids.length; i++) {
     const total = (received[i] || 0) + (damaged[i] || 0) + (missing[i] || 0)
@@ -247,6 +255,7 @@ export async function receiveShipmentLines(formData: FormData) {
       // One token per line, derived from the form's token, so a double-click
       // replays the same receipt instead of adding the delivery twice.
       p_idempotency_key: token ? token + ':' + ids[i] : null,
+      p_movement_date: when,
     })
     if (error) redirect(back('error', error.message))
     done++
@@ -329,6 +338,7 @@ export async function editReceivingEvent(formData: FormData) {
     // A new key: this is a different receipt from the one just undone, and
     // reusing the old key would make the database replay rather than record it.
     p_idempotency_key: null,
+    p_movement_date: movementDate(formData),
   })
   // The original is already gone at this point, so a failure here has to be
   // loud rather than silent.
