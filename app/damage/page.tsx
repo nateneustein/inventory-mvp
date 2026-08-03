@@ -4,6 +4,7 @@ import { updateDamageReport, deleteDamageReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
+import { StickySelect } from '@/components/sticky-select'
 
 /** Defaults to today, but the box exists so a movement can be back-dated into
  *  the week it really happened - the weekly sheets are read as history. */
@@ -108,9 +109,9 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
                       <input type="hidden" name="id" value={r.id} />
                       <label>Qty damaged<input name="quantity" type="number" step="0.01" defaultValue={r.quantity} /></label>
                       <label>Reason
-                        <select name="reason" defaultValue={r.reason}>
+                        <StickySelect name="reason" value={r.reason}>
                           {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
+                        </StickySelect>
                       </label>
                       <label>Order reference<input name="order_reference" defaultValue={r.order_reference || ''} /></label>
                       <label>Notes<textarea name="notes" defaultValue={r.notes || ''} /></label>
