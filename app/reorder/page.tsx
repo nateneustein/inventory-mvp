@@ -5,7 +5,7 @@ import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
-import { ShipmentComing } from '@/components/shipment-coming'
+import { ShipmentComing, AlreadyOrdered, NeedsOrdering } from '@/components/shipment-coming'
 
 /**
  * Tasks, not alarms.
@@ -56,7 +56,7 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
             expectedDate={r.incoming_expected_date}
           />
         ) : (
-          <p className="shipment-headline">Needs ordering</p>
+          <NeedsOrdering />
         )}
 
         {r.notes && <p className="small" style={{ whiteSpace: 'normal' }}>{r.notes}</p>}
@@ -180,11 +180,11 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
             <thead><tr><th>Reported</th><th>Part</th><th>Asked for</th><th>What was done</th><th>Marked done</th><th className="actions-cell">Actions</th></tr></thead>
             <tbody>
               {done.map((r: any) => (
-                <tr key={r.id}>
+                <tr key={r.id} className="done-row">
                   <td>{date(r.created_at)}</td>
                   <td className="name-cell"><Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link><span className="sku-under">{r.part_sku}</span></td>
                   <td><span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>{r.report_type === 'zero' ? 'none left' : 'running low'}</span></td>
-                  <td style={{ whiteSpace: 'normal' }}>{r.resolution_note}</td>
+                  <td style={{ whiteSpace: 'normal' }}><AlreadyOrdered note={r.resolution_note} /></td>
                   <td>{date(r.resolved_at)}</td>
                   <td className="actions-cell">
                     <form className="inline-form" action={reopenStockReport}>
