@@ -1169,7 +1169,10 @@ export async function reportZeroStock(formData: FormData) {
   const { error } = await supabase.from('zero_stock_reports').insert({
     part_id: partId,
     system_quantity_at_report: systemQty,
-    warehouse_quantity_reported: 0,
+    warehouse_quantity_reported: num(formData, 'warehouse_quantity_reported', 0),
+    // 'zero' means there are none left; 'running_low' means order more before
+    // there are none. Waiting for zero is too late on anything with a lead time.
+    report_type: value(formData, 'report_type') === 'running_low' ? 'running_low' : 'zero',
     order_reference: value(formData, 'order_reference') || null,
     notes: value(formData, 'notes') || null,
     created_by: userId,
@@ -1185,6 +1188,7 @@ export async function reportZeroStock(formData: FormData) {
   })
 
   revalidatePath('/zero')
+  revalidatePath('/reorder')
   revalidatePath('/reports')
   revalidatePath('/dashboard')
 }
@@ -1602,4 +1606,54 @@ export async function deleteUploadBatch(formData: FormData) {
   revalidatePath('/uploads')
   revalidatePath('/imported-orders')
   redirect('/uploads')
+}
+
+/**
+ * Mark a warehouse reorder request as handled.
+ *
+ * Only meaningful for untracked parts: there a report is a task ("we are low
+ * on boxes, order some"), and somebody has to be able to say it is done. On a
+ * tracked part the report is an alarm about the forecast being wrong, and
+ * ticking it off would just hide the failure.
+ */
+export async function resolveStockReport(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'report_id')
+  const { error } = await supabase.from('zero_stock_reports').update({
+    resolved_at: new Date().toISOString(),
+    resolved_by: userId,
+    resolution_note: value(formData, 'resolution_note') || null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/reorder')
+  revalidatePath('/zero')
+  revalidatePath('/dashboard')
+}
+
+export async function reopenStockReport(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'report_id')
+  const { error } = await supabase.from('zero_stock_reports').update({
+    resolved_at: null,
+    resolved_by: null,
+    resolution_note: null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/reorder')
+  revalidatePath('/zero')
+  revalidatePath('/dashboard')
+}
+
+/** Tracked parts are reordered from the forecast; untracked ones when the warehouse asks. */
+export async function setPartTracked(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const { error } = await supabase.from('parts')
+    .update({ tracked: value(formData, 'tracked') !== 'false', updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/parts')
+  revalidatePath('/parts/' + id)
+  revalidatePath('/zero')
+  revalidatePath('/reorder')
 }
