@@ -53,7 +53,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td>
           {r.covered_by_incoming ? (
             <span className="muted small">
-              Covered - {r.po_number} was due {date(r.incoming_expected_date)}
+              Covered - {r.po_number} due {date(r.incoming_expected_date)}
             </span>
           ) : r.purchase_order_id ? (
             <span className="small">
@@ -88,8 +88,8 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
       </div>
 
       <div className="grid">
-        <div className="card kpi-card"><div className="muted">At zero</div><div className="kpi">{zeros.filter((r: any) => !r.covered_by_incoming).length}</div></div>
-        <div className="card kpi-card"><div className="muted">Running low</div><div className="kpi">{lows.filter((r: any) => !r.covered_by_incoming).length}</div></div>
+        <div className="card kpi-card"><div className="muted">At zero</div><div className="kpi">{zeros.length}</div></div>
+        <div className="card kpi-card"><div className="muted">Running low</div><div className="kpi">{lows.length}</div></div>
         <div className="card kpi-card"><div className="muted">Covered by a shipment</div><div className="kpi">{shown.filter((r: any) => r.covered_by_incoming).length}</div></div>
       </div>
 
