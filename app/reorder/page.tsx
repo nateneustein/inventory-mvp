@@ -5,6 +5,7 @@ import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
+import { ShipmentComing } from '@/components/shipment-coming'
 
 /**
  * Tasks, not alarms.
@@ -49,9 +50,11 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
         <p className="muted small">{r.part_sku}{r.category && <> · {r.category}</>} · reported {date(r.created_at)}</p>
 
         {r.covered_by_incoming ? (
-          <p className="shipment-headline covered-note">
-            This already has an incoming shipment - {r.po_number}, placed {date(r.incoming_order_date)} and due {date(r.incoming_expected_date)}
-          </p>
+          <ShipmentComing
+            poNumber={r.po_number}
+            orderDate={r.incoming_order_date}
+            expectedDate={r.incoming_expected_date}
+          />
         ) : (
           <p className="shipment-headline">Needs ordering</p>
         )}
