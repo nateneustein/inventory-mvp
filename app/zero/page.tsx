@@ -143,7 +143,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <div className="table-head">
           <div>
             <h2>Running low</h2>
-            <p className="muted small">Greyed out where a shipment was already on its way when the report was made - going low with stock inbound is normal.</p>
+            <p className="muted small">Marked in blue where a shipment was already on its way when the report was made - going low with stock inbound is normal, and those must not be ordered again.</p>
           </div>
           <span className="badge warning">{lows.length}</span>
         </div>
