@@ -3,6 +3,7 @@ import { addPurchaseOrderItem, createPurchaseOrder, updatePurchaseOrderStatus } 
 import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
+import { StickySelect } from '@/components/sticky-select'
 
 export default async function PurchaseOrdersPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
   const params = searchParams ? await searchParams : {}
@@ -99,7 +100,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                 <td>
                   <form className="stack" action={updatePurchaseOrderStatus}>
                     <input type="hidden" name="purchase_order_id" value={po.id} />
-                    <select name="status" defaultValue={po.status}>
+                    <StickySelect name="status" value={po.status}>
                       <option value="draft">Draft</option>
                       <option value="ordered">Ordered</option>
                       <option value="in_production">In production</option>
@@ -110,7 +111,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                       <option value="received">Received</option>
                       <option value="closed">Closed</option>
                       <option value="cancelled">Cancelled</option>
-                    </select>
+                    </StickySelect>
                     <input name="expected_date" type="date" defaultValue={po.expected_date || ''} />
                     <input name="tracking_number" defaultValue={po.tracking_number || ''} />
                     <button type="submit" className="secondary">Save</button>
