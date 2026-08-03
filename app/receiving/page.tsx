@@ -8,6 +8,10 @@ import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
 import { rowMatches } from '@/lib/search'
 
+/** Defaults to today, so a delivery checked in on Monday can still be booked
+ *  into the week it actually landed. */
+function today() { return new Date().toISOString().slice(0, 10) }
+
 const FINISHED = ['received', 'closed', 'cancelled']
 
 export default async function ReceivingPage({ searchParams }: { searchParams?: Promise<{ q?: string, po?: string, error?: string, notice?: string }> }) {
@@ -218,7 +222,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
                 </tbody>
               </table></div>
 
-              <label>Notes for this delivery<textarea name="notes" placeholder="Box 3 had 5 broken sheets. Supplier shipped 492 instead of 500." /></label>
+              <div className="form-row"><label>Date it arrived<input name="movement_date" type="date" defaultValue={today()} /></label></div><label>Notes for this delivery<textarea name="notes" placeholder="Box 3 had 5 broken sheets. Supplier shipped 492 instead of 500." /></label>
               <div className="action-row">
                 <ActionButton confirm={'Add this delivery of ' + chosen.po_number + ' to stock?'} busyLabel="Receiving…" doneLabel="Received">Confirm receiving</ActionButton>
               </div>
@@ -253,6 +257,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
               <label>Qty damaged from supplier<input name="quantity_damaged" type="number" step="0.01" defaultValue="0" /></label>
               <label>Qty missing / short<input name="quantity_missing" type="number" step="0.01" defaultValue="0" /></label>
             </div>
+            <label>Date it arrived<input name="movement_date" type="date" defaultValue={today()} /></label>
             <label>Notes<textarea name="notes" /></label>
             <div className="action-row">
               <button type="submit">Confirm receiving</button>
@@ -302,6 +307,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
                           <label>Damaged<input name="quantity_damaged" type="number" step="0.01" min="0" defaultValue={e.quantity_damaged ?? 0} /></label>
                           <label>Missing<input name="quantity_missing" type="number" step="0.01" min="0" defaultValue={e.quantity_missing ?? 0} /></label>
                         </div>
+                        <label>Date it arrived<input name="movement_date" type="date" defaultValue={today()} /></label>
                         <label>Notes<textarea name="notes" defaultValue={e.notes || ''} /></label>
                         <div className="action-row">
                           <ActionButton className="small-btn" confirm="Replace this receiving with the new figures?" busyLabel="Saving…" doneLabel="Corrected">Save correction</ActionButton>
