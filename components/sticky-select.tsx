@@ -25,11 +25,16 @@ export function StickySelect({ value, children, ...rest }: Props) {
     setChoice(value)
   }, [value])
 
-  /* Cancel means go back to what is saved, not sit on a half-made change. */
+  /* Cancel means go back to what is saved, not sit on a half-made change.
+     React clears the form after a save too, and that one has to be ignored -
+     at that moment the saved value on screen is still the old one, so obeying
+     it would undo exactly what was just saved. form-guard marks a real Cancel. */
   useEffect(() => {
     const form = ref.current?.closest('form')
     if (!form) return
-    const onReset = () => setChoice(value)
+    const onReset = () => {
+      if (form.dataset.cancelling === 'yes') setChoice(value)
+    }
     form.addEventListener('reset', onReset)
     return () => form.removeEventListener('reset', onReset)
   }, [value])
