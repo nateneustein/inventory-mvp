@@ -5,6 +5,10 @@ import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
 import { rowMatches } from '@/lib/search'
 
+/** Defaults to today, but the box exists so a movement can be back-dated into
+ *  the week it really happened - the weekly sheets are read as history. */
+function today() { return new Date().toISOString().slice(0, 10) }
+
 export default async function CountsPage({ searchParams }: { searchParams?: Promise<{ q?: string, notice?: string, error?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
@@ -43,7 +47,7 @@ export default async function CountsPage({ searchParams }: { searchParams?: Prom
                 }))}
               />
             </label>
-            <label>Actual counted quantity<input name="counted_quantity" type="number" step="0.01" required /></label>
+            <label>Actual counted quantity<input name="counted_quantity" type="number" step="0.01" required /></label><label>Date it happened<input name="movement_date" type="date" defaultValue={today()} /></label>
           </div>
           <label>Notes<textarea name="notes" placeholder="Quarterly count, box count, spot check, etc." /></label>
           <ActionButton busyLabel="Saving count…" doneLabel="Count saved">Save count adjustment</ActionButton>
