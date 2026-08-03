@@ -5,6 +5,7 @@ import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
+import { ShipmentComing } from '@/components/shipment-coming'
 import { rowMatches } from '@/lib/search'
 
 /**
@@ -55,9 +56,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td>{num(r.system_quantity_at_report)}</td>
         <td>
           {r.covered_by_incoming ? (
-            <span className="muted small">
-              This already has an incoming shipment - {r.po_number}, due {date(r.incoming_expected_date)}
-            </span>
+            <ShipmentComing poNumber={r.po_number} expectedDate={r.incoming_expected_date} />
           ) : r.purchase_order_id ? (
             <span className="small">
               {r.po_number} due {date(r.incoming_expected_date)} - still an alarm
@@ -198,7 +197,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
                   {r.is_done ? (
                     'Marked as ordered on ' + date(r.resolved_at)
                   ) : r.covered_by_incoming ? (
-                    'This already has an incoming shipment - ' + r.po_number + ', due ' + date(r.incoming_expected_date)
+                    <ShipmentComing poNumber={r.po_number} expectedDate={r.incoming_expected_date} />
                   ) : (
                     'Waiting to be ordered'
                   )}
