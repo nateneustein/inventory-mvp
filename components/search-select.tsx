@@ -120,6 +120,11 @@ export function SearchSelect({
     const form = rootRef.current?.closest('form')
     if (!form) return
     const onReset = () => {
+      /* An add form starts empty, so clearing it after a save is right. An edit
+         form starts on the saved row, and at the moment React clears the form
+         that saved row is still the old one - putting it back would undo the
+         change just made. Only a real Cancel should do that. */
+      if (defaultValue && form.dataset.cancelling !== 'yes') return
       setValue(defaultValue)
       setQuery(labelFor(defaultValue))
       setOpen(false)
