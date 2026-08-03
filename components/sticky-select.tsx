@@ -29,11 +29,27 @@ export function StickySelect({ value, children, ...rest }: Props) {
      React clears the form after a save too, and that one has to be ignored -
      at that moment the saved value on screen is still the old one, so obeying
      it would undo exactly what was just saved. form-guard marks a real Cancel. */
+  const choiceRef = useRef(value)
+  useEffect(() => {
+    choiceRef.current = choice
+  }, [choice])
+
   useEffect(() => {
     const form = ref.current?.closest('form')
     if (!form) return
     const onReset = () => {
-      if (form.dataset.cancelling === 'yes') setChoice(value)
+      if (form.dataset.cancelling === 'yes') {
+        setChoice(value)
+        return
+      }
+      /* The clear that follows a save. It empties the element directly, and
+         React does not put a controlled dropdown back on its own because the
+         state behind it never changed - so the element is set back by hand,
+         once the clear has finished. */
+      setTimeout(() => {
+        const node = ref.current
+        if (node && node.value !== choiceRef.current) node.value = choiceRef.current
+      }, 0)
     }
     form.addEventListener('reset', onReset)
     return () => form.removeEventListener('reset', onReset)
