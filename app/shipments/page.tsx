@@ -141,11 +141,14 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
         <div className="shipment-cards">
           {active.map((po: any) => {
             const risk = riskOf(po)
+            // Dates say nothing about a shipment with no lines on it, so an empty
+            // one is never "on track" - there is nothing on its way to be on time.
+            const noParts = (po.items || []).length === 0
             return (
-              <div key={po.id} className={'shipment-card ' + risk.tone}>
+              <div key={po.id} className={'shipment-card ' + (noParts ? 'out' : risk.tone)}>
                 <div className="shipment-card-head">
                   <Link className="link row-name" href={'/shipments/' + po.id}>{po.po_number}</Link>
-                  <span className={'badge ' + risk.tone}>{risk.label}</span>
+                  <span className={'badge ' + (noParts ? 'out' : risk.tone)}>{noParts ? 'no parts added' : risk.label}</span>
                 </div>
 
                 <p className="muted small">
