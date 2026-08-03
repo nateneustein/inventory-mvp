@@ -793,6 +793,7 @@ export async function receivePurchaseOrderItem(formData: FormData) {
     p_notes: notes,
     p_user: userId,
     p_idempotency_key: idempotencyKey,
+    p_movement_date: movementDate(formData),
   })
   if (error) throw new Error(error.message)
 
@@ -864,6 +865,8 @@ export async function reportDamage(formData: FormData) {
 
 export async function createReplacementOrder(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  // One date for every part line this replacement consumes.
+  const when = movementDate(formData)
   const variationId = value(formData, 'variation_id')
   const qty = num(formData, 'quantity', 1)
   if (qty <= 0) throw new Error('Quantity must be above zero.')
@@ -896,6 +899,7 @@ export async function createReplacementOrder(formData: FormData) {
   const movements = bomRows.map((item: any) => ({
     part_id: item.part_id,
     movement_type: 'replacement_order',
+    movement_date: when,
     quantity: -Number(item.quantity_per_unit) * qty,
     source_type: 'replacement_order',
     source_id: replacement.id,
@@ -926,6 +930,7 @@ export async function createCycleCount(formData: FormData) {
     p_counted: countedQty,
     p_notes: value(formData, 'notes') || null,
     p_user: userId,
+    p_movement_date: movementDate(formData),
   })
   if (error) throw new Error(error.message)
 
