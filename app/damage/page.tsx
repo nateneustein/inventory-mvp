@@ -5,6 +5,10 @@ import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
 
+/** Defaults to today, but the box exists so a movement can be back-dated into
+ *  the week it really happened - the weekly sheets are read as history. */
+function today() { return new Date().toISOString().slice(0, 10) }
+
 export const dynamic = 'force-dynamic'
 
 const REASONS = [
@@ -57,7 +61,7 @@ export default async function DamagePage({ searchParams }: { searchParams?: Prom
               </select>
             </label>
           </div>
-          <label>Order reference, optional<input name="order_reference" placeholder="Etsy #12345, Amazon order, etc." /></label>
+          <label>Order reference, optional<input name="order_reference" placeholder="Etsy #12345, Amazon order, etc." /></label><label>Date it happened<input name="movement_date" type="date" defaultValue={today()} /></label>
           <label>Notes<textarea name="notes" /></label>
           <button type="submit">Remove from inventory</button>
         </form>
