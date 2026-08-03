@@ -29,6 +29,9 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
   const zeros = shown.filter((r: any) => r.report_type === 'zero')
   const lows = shown.filter((r: any) => r.report_type === 'running_low')
   const untrackedCount = (rows || []).filter((r: any) => !r.tracked && !r.is_done).length
+  const untracked = (rows || [])
+    .filter((r: any) => !r.tracked)
+    .filter((r: any) => rowMatches(q, r.part_name, r.part_sku, r.notes, r.order_reference))
 
   const partOptions = (parts || []).map((p: any) => ({
     value: p.id,
@@ -53,7 +56,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td>
           {r.covered_by_incoming ? (
             <span className="muted small">
-              Covered - {r.po_number} due {date(r.incoming_expected_date)}
+              This already has an incoming shipment - {r.po_number}, due {date(r.incoming_expected_date)}
             </span>
           ) : r.purchase_order_id ? (
             <span className="small">
@@ -158,6 +161,59 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
             {lows.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing reported as running low.</div></td></tr>}
           </tbody>
         </table></div>
+      </div>
+
+      {/* Untracked parts raise no alarm - a report on one becomes a job on the
+          reorder list instead. It is repeated here because this is the only page
+          the warehouse reports from, and a report that disappears off the page it
+          was filed on reads as a report that did not save. Read-only: whoever does
+          the ordering works from the reorder list. */}
+      <div className="card table-card">
+        <div className="table-head">
+          <div>
+            <h2>Untracked parts - passed to the reorder list</h2>
+            <p className="muted small">
+              Nothing here means anything went wrong. These parts are not counted, so asking for them
+              is simply how they get ordered. Shown so you can see the report went through.
+            </p>
+          </div>
+          <span className="badge info">{untracked.length}</span>
+        </div>
+        <div className="wide-table"><table>
+          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>Where it stands</th><th>Notes</th></tr></thead>
+          <tbody>
+            {untracked.map((r: any) => (
+              <tr key={r.id} className={r.is_done || r.covered_by_incoming ? 'covered-row' : undefined}>
+                <td>{date(r.created_at)}</td>
+                <td className="name-cell">
+                  <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link>
+                  <span className="sku-under">{r.part_sku}</span>
+                </td>
+                <td>
+                  <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>
+                    {r.report_type === 'zero' ? 'none left' : 'running low'}
+                  </span>
+                </td>
+                <td className="small" style={{ whiteSpace: 'normal' }}>
+                  {r.is_done ? (
+                    'Marked as ordered on ' + date(r.resolved_at)
+                  ) : r.covered_by_incoming ? (
+                    'This already has an incoming shipment - ' + r.po_number + ', due ' + date(r.incoming_expected_date)
+                  ) : (
+                    'Waiting to be ordered'
+                  )}
+                </td>
+                <td style={{ whiteSpace: 'normal' }}>{r.notes}</td>
+              </tr>
+            ))}
+            {untracked.length === 0 && (
+              <tr><td colSpan={5}><div className="empty-state">Nothing has been reported on an untracked part.</div></td></tr>
+            )}
+          </tbody>
+        </table></div>
+        <div className="action-row">
+          <Link className="button secondary" href="/reorder">Open the reorder list</Link>
+        </div>
       </div>
     </>
   )
