@@ -113,6 +113,21 @@ export function SearchSelect({
     }
   }, [open, place])
 
+  /* When the surrounding form is reset - after a save, or when someone hits
+     Cancel - the picker has to go back to empty too. A plain form.reset()
+     cannot clear React state on its own, so listen for the event. */
+  useEffect(() => {
+    const form = rootRef.current?.closest('form')
+    if (!form) return
+    const onReset = () => {
+      setValue(defaultValue)
+      setQuery(labelFor(defaultValue))
+      setOpen(false)
+    }
+    form.addEventListener('reset', onReset)
+    return () => form.removeEventListener('reset', onReset)
+  }, [defaultValue, labelFor])
+
   const reset = useCallback(() => {
     setQuery(labelFor(value))
     setOpen(false)
