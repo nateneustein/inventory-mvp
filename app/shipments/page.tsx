@@ -200,6 +200,16 @@ export default async function ShipmentsPage({ searchParams }: { searchParams?: P
                   </ul>
                 )}
 
+                {(po.items || []).length === 0 && (
+                  /* An empty shipment can never be received and nothing will ever
+                     land in stock from it, so say so instead of showing a card
+                     that just happens to have no lines under it. */
+                  <div className="card danger-soft empty-shipment">
+                    <strong>No part has been added to this shipment.</strong> Nothing will arrive
+                    into stock and it will not reach the receiving screen until a part is added.
+                  </div>
+                )}
+
                 <div className="action-row">
                   <Link className="button small-btn secondary" href={'/shipments/' + po.id}>Open</Link>
                 </div>
