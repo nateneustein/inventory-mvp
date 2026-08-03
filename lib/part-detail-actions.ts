@@ -53,6 +53,8 @@ function revalidatePart(id: string) {
   revalidatePath('/dashboard')
   revalidatePath('/predictions/basic')
   revalidatePath('/predictions/advanced')
+  revalidatePath('/zero')
+  revalidatePath('/reorder')
 }
 
 /**
@@ -150,6 +152,9 @@ export async function updatePartDetails(formData: FormData) {
     patch.critical = raw === 'yes' || raw === 'on' || raw === 'true'
   }
   if (formData.has('active')) patch.active = value(formData, 'active') !== 'off'
+  // Tracked vs untracked decides whether a warehouse report is an alarm about
+  // the forecast or simply a request to order more.
+  if (formData.has('tracked')) patch.tracked = value(formData, 'tracked') !== 'false'
 
   if (Object.keys(patch).length === 0) return
   patch.updated_at = new Date().toISOString()
