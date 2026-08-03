@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { reportZeroStock, deleteZeroStockReport } from '@/lib/actions'
+import { reportZeroStock } from '@/lib/actions'
+import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
