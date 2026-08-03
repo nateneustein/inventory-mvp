@@ -710,7 +710,7 @@ export async function createBomItem(formData: FormData) {
 export async function createPurchaseOrder(formData: FormData) {
   const { supabase, userId } = await currentUserId()
 
-  const { error } = await supabase.from('purchase_orders').insert({
+  const { data: created, error } = await supabase.from('purchase_orders').insert({
     po_number: value(formData, 'po_number'),
     supplier_id: value(formData, 'supplier_id'),
     status: value(formData, 'status') || 'ordered',
@@ -719,9 +719,31 @@ export async function createPurchaseOrder(formData: FormData) {
     tracking_number: value(formData, 'tracking_number') || null,
     notes: value(formData, 'notes') || null,
     created_by: userId,
-  })
+  }).select('id').single()
 
   if (error) throw new Error(error.message)
+
+  /* A container packed at several factories arrives as one shipment. The main
+     supplier stays on the order itself; the others are recorded alongside it so
+     the shipment reads as coming from all of them. Blank lines are people who
+     opened a row and did not use it, and the main supplier is skipped rather
+     than listed twice. */
+  const extraSuppliers = formData.getAll('extra_supplier_id')
+    .map((entry) => String(entry).trim())
+    .filter((entry) => entry && entry !== value(formData, 'supplier_id'))
+  const uniqueExtras = extraSuppliers.filter((entry, index) => extraSuppliers.indexOf(entry) === index)
+
+  if (created && uniqueExtras.length > 0) {
+    const { error: supplierError } = await supabase.from('purchase_order_suppliers').insert(
+      uniqueExtras.map((supplierId) => ({
+        purchase_order_id: created.id,
+        supplier_id: supplierId,
+        created_by: userId,
+      })),
+    )
+    if (supplierError) throw new Error(supplierError.message)
+  }
+
   revalidatePath('/purchase-orders')
   revalidatePath('/shipments')
   revalidatePath('/dashboard')
