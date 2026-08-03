@@ -5,7 +5,7 @@ import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
-import { ShipmentComing } from '@/components/shipment-coming'
+import { ShipmentComing, AlreadyOrdered, NeedsOrdering, Alarm } from '@/components/shipment-coming'
 import { rowMatches } from '@/lib/search'
 
 /**
@@ -42,7 +42,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
 
   function Row({ r }: { r: any }) {
     return (
-      <tr className={r.covered_by_incoming ? 'covered-row' : undefined}>
+      <tr className={r.covered_by_incoming ? 'covered-row' : 'alarm-row'}>
         <td>{date(r.created_at)}</td>
         <td className="name-cell">
           <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link>
@@ -57,12 +57,12 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td>
           {r.covered_by_incoming ? (
             <ShipmentComing poNumber={r.po_number} expectedDate={r.incoming_expected_date} />
-          ) : r.purchase_order_id ? (
-            <span className="small">
-              {r.po_number} due {date(r.incoming_expected_date)} - still an alarm
-            </span>
           ) : (
-            <span className="muted small">Nothing on the way</span>
+            <Alarm
+              atZero={r.report_type === 'zero'}
+              poNumber={r.purchase_order_id ? r.po_number : null}
+              expectedDate={r.incoming_expected_date}
+            />
           )}
         </td>
         <td style={{ whiteSpace: 'normal' }}>{r.notes}</td>
@@ -182,7 +182,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>Where it stands</th><th>Notes</th></tr></thead>
           <tbody>
             {untracked.map((r: any) => (
-              <tr key={r.id} className={r.is_done || r.covered_by_incoming ? 'covered-row' : undefined}>
+              <tr key={r.id} className={r.is_done ? 'done-row' : r.covered_by_incoming ? 'covered-row' : 'todo-row'}>
                 <td>{date(r.created_at)}</td>
                 <td className="name-cell">
                   <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link>
@@ -195,11 +195,11 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
                 </td>
                 <td className="small" style={{ whiteSpace: 'normal' }}>
                   {r.is_done ? (
-                    'Marked as ordered on ' + date(r.resolved_at)
+                    <AlreadyOrdered when={r.resolved_at} note={r.resolution_note} />
                   ) : r.covered_by_incoming ? (
                     <ShipmentComing poNumber={r.po_number} expectedDate={r.incoming_expected_date} />
                   ) : (
-                    'Waiting to be ordered'
+                    <NeedsOrdering />
                   )}
                 </td>
                 <td style={{ whiteSpace: 'normal' }}>{r.notes}</td>
