@@ -111,7 +111,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
                 <option value="running_low">Running low - order more</option>
               </select>
             </label>
-            <label>How many are actually there?<input name="warehouse_quantity_reported" type="number" step="0.01" defaultValue="0" /></label>
+            <label>Roughly how many are actually there?<input name="warehouse_quantity_reported" type="number" step="0.01" placeholder="Leave blank if you did not count" /></label>
             <label>Order reference, optional<input name="order_reference" placeholder="Etsy #12345" /></label>
           </div>
           <label>Notes<textarea name="notes" placeholder="Checked both shelves and the overflow rack." /></label>
