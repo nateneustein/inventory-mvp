@@ -90,6 +90,50 @@ export function ShipmentComing({
   return <Flag tone="coming" icon={<Truck />} label={"SHIPMENT ON THE WAY ---- DON'T NEED TO ORDER"} detail={detail} />
 }
 
+function Box() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8.5 12 4l9 4.5v7L12 20l-9-4.5z" />
+      <path d="M3 8.5 12 13l9-4.5" />
+      <path d="M12 13v7" />
+    </svg>
+  )
+}
+
+/**
+ * Blue as well, because it means the same thing to the person deciding: the
+ * stock exists, do not buy it twice. What differs is where it is - this one has
+ * landed, or should have, and is sitting somewhere nobody has counted it in.
+ * The job is to go and find it, not to order.
+ */
+export function ShipmentWaiting({
+  poNumber,
+  expectedDate,
+  quantity,
+  daysLate,
+  carrierDelivered,
+}: {
+  poNumber?: string | null
+  expectedDate?: string | null
+  quantity?: number | string | null
+  daysLate?: number | null
+  carrierDelivered?: boolean | null
+}) {
+  const late = Number(daysLate || 0)
+  const detail = [
+    poNumber || 'A shipment',
+    quantity ? quantity + ' still to be booked in' : '',
+    expectedDate ? 'expected by ' + date(expectedDate) : '',
+    late > 0 ? late + (late === 1 ? ' day late' : ' days late') : '',
+  ].filter(Boolean).join(' · ')
+
+  const label = carrierDelivered
+    ? 'SHIPMENT DELIVERED BUT NOT RECEIVED ---- DONT NEED TO REORDER'
+    : 'SHIPMENT PAST ITS DATE, NOT RECEIVED ---- DONT NEED TO REORDER'
+
+  return <Flag tone="coming" icon={<Box />} label={label} detail={detail} />
+}
+
 /** Green. Somebody has placed the order, so the job is finished. */
 export function AlreadyOrdered({ when, note }: { when?: string | null, note?: string | null }) {
   const detail = [when ? 'Marked as ordered on ' + date(when) : '', note || ''].filter(Boolean).join(' · ')
