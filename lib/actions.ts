@@ -1212,10 +1212,13 @@ export async function reportZeroStock(formData: FormData) {
      forecast keeps quoting a number nobody has checked in months.
 
      Recorded against the report, so deleting the report puts the stock back. */
-  if (!tracked && created) {
+  if (!tracked && created && systemQty > 0) {
+    // Only ever downwards. Several of these parts already sit below zero because
+    // stock went out that was never bought in, and a report saying "we are low"
+    // must not be the thing that quietly puts 300 boxes back on the books.
     const target = reportType === 'zero' ? 0 : systemQty * 0.25
     const delta = target - systemQty
-    if (delta !== 0) {
+    if (delta < 0) {
       const { error: moveError } = await supabase.from('inventory_movements').insert({
         part_id: partId,
         movement_type: 'manual_adjustment',
