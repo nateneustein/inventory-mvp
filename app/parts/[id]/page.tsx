@@ -196,7 +196,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
                 <option value="running_low">Running low — order more</option>
               </select>
             </label>
-            <label>How many are actually there?<input name="warehouse_quantity_reported" type="number" step="0.01" defaultValue="0" /></label>
+            <label>Roughly how many are actually there?<input name="warehouse_quantity_reported" type="number" step="0.01" placeholder="Leave blank if you did not count" /></label>
             <label>What did you find?<textarea name="notes" placeholder="Scanned bin and there are none left" /></label>
             <div className="action-row"><ActionButton confirm={'Send a stock report for ' + part.name + '?'} busyLabel="Reporting…" doneLabel="Reported">Send report</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
