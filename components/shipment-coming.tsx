@@ -146,12 +146,32 @@ export function NeedsOrdering() {
 }
 
 /** Red. A tracked part should never get here - the forecast missed it. */
-export function Alarm({ atZero, poNumber, expectedDate }: {
+export function Alarm({ atZero, poNumber, expectedDate, awaitingPo, awaitingQty, awaitingExpected, awaitingDaysLate, awaitingDelivered }: {
   atZero?: boolean
   poNumber?: string | null
   expectedDate?: string | null
+  awaitingPo?: string | null
+  awaitingQty?: number | null
+  awaitingExpected?: string | null
+  awaitingDaysLate?: number | null
+  awaitingDelivered?: boolean | null
 }) {
-  const detail = poNumber
+  const late = Number(awaitingDaysLate || 0)
+  const waiting = awaitingPo
+    ? [
+        awaitingPo,
+        awaitingQty ? awaitingQty + ' still to be booked in' : '',
+        awaitingDelivered
+          ? 'the carrier says it was delivered'
+          : (awaitingExpected ? 'was expected by ' + date(awaitingExpected) : ''),
+        late > 0 ? late + (late === 1 ? ' day late' : ' days late') : '',
+        'check the warehouse before ordering more',
+      ].filter(Boolean).join(' · ')
+    : ''
+
+  const detail = waiting
+    ? waiting
+    : poNumber
     ? poNumber + (expectedDate ? ' · expected by ' + date(expectedDate) : '') + ' - ordered too late'
     : atZero
       ? 'Nothing on the way. This should have been ordered before it ran out.'
