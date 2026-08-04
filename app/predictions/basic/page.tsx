@@ -89,11 +89,13 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
   const gaps = parts.map((p: any) => {
     const arrival = firstArrival.get(p.part_id)
     if (!arrival) return null
-    const perWeek = Math.max(
-      Number(p.usage_7 || 0) / 1,
-      Number(p.usage_28 || 0) / 4,
-      Number(p.usage_91 || 0) / 13.0357,
-    )
+    const paces = [
+      { label: '1 week', perWeek: Number(p.usage_7 || 0) / 1 },
+      { label: '4 week', perWeek: Number(p.usage_28 || 0) / 4 },
+      { label: '3 month', perWeek: Number(p.usage_91 || 0) / 13.0357 },
+    ]
+    const driving = paces.reduce((fastest, pace) => (pace.perWeek > fastest.perWeek ? pace : fastest), paces[0])
+    const perWeek = driving.perWeek
     if (perWeek <= 0) return null
     const daysAway = Math.max(0, Math.round(
       (Date.parse(`${arrival.expected_date}T00:00:00Z`) - Date.parse(`${asOf}T00:00:00Z`)) / 86400000,
@@ -107,6 +109,10 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
       part: p,
       arrival,
       perWeek,
+      paces,
+      driving,
+      needed,
+      daysOfCover,
       daysAway,
       onHand,
       shortBy,
@@ -229,7 +235,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
           <span className={'badge ' + (gaps.length > 0 ? 'out' : 'ok')}>{gaps.length}</span>
         </div>
         <div className="wide-table"><table>
-          <thead><tr><th>Part</th><th>On hand</th><th>Using per week</th><th>Runs out about</th><th>Next shipment</th><th>Due</th><th>Days away</th><th>Short by</th></tr></thead>
+          <thead><tr><th>Part</th><th>On hand</th><th>Using per week</th><th>Runs out about</th><th>Next shipment</th><th>Expected by</th><th>Days away</th><th>Short by</th><th>Why it says that</th></tr></thead>
           <tbody>
             {gaps.map((g: any) => (
               <tr key={g.part.part_id} className="alarm-row">
@@ -244,10 +250,24 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
                 <td>{date(g.arrival.expected_date)}</td>
                 <td>{g.daysAway}</td>
                 <td><strong>{num(Math.ceil(g.shortBy))}</strong></td>
+                <td style={{ whiteSpace: 'normal' }}>
+                  <span className="why-list">
+                    <span className="why-line">
+                      <strong>{num(g.daysOfCover)} days of cover</strong> from the {num(g.onHand)} on the shelf
+                    </span>
+                    <span className="why-line muted">
+                      {g.paces.map((pace: any) => pace.label + ' ' + num(pace.perWeek)).join(' · ')} per week
+                      {' — going with the '}{g.driving.label} pace, the fastest
+                    </span>
+                    <span className="why-line">
+                      Needs {num(Math.ceil(g.needed))} to reach {date(g.arrival.expected_date)}, has {num(g.onHand)}
+                    </span>
+                  </span>
+                </td>
               </tr>
             ))}
             {gaps.length === 0 && (
-              <tr><td colSpan={8}><div className="empty-state">Nothing runs out before its shipment arrives.</div></td></tr>
+              <tr><td colSpan={9}><div className="empty-state">Nothing runs out before its shipment arrives.</div></td></tr>
             )}
           </tbody>
         </table></div>
