@@ -1184,22 +1184,56 @@ export async function reportZeroStock(formData: FormData) {
   const partId = value(formData, 'part_id')
   const { data: stockRow } = await supabase.from('part_stock').select('on_hand').eq('part_id', partId).single()
   const systemQty = Number(stockRow?.on_hand || 0)
+  const { data: part } = await supabase.from('parts').select('tracked').eq('id', partId).single()
+  const tracked = part?.tracked !== false
+  const reportType = value(formData, 'report_type') === 'running_low' ? 'running_low' : 'zero'
 
-  // Deliberately does NOT change stock. A zero report is a signal that someone
-  // needs to go and look -- sometimes there is still stock the reporter did not
-  // find. Correcting inventory here would hide that check instead of prompting it.
-  const { error } = await supabase.from('zero_stock_reports').insert({
+  // On a TRACKED part this deliberately does NOT change stock. The count is
+  // supposed to be right, so a report is a signal that someone needs to go and
+  // look -- sometimes there is stock the reporter did not find, and correcting
+  // it here would hide that check instead of prompting it.
+  const { data: created, error } = await supabase.from('zero_stock_reports').insert({
     part_id: partId,
     system_quantity_at_report: systemQty,
     warehouse_quantity_reported: num(formData, 'warehouse_quantity_reported', 0),
     // 'zero' means there are none left; 'running_low' means order more before
     // there are none. Waiting for zero is too late on anything with a lead time.
-    report_type: value(formData, 'report_type') === 'running_low' ? 'running_low' : 'zero',
+    report_type: reportType,
     order_reference: value(formData, 'order_reference') || null,
     notes: value(formData, 'notes') || null,
     created_by: userId,
-  })
+  }).select('id').single()
   if (error) throw new Error(error.message)
+
+  /* An UNTRACKED part is the opposite case. Nobody counts these, so the number
+     the app holds is a guess and the shelf is the truth. The report is the only
+     moment anyone looks, so it is what the stock should follow: none left means
+     zero, running low means roughly a quarter of a full shelf. Without this the
+     forecast keeps quoting a number nobody has checked in months.
+
+     Recorded against the report, so deleting the report puts the stock back. */
+  if (!tracked && created) {
+    const target = reportType === 'zero' ? 0 : systemQty * 0.25
+    const delta = target - systemQty
+    if (delta !== 0) {
+      const { error: moveError } = await supabase.from('inventory_movements').insert({
+        part_id: partId,
+        movement_type: 'manual_adjustment',
+        quantity: delta,
+        reason: reportType === 'zero'
+          ? 'Warehouse reported none left (part is not tracked)'
+          : 'Warehouse reported running low (part is not tracked)',
+        notes: reportType === 'zero'
+          ? 'Set to zero by the report. Untracked parts follow what the warehouse sees.'
+          : 'Cut to a quarter by the report. Untracked parts follow what the warehouse sees.',
+        source_type: 'zero_stock_report',
+        source_id: created.id,
+        movement_date: movementDate(formData),
+        created_by: userId,
+      })
+      if (moveError) throw new Error(moveError.message)
+    }
+  }
 
   await supabase.from('notifications').insert({
     level: 'urgent',
@@ -1212,6 +1246,8 @@ export async function reportZeroStock(formData: FormData) {
   revalidatePath('/zero')
   revalidatePath('/reorder')
   revalidatePath('/reports')
+  revalidatePath('/parts')
+  revalidatePath('/predictions/basic')
   revalidatePath('/dashboard')
 }
 
