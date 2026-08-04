@@ -292,12 +292,26 @@ export async function deleteManualUnitsSold(formData: FormData) {
 export async function deleteZeroStockReport(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+
+  /* A report on an untracked part moves the stock, so deleting the report has
+     to move it back. Anything else and a mis-tapped report leaves a number
+     nobody can explain. Tracked parts never wrote a movement, so this is a
+     no-op for them. */
+  const { error: undoError } = await supabase
+    .from('inventory_movements')
+    .delete()
+    .eq('source_type', 'zero_stock_report')
+    .eq('source_id', id)
+  if (undoError) redirect(`/zero?error=${encodeURIComponent(undoError.message)}`)
+
   const { error } = await supabase.from('zero_stock_reports').delete().eq('id', id)
   if (error) redirect(`/zero?error=${encodeURIComponent(error.message)}`)
   revalidatePath('/zero')
+  revalidatePath('/reorder')
   revalidatePath('/reports')
+  revalidatePath('/parts')
   revalidatePath('/dashboard')
-  redirect('/zero?notice=Zero%20report%20deleted')
+  redirect('/zero?notice=Report%20deleted%20and%20any%20stock%20it%20moved%20put%20back')
 }
 
 
