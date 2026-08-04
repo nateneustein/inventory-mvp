@@ -123,8 +123,11 @@ export function ShipmentWaiting({
   const detail = [
     poNumber || 'A shipment',
     quantity ? quantity + ' still to be booked in' : '',
-    expectedDate ? 'expected by ' + date(expectedDate) : '',
+    carrierDelivered
+      ? 'the carrier says it was delivered'
+      : (expectedDate ? 'was expected by ' + date(expectedDate) : ''),
     late > 0 ? late + (late === 1 ? ' day late' : ' days late') : '',
+    'check the warehouse before ordering more',
   ].filter(Boolean).join(' · ')
 
   const label = carrierDelivered
