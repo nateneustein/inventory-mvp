@@ -28,6 +28,29 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
   const untracked = (rows || []).filter((r: any) => !r.tracked)
   const open = untracked.filter((r: any) => !r.is_done)
   const done = untracked.filter((r: any) => r.is_done)
+  /* What arrived last, and how much. A shipment that landed on Tuesday and was
+     not put away looks exactly like no stock at all to the person on the floor,
+     so the card has to say so before anyone orders a second one. */
+  const reportedPartIds = Array.from(new Set(untracked.map((r: any) => r.part_id)))
+  const { data: arrivals } = reportedPartIds.length
+    ? await supabase
+        .from('receiving_events')
+        .select('part_id, quantity_received, created_at, purchase_orders(po_number)')
+        .in('part_id', reportedPartIds)
+        .order('created_at', { ascending: false })
+    : { data: [] as any[] }
+
+  const lastArrival = new Map<string, any>()
+  for (const row of (arrivals || []) as any[]) {
+    if (!lastArrival.has(row.part_id)) lastArrival.set(row.part_id, row)
+  }
+
+  function daysSince(stamp: string) {
+    const then = Date.parse(stamp)
+    if (Number.isNaN(then)) return null
+    return Math.floor((Date.now() - then) / 86400000)
+  }
+
   const covered = open.filter((r: any) => r.covered_by_incoming)
   const needsOrdering = open.filter((r: any) => !r.covered_by_incoming)
 
@@ -48,6 +71,24 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
         </div>
 
         <p className="muted small">{r.part_sku}{r.category && <> · {r.category}</>} · reported {date(r.created_at)}</p>
+
+        {(() => {
+          const arrival = lastArrival.get(r.part_id)
+          if (!arrival) {
+            return <p className="muted small">No shipment of this has ever been received.</p>
+          }
+          const ago = daysSince(arrival.created_at)
+          const recent = ago !== null && ago <= 21
+          const po = arrival.purchase_orders?.po_number
+          return (
+            <p className={recent ? 'last-arrival recent' : 'last-arrival'}>
+              Last arrived: <strong>{num(arrival.quantity_received)}</strong> on {date(arrival.created_at)}
+              {ago !== null && <> ({ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + ' days ago'})</>}
+              {po && <> · {po}</>}
+              {recent && <> — check the shelf before ordering again.</>}
+            </p>
+          )
+        })()}
 
         {r.covered_by_incoming ? (
           <ShipmentComing
