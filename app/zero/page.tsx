@@ -5,7 +5,7 @@ import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
-import { ShipmentComing, AlreadyOrdered, NeedsOrdering, Alarm } from '@/components/shipment-coming'
+import { ShipmentComing, ShipmentWaiting, AlreadyOrdered, NeedsOrdering, Alarm } from '@/components/shipment-coming'
 import { rowMatches } from '@/lib/search'
 
 /**
@@ -42,7 +42,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
 
   function Row({ r }: { r: any }) {
     return (
-      <tr className={r.covered_by_incoming ? 'covered-row' : 'alarm-row'}>
+      <tr className={r.covered_by_incoming || r.awaiting_receipt ? 'covered-row' : 'alarm-row'}>
         <td>{date(r.created_at)}</td>
         <td className="name-cell">
           <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link>
@@ -55,13 +55,26 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         </td>
         <td>{num(r.system_quantity_at_report)}</td>
         <td>
-          {r.covered_by_incoming ? (
+          {r.awaiting_receipt ? (
+            <ShipmentWaiting
+              poNumber={r.awaiting_po_number}
+              expectedDate={r.awaiting_expected_date}
+              quantity={r.awaiting_qty}
+              daysLate={r.awaiting_days_late}
+              carrierDelivered={r.awaiting_carrier_delivered}
+            />
+          ) : r.covered_by_incoming ? (
             <ShipmentComing poNumber={r.po_number} expectedDate={r.incoming_expected_date} />
           ) : (
             <Alarm
               atZero={r.report_type === 'zero'}
               poNumber={r.purchase_order_id ? r.po_number : null}
               expectedDate={r.incoming_expected_date}
+              awaitingPo={r.awaiting_po_number}
+              awaitingQty={r.awaiting_qty}
+              awaitingExpected={r.awaiting_expected_date}
+              awaitingDaysLate={r.awaiting_days_late}
+              awaitingDelivered={r.awaiting_carrier_delivered}
             />
           )}
         </td>
@@ -92,7 +105,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
       <div className="grid">
         <div className="card kpi-card"><div className="muted">At zero</div><div className="kpi">{zeros.length}</div></div>
         <div className="card kpi-card"><div className="muted">Running low</div><div className="kpi">{lows.length}</div></div>
-        <div className="card kpi-card"><div className="muted">Covered by a shipment</div><div className="kpi">{shown.filter((r: any) => r.covered_by_incoming).length}</div></div>
+        <div className="card kpi-card"><div className="muted">Covered by a shipment</div><div className="kpi">{shown.filter((r: any) => r.covered_by_incoming || r.awaiting_receipt).length}</div></div>
       </div>
 
       <div className="card">
@@ -182,7 +195,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>Where it stands</th><th>Notes</th></tr></thead>
           <tbody>
             {untracked.map((r: any) => (
-              <tr key={r.id} className={r.is_done ? 'done-row' : r.covered_by_incoming ? 'covered-row' : 'todo-row'}>
+              <tr key={r.id} className={r.is_done ? 'done-row' : r.covered_by_incoming || r.awaiting_receipt ? 'covered-row' : 'todo-row'}>
                 <td>{date(r.created_at)}</td>
                 <td className="name-cell">
                   <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link>
@@ -196,6 +209,14 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
                 <td className="small" style={{ whiteSpace: 'normal' }}>
                   {r.is_done ? (
                     <AlreadyOrdered when={r.resolved_at} note={r.resolution_note} />
+                  ) : r.awaiting_receipt ? (
+                    <ShipmentWaiting
+                      poNumber={r.awaiting_po_number}
+                      expectedDate={r.awaiting_expected_date}
+                      quantity={r.awaiting_qty}
+                      daysLate={r.awaiting_days_late}
+                      carrierDelivered={r.awaiting_carrier_delivered}
+                    />
                   ) : r.covered_by_incoming ? (
                     <ShipmentComing poNumber={r.po_number} expectedDate={r.incoming_expected_date} />
                   ) : (
