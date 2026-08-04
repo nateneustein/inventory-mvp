@@ -5,7 +5,7 @@ import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
-import { ShipmentComing, AlreadyOrdered, NeedsOrdering } from '@/components/shipment-coming'
+import { ShipmentComing, ShipmentWaiting, AlreadyOrdered, NeedsOrdering } from '@/components/shipment-coming'
 
 /**
  * Tasks, not alarms.
@@ -56,8 +56,11 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
     return Math.floor((Date.now() - then) / 86400000)
   }
 
-  const covered = open.filter((r: any) => r.covered_by_incoming)
-  const needsOrdering = open.filter((r: any) => !r.covered_by_incoming)
+  /* Both kinds of cover belong in the same pile. To whoever is ordering they mean
+     the same thing - the stock exists, do not buy it again - even though one is
+     still moving and the other is sitting in the building waiting to be counted. */
+  const covered = open.filter((r: any) => r.covered_by_incoming || r.awaiting_receipt)
+  const needsOrdering = open.filter((r: any) => !r.covered_by_incoming && !r.awaiting_receipt)
 
   const partOptions = (parts || []).map((p: any) => ({
     value: p.id,
@@ -67,7 +70,7 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
 
   function Card({ r }: { r: any }) {
     return (
-      <div className={'shipment-card ' + (r.is_done ? 'ok' : r.covered_by_incoming ? 'covered' : r.report_type === 'zero' ? 'out' : 'warning')}>
+      <div className={'shipment-card ' + (r.is_done ? 'ok' : (r.covered_by_incoming || r.awaiting_receipt) ? 'covered' : r.report_type === 'zero' ? 'out' : 'warning')}>
         <div className="shipment-card-head">
           <Link className="link row-name" href={'/parts/' + r.part_id}>{r.part_name}</Link>
           <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>
@@ -93,7 +96,15 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
           )
         })()}
 
-        {r.covered_by_incoming ? (
+        {r.awaiting_receipt ? (
+          <ShipmentWaiting
+            poNumber={r.awaiting_po_number}
+            expectedDate={r.awaiting_expected_date}
+            quantity={r.awaiting_qty}
+            daysLate={r.awaiting_days_late}
+            carrierDelivered={r.awaiting_carrier_delivered}
+          />
+        ) : r.covered_by_incoming ? (
           <ShipmentComing
             poNumber={r.po_number}
             orderDate={r.incoming_order_date}
@@ -200,8 +211,9 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
             <div>
               <h2>Already on order</h2>
               <p className="muted small">
-                A shipment for these was already in flight when the request was made, so the job is
-                done. Kept here rather than hidden, so nothing disappears without a trace.
+                Stock for these already exists - either still in flight, or landed and waiting to be
+                counted in - so the job is done. Kept here rather than hidden, so nothing disappears
+                without a trace.
               </p>
             </div>
             <span className="badge info">{covered.length}</span>
