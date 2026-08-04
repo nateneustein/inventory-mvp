@@ -32,12 +32,17 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
      not put away looks exactly like no stock at all to the person on the floor,
      so the card has to say so before anyone orders a second one. */
   const reportedPartIds = Array.from(new Set(untracked.map((r: any) => r.part_id)))
+  /* Read from the stock ledger rather than the receiving screen, because most of
+     the history for these parts came in from the spreadsheet and never went
+     through receiving at all. Any way stock arrived, it left a movement. */
   const { data: arrivals } = reportedPartIds.length
     ? await supabase
-        .from('receiving_events')
-        .select('part_id, quantity_received, created_at, purchase_orders(po_number)')
+        .from('inventory_movements')
+        .select('part_id, quantity, movement_date, reason')
         .in('part_id', reportedPartIds)
-        .order('created_at', { ascending: false })
+        .eq('movement_type', 'supplier_received')
+        .is('archived_at', null)
+        .order('movement_date', { ascending: false })
     : { data: [] as any[] }
 
   const lastArrival = new Map<string, any>()
@@ -46,7 +51,7 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
   }
 
   function daysSince(stamp: string) {
-    const then = Date.parse(stamp)
+    const then = Date.parse(stamp + 'T00:00:00Z')
     if (Number.isNaN(then)) return null
     return Math.floor((Date.now() - then) / 86400000)
   }
@@ -75,16 +80,14 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
         {(() => {
           const arrival = lastArrival.get(r.part_id)
           if (!arrival) {
-            return <p className="muted small">No shipment of this has ever been received.</p>
+            return <p className="muted small">No stock of this has ever been booked in.</p>
           }
-          const ago = daysSince(arrival.created_at)
+          const ago = daysSince(arrival.movement_date)
           const recent = ago !== null && ago <= 21
-          const po = arrival.purchase_orders?.po_number
           return (
             <p className={recent ? 'last-arrival recent' : 'last-arrival'}>
-              Last arrived: <strong>{num(arrival.quantity_received)}</strong> on {date(arrival.created_at)}
+              Last arrived: <strong>{num(arrival.quantity)}</strong> on {date(arrival.movement_date)}
               {ago !== null && <> ({ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + ' days ago'})</>}
-              {po && <> · {po}</>}
               {recent && <> — check the shelf before ordering again.</>}
             </p>
           )
