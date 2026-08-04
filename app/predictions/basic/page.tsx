@@ -67,6 +67,54 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
 
   const parts = all.filter((p: any) => (!q || match(p, q)) && (!statusFilter || p.stock_status === statusFilter))
 
+  /* The sheet above counts a container the day it is ordered, which is right for
+     the ordering decision but hides a real problem: the weeks BEFORE it lands.
+     This pulls the first outstanding arrival per part so the gap can be worked
+     out - enough to say "you are short 120 pieces for the five weeks until the
+     container gets here", which is a small top-up order, not another container. */
+  const { data: openLines } = await supabase
+    .from('open_po_items')
+    .select('part_id, po_number, expected_date, remaining_qty')
+    .gt('remaining_qty', 0)
+
+  const firstArrival = new Map<string, any>()
+  for (const line of (openLines || []) as any[]) {
+    if (!line.expected_date) continue
+    const held = firstArrival.get(line.part_id)
+    if (!held || line.expected_date < held.expected_date) firstArrival.set(line.part_id, line)
+  }
+
+  /* The fastest of the three paces, same rule the rest of the app uses: if any
+     window says it is moving quickly, believe that one. */
+  const gaps = parts.map((p: any) => {
+    const arrival = firstArrival.get(p.part_id)
+    if (!arrival) return null
+    const perWeek = Math.max(
+      Number(p.usage_7 || 0) / 1,
+      Number(p.usage_28 || 0) / 4,
+      Number(p.usage_91 || 0) / 13.0357,
+    )
+    if (perWeek <= 0) return null
+    const daysAway = Math.max(0, Math.round(
+      (Date.parse(`${arrival.expected_date}T00:00:00Z`) - Date.parse(`${asOf}T00:00:00Z`)) / 86400000,
+    ))
+    const onHand = Number(p.on_hand || 0)
+    const needed = perWeek * (daysAway / 7)
+    const shortBy = needed - onHand
+    if (shortBy <= 0) return null
+    const daysOfCover = onHand > 0 ? (onHand / perWeek) * 7 : 0
+    return {
+      part: p,
+      arrival,
+      perWeek,
+      daysAway,
+      onHand,
+      shortBy,
+      runsOut: shiftDays(asOf, Math.floor(daysOfCover)),
+    }
+  }).filter(Boolean) as any[]
+  gaps.sort((a, b) => b.shortBy - a.shortBy)
+
   function windowHasFullData(days: number) {
     if (!earliestIso || !anchorIso) return false
     return shiftDays(anchorLabel, -(days - 1)) >= earliestIso
@@ -125,7 +173,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
             <h2>Prediction sheet</h2>
             <p className="muted small">
               Anchor date: {date(anchorLabel)} — the newest completed week of usage on or before {date(cutoff || asOf)}.
-              Stock shown is what it was on that date. Negative numbers mean projected stockout.
+              Stock shown is what it was on that date, plus anything already on the way. Negative numbers mean projected stockout.
             </p>
           </div>
           <div className="table-tools">
@@ -142,10 +190,16 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
               return [
                 <tr key={`${period.days}-usage`} className="section-row"><td className="sticky-col prediction-label-col"><strong>{period.label}</strong></td><td>{date(from)}</td><td>{date(anchorLabel)}</td><td>{period.weeks}</td>{parts.map((p: any) => <td key={p.part_id}>{complete ? num(usageFor(p, period.column)) : 'NA'}</td>)}</tr>,
                 <tr key={`${period.days}-current`}><td className="sticky-col prediction-label-col">Current Stock</td><td>{date(anchorLabel)}</td><td>{date(anchorLabel)}</td><td></td>{parts.map((p: any) => <td key={p.part_id}>{num(p.on_hand)}</td>)}</tr>,
+                <tr key={`${period.days}-incoming`}><td className="sticky-col prediction-label-col">On the way</td><td></td><td></td><td></td>{parts.map((p: any) => <td key={p.part_id} className={Number(p.incoming_qty || 0) > 0 ? 'cell-incoming' : undefined}>{num(p.incoming_qty)}</td>)}</tr>,
                 ...projectionPeriods.map((projection) => <tr key={`${period.days}-${projection.label}`}><td className="sticky-col prediction-label-col">{projection.label}</td><td></td><td></td><td>{projection.weeks}</td>{parts.map((p: any) => {
                   if (!complete) return <td key={p.part_id}>-</td>
                   const perWeek = usageFor(p, period.column) / period.weeks
-                  const projected = Number(p.on_hand || 0) - perWeek * projection.weeks
+                  // Counts what is already on the way as well as what is on the shelf.
+                  // Somebody reading this column is deciding whether to order, and the
+                  // worst outcome is ordering a second container because the first one
+                  // was invisible here. The gap report underneath is what catches the
+                  // other risk - running dry in the weeks before that container lands.
+                  const projected = Number(p.on_hand || 0) + Number(p.incoming_qty || 0) - perWeek * projection.weeks
                   // Red means "go and order this". A part with alerts turned off
                   // still shows its shortfall, in orange, so it reads as known
                   // rather than urgent.
@@ -158,6 +212,43 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
               ]
             })}
             {parts.length === 0 && <tr><td colSpan={5}><div className="empty-state">No prediction rows match this filter.</div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+
+      <div className="card table-card">
+        <div className="table-head">
+          <div>
+            <h2>Short before the shipment lands</h2>
+            <p className="muted small">
+              The sheet above already counts what is on the way, so nobody orders a second container by mistake.
+              These are the parts that still run out in the meantime - they need a small top-up to bridge the gap,
+              not another full order. Measured at whichever of the three paces is running fastest.
+            </p>
+          </div>
+          <span className={'badge ' + (gaps.length > 0 ? 'out' : 'ok')}>{gaps.length}</span>
+        </div>
+        <div className="wide-table"><table>
+          <thead><tr><th>Part</th><th>On hand</th><th>Using per week</th><th>Runs out about</th><th>Next shipment</th><th>Due</th><th>Days away</th><th>Short by</th></tr></thead>
+          <tbody>
+            {gaps.map((g: any) => (
+              <tr key={g.part.part_id} className="alarm-row">
+                <td className="name-cell">
+                  <Link className="link" href={'/parts/' + g.part.part_id}>{g.part.name}</Link>
+                  <span className="sku-under">{g.part.sku}</span>
+                </td>
+                <td>{num(g.onHand)}</td>
+                <td>{num(g.perWeek)}</td>
+                <td>{date(g.runsOut)}</td>
+                <td>{g.arrival.po_number}</td>
+                <td>{date(g.arrival.expected_date)}</td>
+                <td>{g.daysAway}</td>
+                <td><strong>{num(Math.ceil(g.shortBy))}</strong></td>
+              </tr>
+            ))}
+            {gaps.length === 0 && (
+              <tr><td colSpan={8}><div className="empty-state">Nothing runs out before its shipment arrives.</div></td></tr>
+            )}
           </tbody>
         </table></div>
       </div>
