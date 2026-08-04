@@ -459,6 +459,12 @@ tbody tr:hover .sticky-col { background: #fafbfc; }
    out" look identical from the shop floor. */
 .last-arrival { font-size: 12.5px; color: var(--ink-2); margin: 4px 0; }
 .last-arrival.recent { color: var(--muted-alert); font-weight: 600; }
+
+/* The reasoning behind a shortfall, in the same shape as the cover cell: the
+   headline number, then the working, so a manager can decide whether to worry. */
+.why-list { display: flex; flex-direction: column; gap: 1px; }
+.why-line { font-size: 12px; line-height: 1.45; }
+.why-line.muted { color: var(--muted); }
 th.ignored-col { color: var(--muted-alert); box-shadow: inset 0 -2px 0 var(--muted-alert); }
 .ignored-note { border: 1px solid var(--muted-alert-line); background: var(--muted-alert-soft);
   color: var(--muted-alert); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; }
