@@ -84,7 +84,7 @@ export function ShipmentComing({
   const detail = [
     poNumber || 'A shipment',
     orderDate ? 'placed ' + date(orderDate) : '',
-    expectedDate ? 'due ' + date(expectedDate) : '',
+    expectedDate ? 'expected by ' + date(expectedDate) : '',
   ].filter(Boolean).join(' · ')
 
   return <Flag tone="coming" icon={<Truck />} label={"SHIPMENT ON THE WAY ---- DON'T NEED TO ORDER"} detail={detail} />
@@ -108,7 +108,7 @@ export function Alarm({ atZero, poNumber, expectedDate }: {
   expectedDate?: string | null
 }) {
   const detail = poNumber
-    ? poNumber + (expectedDate ? ' · due ' + date(expectedDate) : '') + ' - ordered too late'
+    ? poNumber + (expectedDate ? ' · expected by ' + date(expectedDate) : '') + ' - ordered too late'
     : atZero
       ? 'Nothing on the way. This should have been ordered before it ran out.'
       : 'Nothing on the way. The forecast should have caught this.'
