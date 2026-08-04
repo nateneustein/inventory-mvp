@@ -1212,29 +1212,35 @@ export async function reportZeroStock(formData: FormData) {
      forecast keeps quoting a number nobody has checked in months.
 
      Recorded against the report, so deleting the report puts the stock back. */
-  if (!tracked && created && systemQty > 0) {
-    // Only ever downwards. Several of these parts already sit below zero because
-    // stock went out that was never bought in, and a report saying "we are low"
-    // must not be the thing that quietly puts 300 boxes back on the books.
-    const target = reportType === 'zero' ? 0 : systemQty * 0.25
-    const delta = target - systemQty
-    if (delta < 0) {
-      const { error: moveError } = await supabase.from('inventory_movements').insert({
-        part_id: partId,
-        movement_type: 'manual_adjustment',
-        quantity: delta,
-        reason: reportType === 'zero'
-          ? 'Warehouse reported none left (part is not tracked)'
-          : 'Warehouse reported running low (part is not tracked)',
-        notes: reportType === 'zero'
-          ? 'Set to zero by the report. Untracked parts follow what the warehouse sees.'
-          : 'Cut to a quarter by the report. Untracked parts follow what the warehouse sees.',
-        source_type: 'zero_stock_report',
-        source_id: created.id,
-        movement_date: movementDate(formData),
-        created_by: userId,
-      })
-      if (moveError) throw new Error(moveError.message)
+  if (!tracked && created) {
+    /* None left means zero. Running low means whatever they counted on the shelf -
+       a person standing in front of it beats any number the app was holding, and
+       for an untracked part the app's number was only ever a guess. Left blank,
+       nothing moves: better an old number than a wrong one. */
+    const counted = String(formData.get('warehouse_quantity_reported') ?? '').trim()
+    const target = reportType === 'zero'
+      ? 0
+      : (counted !== '' && Number.isFinite(Number(counted)) ? Number(counted) : null)
+
+    if (target !== null) {
+      const delta = target - systemQty
+      if (delta !== 0) {
+        const { error: moveError } = await supabase.from('inventory_movements').insert({
+          part_id: partId,
+          movement_type: 'manual_adjustment',
+          quantity: delta,
+          reason: reportType === 'zero'
+            ? 'Warehouse reported none left (part is not tracked)'
+            : 'Warehouse counted ' + target + ' on the shelf (part is not tracked)',
+          notes: 'Untracked parts follow what the warehouse sees, so the report set the stock. '
+            + 'Was ' + systemQty + ', now ' + target + '. Deleting the report puts it back.',
+          source_type: 'zero_stock_report',
+          source_id: created.id,
+          movement_date: movementDate(formData),
+          created_by: userId,
+        })
+        if (moveError) throw new Error(moveError.message)
+      }
     }
   }
 
