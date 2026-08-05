@@ -3,14 +3,13 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
 import { receiveShipmentLines, undoReceivingEvent, editReceivingEvent } from '@/lib/shipment-actions'
-import { date, num, supplierHint } from '@/lib/format'
+import { date, num, supplierHint, today } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
 import { rowMatches } from '@/lib/search'
 
 /** Defaults to today, so a delivery checked in on Monday can still be booked
  *  into the week it actually landed. */
-function today() { return new Date().toISOString().slice(0, 10) }
 
 const FINISHED = ['received', 'closed', 'cancelled']
 
