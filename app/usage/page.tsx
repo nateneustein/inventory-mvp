@@ -4,12 +4,11 @@ import { getPermissions } from '@/lib/permissions'
 import { createManualUnitsSold } from '@/lib/actions'
 import { ManualUsageRows } from '@/components/manual-usage-actions'
 import { ManualUsageLines } from '@/components/manual-usage-lines'
-import { date, num } from '@/lib/format'
+import { date, num, today } from '@/lib/format'
 import { UsageReports } from '@/components/usage-reports'
 
 export const dynamic = 'force-dynamic'
 
-function iso(d: Date) { return d.toISOString().slice(0, 10) }
 function variationLabel(v: any) { return `${v.variation_name || ''} · ${v.products?.name || ''}` }
 
 function zoomValue(raw?: string) {
@@ -70,7 +69,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
         <p className="muted">Use this for bulk orders or any order line that actually represents multiple finished products. One entry can hold several products - add a line for each - and every one of them consumes its own parts through the BOM.</p>
         <form className="stack" action={createManualUnitsSold}>
           <ManualUsageLines options={(variations || []).map((v: any) => ({ value: v.id, label: variationLabel(v) }))} />
-<div className="form-row"><label>Date<input name="sale_date" type="date" defaultValue={iso(new Date())} required /></label></div>
+<div className="form-row"><label>Date<input name="sale_date" type="date" defaultValue={today()} required /></label></div>
           <div className="form-row"><label>Reason<select name="reason" defaultValue="bulk_order_manual_entry"><option value="bulk_order_manual_entry">Bulk order/manual split</option><option value="missing_from_platform_upload">Missing from platform upload</option><option value="correction">Correction</option><option value="other">Other</option></select></label><label>Order/reference<input name="order_reference" placeholder="Optional order number" /></label></div>
           <label>Notes<textarea name="notes" /></label>
           <div className="action-row"><button type="submit">Add manual sold units</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
