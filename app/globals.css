@@ -164,6 +164,11 @@ p { line-height: 1.5; margin: 0 0 10px; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+/* Six dashboard boxes read as two rows of three. Left to auto-fit they string
+   out five-and-one, which makes the last one look like an afterthought. */
+.grid.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .grid.kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { .grid.kpis { grid-template-columns: 1fr; } }
 
 .kpi-card { padding: 13px 14px; }
 .kpi-card::after { content: none; }         /* the decorative blob is gone */
