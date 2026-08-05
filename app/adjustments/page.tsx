@@ -2,14 +2,13 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { createManualAdjustment, createInventorySwitch } from '@/lib/actions'
 import { updateInventoryMovement, archiveInventoryMovement, deleteInventoryMovement } from '@/lib/record-actions'
-import { date, num } from '@/lib/format'
+import { date, num, today } from '@/lib/format'
 import { ActionButton } from '@/components/action-button'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
 
 /** Defaults to today, but the box exists so a movement can be back-dated into
  *  the week it really happened - the weekly sheets are read as history. */
-function today() { return new Date().toISOString().slice(0, 10) }
 
 export default async function AdjustmentsPage({ searchParams }: { searchParams?: Promise<{ error?: string, notice?: string, q?: string }> }) {
   const params = searchParams ? await searchParams : {}
