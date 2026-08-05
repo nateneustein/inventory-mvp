@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/require-user'
 import { createPurchaseOrder, addPurchaseOrderItem, deletePurchaseOrder } from '@/lib/actions'
 import { refreshAllShipmentTracking } from '@/lib/shipment-actions'
 import { trackingEnabled } from '@/lib/tracking'
-import { date, num, supplierHint } from '@/lib/format'
+import { ZONE, date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ExtraSuppliers } from '@/components/extra-suppliers'
 import { ActionButton } from '@/components/action-button'
@@ -29,7 +29,7 @@ function when(value: string | null) {
   if (!value) return ''
   const stamp = new Date(value)
   if (Number.isNaN(stamp.getTime())) return ''
-  return stamp.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  return stamp.toLocaleString('en-US', { timeZone: ZONE, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
 function hoursSince(value: string | null) {
