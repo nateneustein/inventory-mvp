@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { getPermissions, ROLE_LABELS } from '@/lib/permissions'
 import { updateUserRole, setUserActive } from '@/lib/record-actions'
-import { date } from '@/lib/format'
+import { ZONE, date } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +46,7 @@ const ACTION_LABELS: Record<string, string> = { created: 'Added', changed: 'Edit
 function when(value: string) {
   const stamp = new Date(value)
   if (Number.isNaN(stamp.getTime())) return ''
-  return stamp.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  return stamp.toLocaleString('en-US', { timeZone: ZONE, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
 function short(value: any) {
