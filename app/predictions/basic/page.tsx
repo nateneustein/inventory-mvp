@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { date, num } from '@/lib/format'
+import { date, num, today } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
-function isoToday() { return new Date().toISOString().slice(0, 10) }
 function shiftDays(isoStr: string, days: number) {
   const d = new Date(`${isoStr}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + days)
@@ -48,7 +47,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
   const q = params.q || ''
   const statusFilter = params.status || ''
   const zoom = zoomValue(params.zoom)
-  const asOf = isValidIso(params.as_of) ? params.as_of! : isoToday()
+  const asOf = isValidIso(params.as_of) ? params.as_of! : today()
   const { supabase } = await requireUser()
 
   // One call returns stock as it stood on that date plus the usage windows
@@ -146,7 +145,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
       <div className="card">
         <form className="filter-bar" action="/predictions/basic">
           <label>Show the sheet as of
-            <input name="as_of" type="date" defaultValue={asOf} max={isoToday()} />
+            <input name="as_of" type="date" defaultValue={asOf} max={today()} />
           </label>
           <label>Search parts<input name="q" defaultValue={q} placeholder="SKU, part, category" /></label>
           <label className="compact">Status
