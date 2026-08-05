@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
 import { CONDITION_FIELDS, CONDITION_TYPES, conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
+import { today } from '@/lib/format'
 
 type CsvRow = Record<string, string>
 
@@ -22,7 +23,7 @@ function value(formData: FormData, key: string) {
  */
 function movementDate(formData: FormData, key = 'movement_date') {
   const raw = value(formData, key)
-  return raw || new Date().toISOString().slice(0, 10)
+  return raw || today()
 }
 
 function num(formData: FormData, key: string, fallback = 0) {
@@ -61,9 +62,10 @@ function parseDateValue(raw: unknown) {
 
 function weekStartSundayFromDate(dateText: string | null) {
   if (!dateText) return null
-  const d = new Date(`${dateText}T00:00:00`)
+  // Midday UTC so no server timezone can push this onto the wrong calendar day.
+  const d = new Date(`${dateText}T12:00:00Z`)
   if (Number.isNaN(d.getTime())) return null
-  d.setDate(d.getDate() - d.getDay())
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay())
   return d.toISOString().slice(0, 10)
 }
 
@@ -1066,7 +1068,7 @@ export async function createInventorySwitch(formData: FormData) {
 
 export async function createManualUnitsSold(formData: FormData) {
   const { supabase, userId } = await currentUserId()
-  const saleDate = value(formData, 'sale_date') || new Date().toISOString().slice(0, 10)
+  const saleDate = value(formData, 'sale_date') || today()
   const notes = value(formData, 'notes') || null
 
   function fail(message: string) {
