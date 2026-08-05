@@ -32,8 +32,18 @@ async function rpc(name: string, body: Record<string, unknown>) {
     body: JSON.stringify(body),
     cache: 'no-store',
   })
-  if (!res.ok) throw new Error(name + ' failed: ' + res.status + ' ' + (await res.text()).slice(0, 300))
-  return res.json()
+  const body = await res.text()
+  if (!res.ok) throw new Error(name + ' failed: ' + res.status + ' ' + body.slice(0, 300))
+  // A function returning void answers with a completely empty body, which is
+  // not valid JSON. Parsing it blindly used to throw straight after a message
+  // had already gone out - the send was fine, the bookkeeping call was what
+  // blew up, and the whole request came back a 500 for no real reason.
+  if (!body.trim()) return null
+  try {
+    return JSON.parse(body)
+  } catch {
+    return null
+  }
 }
 
 async function handle(request: NextRequest) {
