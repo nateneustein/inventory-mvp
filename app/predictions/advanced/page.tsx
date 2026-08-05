@@ -1,16 +1,15 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { date, num } from '@/lib/format'
+import { date, num, today } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 
 export const dynamic = 'force-dynamic'
 
-function isoToday() { return new Date().toISOString().slice(0, 10) }
 function isValidIso(s?: string) { return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) }
 
 export default async function AdvancedPredictionPage({ searchParams }: { searchParams?: Promise<{ part_id?: string, as_of?: string }> }) {
   const params = searchParams ? await searchParams : {}
-  const asOf = isValidIso(params.as_of) ? params.as_of! : isoToday()
+  const asOf = isValidIso(params.as_of) ? params.as_of! : today()
   const { supabase } = await requireUser()
 
   // Same as-of rule as the basic sheet: any day inside a week shows the
@@ -72,7 +71,7 @@ export default async function AdvancedPredictionPage({ searchParams }: { searchP
 
       <div className="card">
         <form className="filter-bar">
-          <label>Show as of<input name="as_of" type="date" defaultValue={asOf} max={isoToday()} /></label>
+          <label>Show as of<input name="as_of" type="date" defaultValue={asOf} max={today()} /></label>
           <label>Part
             <SearchSelect
               name="part_id"
