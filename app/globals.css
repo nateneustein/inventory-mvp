@@ -167,9 +167,23 @@ p { line-height: 1.5; margin: 0 0 10px; }
 
 .kpi-card { padding: 13px 14px; }
 .kpi-card::after { content: none; }         /* the decorative blob is gone */
+
+/* Two numbers in one box.
+   A dashboard box answers "is there anything to do here" before it answers
+   "how much" - so a zero greys out and the eye skips straight past it, and a
+   real number wears the colour of how bad it is: red for out, amber for a
+   job waiting, blue for something already in motion. */
 .kpi-card .muted { font-size: 12px; color: var(--ink-2); }
 .kpi { font-size: 26px; font-weight: 600; margin-top: 4px; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .kpi-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.kpi-card .muted { min-height: 32px; display: flex; align-items: flex-start; }
+.kpi-twin { display: flex; gap: 22px; }
+.kpi-stat .kpi { margin-top: 2px; }
+.kpi-c { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: .2px; }
+.kpi.bad   { color: var(--danger); }
+.kpi.todo  { color: var(--muted-alert); }
+.kpi.moving{ color: var(--accent-strong); }
+.kpi.none  { color: #c3c8ce; font-weight: 500; }
 
 /* --------------------------------------------------------------- badges -- */
 .badge {
