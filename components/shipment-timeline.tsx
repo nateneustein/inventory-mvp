@@ -1,5 +1,5 @@
 import { requireUser } from '@/lib/require-user'
-import { date } from '@/lib/format'
+import { ZONE, date } from '@/lib/format'
 import { ActionButton } from '@/components/action-button'
 import { trackingEnabled } from '@/lib/tracking'
 import { addShipmentUpdate, deleteShipmentUpdate, refreshShipmentTracking } from '@/lib/shipment-actions'
@@ -21,7 +21,7 @@ function when(value: string | null) {
   const stamp = new Date(value)
   if (Number.isNaN(stamp.getTime())) return ''
   return stamp.toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    timeZone: ZONE, month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   })
 }
 
