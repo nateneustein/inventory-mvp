@@ -1,14 +1,13 @@
 import { requireUser } from '@/lib/require-user'
 import { reportDamage } from '@/lib/actions'
 import { updateDamageReport, deleteDamageReport } from '@/lib/record-actions'
-import { date, num } from '@/lib/format'
+import { date, num, today } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { rowMatches } from '@/lib/search'
 import { StickySelect } from '@/components/sticky-select'
 
 /** Defaults to today, but the box exists so a movement can be back-dated into
  *  the week it really happened - the weekly sheets are read as history. */
-function today() { return new Date().toISOString().slice(0, 10) }
 
 export const dynamic = 'force-dynamic'
 
