@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { updatePurchaseOrder, deletePurchaseOrder, addPurchaseOrderItem, updatePurchaseOrderItem, deletePurchaseOrderItem, receivePurchaseOrderItem } from '@/lib/actions'
-import { date, num, supplierHint } from '@/lib/format'
+import { date, num, supplierHint, today } from '@/lib/format'
 import { ActionButton } from '@/components/action-button'
 import { SearchSelect } from '@/components/search-select'
 import { StickySelect } from '@/components/sticky-select'
@@ -11,7 +11,6 @@ import { addShipmentSupplier, removeShipmentSupplier } from '@/lib/shipment-acti
 
 /** Defaults to today, so a shipment checked in late still books into the week
  *  it actually arrived. */
-function today() { return new Date().toISOString().slice(0, 10) }
 
 export default async function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
