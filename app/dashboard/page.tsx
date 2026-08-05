@@ -18,6 +18,10 @@ export default async function DashboardPage() {
   const { data: notifications } = await supabase.from('notifications').select('*').is('acknowledged_at', null).order('created_at', { ascending: false }).limit(12)
   const { data: importedSummary } = await supabase.from('imported_order_summary').select('*')
   const { data: deadStock } = await supabase.from('dead_stock_candidates').select('*').neq('dead_stock_status', 'active').limit(12)
+  const { data: partFlags } = await supabase.from('parts').select('id, tracked')
+  const { data: reportRows } = await supabase.from('stock_report_board').select('*').limit(500)
+  const { data: awaitingShipments } = await supabase.from('shipments_awaiting_receipt').select('purchase_order_id')
+  const { data: gapParts } = await supabase.from('stock_gap_before_shipment').select('part_id')
 
   const rows = statusRows || []
   // Parts with alerts turned off are deliberately excluded from every count and
@@ -25,11 +29,32 @@ export default async function DashboardPage() {
   // list and the prediction sheet — they just do not shout.
   const alerting = rows.filter((r: any) => !r.ignore_alerts)
   const ignoredCount = rows.length - alerting.length
-  const outRows = alerting.filter((r: any) => r.stock_status === 'out')
-  const reorderRows = alerting.filter((r: any) => r.stock_status === 'reorder_now')
-  const lowRows = alerting.filter((r: any) => r.stock_status === 'getting_low')
-  const parts = rows.length
   const unmapped = (importedSummary || []).reduce((sum: number, r: any) => sum + Number(r.unmapped_rows || 0), 0)
+
+  // The six boxes.
+  //
+  // Each one answers a different person's question, so each is counted from the
+  // thing that person acts on rather than from one shared list:
+  //   - the forecast boxes come from the projection, before anyone has complained
+  //   - the two report boxes come from what the warehouse actually reported
+  //   - a report already covered by a shipment is nobody's job, so it stays out
+  //     of the reorder counts entirely
+  const trackedIds = new Set((partFlags || []).filter((p: any) => p.tracked !== false).map((p: any) => p.id))
+  const trackedAlerting = alerting.filter((r: any) => trackedIds.has(r.part_id))
+  const forecastOut = trackedAlerting.filter((r: any) => r.stock_status === 'out').length
+  const forecastLow = trackedAlerting.filter((r: any) => r.stock_status === 'reorder_now' || r.stock_status === 'getting_low').length
+
+  const openReports = (reportRows || []).filter((r: any) => !r.is_done)
+  const covered = (r: any) => r.covered_by_incoming || r.awaiting_receipt
+  const alarmZero = openReports.filter((r: any) => r.tracked && r.report_type === 'zero').length
+  const alarmLow = openReports.filter((r: any) => r.tracked && r.report_type === 'running_low' && !covered(r)).length
+  const supplyZero = openReports.filter((r: any) => !r.tracked && r.report_type === 'zero' && !covered(r)).length
+  const supplyLow = openReports.filter((r: any) => !r.tracked && r.report_type === 'running_low' && !covered(r)).length
+
+  const awaitingCount = (awaitingShipments || []).length
+  const gapCount = (gapParts || []).length
+
+  const tone = (n: number, colour: string) => 'kpi ' + (n > 0 ? colour : 'none')
 
   return (
     <>
@@ -45,10 +70,45 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid">
-        <Link className="card kpi-card highlight" href="/parts"><div className="muted">Total parts</div><div className="kpi">{parts}</div><span className="badge info">View parts</span></Link>
-        <Link className="card kpi-card" href="/parts?status=out"><div className="muted">Out of stock</div><div className="kpi">{outRows.length}</div><span className="badge danger">urgent</span></Link>
-        <Link className="card kpi-card" href="/parts?status=reorder_now"><div className="muted">Reorder now</div><div className="kpi">{reorderRows.length}</div><span className="badge warning">needs order</span></Link>
-        <Link className="card kpi-card" href="/imported-orders?status=unmapped"><div className="muted">Unmapped rows</div><div className="kpi">{unmapped}</div><span className="badge warning">mapping needed</span></Link>
+        <Link className="card kpi-card" href="/predictions/basic">
+          <div className="muted">Forecast says we run out - tracked parts</div>
+          <div className="kpi-twin">
+            <div className="kpi-stat"><div className={tone(forecastOut, 'bad')}>{forecastOut}</div><div className="kpi-c">out of stock</div></div>
+            <div className="kpi-stat"><div className={tone(forecastLow, 'todo')}>{forecastLow}</div><div className="kpi-c">running low</div></div>
+          </div>
+        </Link>
+        <Link className="card kpi-card" href="/zero">
+          <div className="muted">Forecast Failure - zero &amp; running low alarms</div>
+          <div className="kpi-twin">
+            <div className="kpi-stat"><div className={tone(alarmZero, 'bad')}>{alarmZero}</div><div className="kpi-c">at zero</div></div>
+            <div className="kpi-stat"><div className={tone(alarmLow, 'todo')}>{alarmLow}</div><div className="kpi-c">low, none coming</div></div>
+          </div>
+        </Link>
+        <Link className="card kpi-card" href="/reorder">
+          <div className="muted">Small supplies &amp; untracked - needs reordering</div>
+          <div className="kpi-twin">
+            <div className="kpi-stat"><div className={tone(supplyZero, 'bad')}>{supplyZero}</div><div className="kpi-c">none left</div></div>
+            <div className="kpi-stat"><div className={tone(supplyLow, 'todo')}>{supplyLow}</div><div className="kpi-c">running low</div></div>
+          </div>
+        </Link>
+        <Link className="card kpi-card" href="/predictions/basic">
+          <div className="muted">Will run out before new shipment arrives</div>
+          <div className="kpi-twin">
+            <div className="kpi-stat"><div className={tone(gapCount, 'todo')}>{gapCount}</div><div className="kpi-c">need a top-up</div></div>
+          </div>
+        </Link>
+        <Link className="card kpi-card" href="/receiving">
+          <div className="muted">Shipments need to be received</div>
+          <div className="kpi-twin">
+            <div className="kpi-stat"><div className={tone(awaitingCount, 'moving')}>{awaitingCount}</div><div className="kpi-c">awaiting receipt</div></div>
+          </div>
+        </Link>
+        <Link className="card kpi-card" href="/imported-orders?status=unmapped">
+          <div className="muted">Unmapped order rows</div>
+          <div className="kpi-twin">
+            <div className="kpi-stat"><div className={tone(unmapped, 'todo')}>{unmapped}</div><div className="kpi-c">need mapping</div></div>
+          </div>
+        </Link>
       </div>
 
       <div className="grid two">
