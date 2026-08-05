@@ -7,7 +7,7 @@ import {
   savePartLink, deletePartLink,
   uploadPartFile, deletePartFile,
 } from '@/lib/part-detail-actions'
-import { date, num, supplierHint } from '@/lib/format'
+import { date, num, supplierHint, today } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { StickySelect } from '@/components/sticky-select'
 import { ReorderWindowHistory } from '@/components/reorder-window-history'
@@ -17,7 +17,6 @@ import { PhotoInput } from '@/components/photo-input'
 
 /** Defaults to today, but the box exists so a movement can be back-dated into
  *  the week it really happened - the weekly sheets are read as history. */
-function today() { return new Date().toISOString().slice(0, 10) }
 
 // The prediction sheet's own windows, so the reorder trigger is set in the same
 // language the sheet speaks rather than in raw days.
