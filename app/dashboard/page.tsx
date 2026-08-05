@@ -69,7 +69,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid">
+      <div className="grid kpis">
         <Link className="card kpi-card" href="/predictions/basic">
           <div className="muted">Forecast says we run out - tracked parts</div>
           <div className="kpi-twin">
