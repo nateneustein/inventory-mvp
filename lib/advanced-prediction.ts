@@ -85,9 +85,19 @@ export function chop(series, first, off) {
  * history wins - an average would dilute a real surge, and a single fixed
  * chop could split one across a block boundary and hide it.
  */
-export function surgeSearch(first, map, end, baseWeeks) {
+export function surgeSearch(first, map, end, baseWeeks, detrend) {
   const bw = baseWeeks || 13
   const series = weeklySeries(first, map, end)
+  // When the listing has a firing growth trend, level every week to the
+  // trend line (anchored at the newest trustworthy week) before hunting for
+  // spikes: growth is paid once by the trend step, never again as a surge.
+  if (detrend && detrend.gWeekly > 0) {
+    for (let i = 0; i < series.length; i++) {
+      const weeksBack = (detrend.anchor - (first + i * 7 * DAY)) / (7 * DAY)
+      const f = 1 + detrend.gWeekly * weeksBack
+      if (f > 0) series[i] = series[i] * f
+    }
+  }
   let best = null
   const cuts = []
   for (let off = 0; off < 4; off++) {
