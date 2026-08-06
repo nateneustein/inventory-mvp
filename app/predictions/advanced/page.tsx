@@ -83,7 +83,6 @@ export default async function AdvancedPredictionPage({ searchParams }) {
   let weeklyByPart = {}
   let shopMedianLast = 0
   let stockByPart = {}
-  let supplierName = ''
   let openReports = []
   let monthlyAll = []
   const todayIso = today()
@@ -119,12 +118,6 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     const { data: st } = await supabase.from('inventory_status')
       .select('part_id, on_hand, incoming_qty').in('part_id', ids)
     for (const r of st || []) stockByPart[r.part_id] = r
-
-    if (part.supplier_id) {
-      const { data: sup } = await supabase.from('suppliers')
-        .select('name').eq('id', part.supplier_id).single()
-      supplierName = sup ? sup.name : ''
-    }
 
     const { data: reps } = await supabase.from('zero_stock_reports')
       .select('id, part_id, report_type, created_at').is('resolved_at', null)
@@ -521,9 +514,6 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   </div>
                   {c.flagged && (
                     <div className="ap-flag"><b>{f1(c.q.order / c.plain3mo)}x a plain 3-month order</b> (over the {dial.flagX}x line). Nothing is capped - this flag exists so a big number is always a decision, never a surprise. The breakdown above shows exactly where it comes from.</div>
-                  )}
-                  {part.moq && c.q.order > 0 && c.q.order < Number(part.moq) && (
-                    <div className="ap-warn"><b>Supplier minimum: MOQ {num(part.moq)} on this part.</b> Worth confirming with {supplierName || 'the supplier'} whether the minimum is per variation or per shipment - ordered together, the whole group may clear it.</div>
                   )}
                   {c.rate.perWeek <= 0 && <div className="ap-warn">The clean rate is zero - no recent usage - so this order is backlog only.</div>}
                 </div>
