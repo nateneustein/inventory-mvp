@@ -56,7 +56,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
   // Dials resolve in three layers: built-in defaults first, then this group's
   // saved settings, then anything typed into the dial form for this one run.
-  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5 }
+  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5 }
   let savedSettings = {}
   let savedAt = null
   if (part && part.category) {
@@ -76,6 +76,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     poolFrac: pick('pool'),
     trendMin: pick('tmin'),
     trendTh: pick('tth'),
+    trendLook: pick('tlook'),
     trendHoriz: pick('thoriz'),
     trendClip: pick('tclip'),
     seasonTh: pick('sth'),
@@ -146,6 +147,23 @@ export default async function AdvancedPredictionPage({ searchParams }) {
   // ------------------------------------------------------------- calculation
   let calc = null
   if (part) {
+    // The listing-wide trend is measured FIRST: when it fires, the surge
+    // search levels every week to the trend line before hunting for spikes,
+    // so growth is paid once (step 4) and spikes once (steps 1-2).
+    const listingRows = []
+    let listingFirst = Infinity
+    for (const p of groupParts) {
+      for (const r of weeklyByPart[p.id] || []) listingRows.push(r)
+    }
+    const listingWm = buildWeekMap(listingRows)
+    if (listingWm) listingFirst = listingWm.first
+    const trend = listingWm
+      ? trendSearch(listingWm.first, listingWm.map, shopMedianLast,
+                    { minMonths: dial.trendMin, thresholdPct: dial.trendTh, clipMult: dial.trendClip,
+                      maxBlocks: Math.max(4, Math.round((dial.trendLook * 13) / 12)) })
+      : { applied: false, reason: 'no listing history', perBlockPct: 0, gWeekly: 0, blocks: [], clipped: [] }
+    const detrend = trend.applied ? { gWeekly: trend.gWeekly, anchor: shopMedianLast } : null
+
     const perVariation = []
     const noData = []
     const wmBy = {}
@@ -154,7 +172,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       wmBy[p.id] = wm
       if (!wm) { noData.push(p); continue }
       const end = Math.max(wm.ownLast, shopMedianLast)
-      const s = surgeSearch(wm.first, wm.map, end, baseWeeks)
+      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, detrend)
       if (!s) { noData.push(p); continue }
       perVariation.push({ part: p, wm, end, s, pct: s.pct })
     }
@@ -173,21 +191,6 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       const selWm = wmBy[part.id]
       const selEnd = selWm ? Math.max(selWm.ownLast, shopMedianLast) : shopMedianLast
       const rate = selWm ? cleanRate(selWm.first, selWm.map, selEnd, effWeeks) : null
-
-      // Listing series for the trend: summed weekly across the group, ending
-      // at the shop's trustworthy week - a part whose import ran ahead on
-      // empty rows must not fabricate a calm final block.
-      const listingRows = []
-      let listingFirst = Infinity
-      for (const p of groupParts) {
-        for (const r of weeklyByPart[p.id] || []) listingRows.push(r)
-      }
-      const listingWm = buildWeekMap(listingRows)
-      if (listingWm) listingFirst = listingWm.first
-      const trend = listingWm
-        ? trendSearch(listingWm.first, listingWm.map, shopMedianLast,
-                      { minMonths: dial.trendMin, thresholdPct: dial.trendTh, clipMult: dial.trendClip })
-        : { applied: false, reason: 'no listing history', perBlockPct: 0, gWeekly: 0, blocks: [], clipped: [] }
 
       // Lead time straight off the part record.
       const leadDays = part.lead_time_days_max != null
@@ -328,6 +331,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <input type="number" name="tth" step="0.5" defaultValue={dial.trendTh} />
               <span className="ap-dial-help">Growth slower than this per month is treated as noise and ignored. Only a real climb changes the order.</span>
             </label>
+            <label>Trend looks back (months)
+              <input type="number" name="tlook" step="1" defaultValue={dial.trendLook} />
+              <span className="ap-dial-help">How much history the trend line is measured from. Shorter feels a new climb faster; longer is steadier but can flatten a recent takeoff.</span>
+            </label>
             <label>Trend horizon (months)
               <input type="number" name="thoriz" step="0.5" defaultValue={dial.trendHoriz} />
               <span className="ap-dial-help">How far out the trend keeps growing in the projection. After this many months it holds flat - so one order only buys this much of the forecast, and the next order re-reads the trend with fresh data.</span>
@@ -371,6 +378,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="pool" value={dial.poolFrac} />
           <input type="hidden" name="tmin" value={dial.trendMin} />
           <input type="hidden" name="tth" value={dial.trendTh} />
+          <input type="hidden" name="tlook" value={dial.trendLook} />
           <input type="hidden" name="thoriz" value={dial.trendHoriz} />
           <input type="hidden" name="tclip" value={dial.trendClip} />
           <input type="hidden" name="sth" value={dial.seasonTh} />
@@ -451,6 +459,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 <p className="small" style={{ margin: '0 0 8px' }}>
                   Group = every part whose category is exactly <b>{part.category}</b> ({groupParts.length} parts). For each one: usage cut into 4-week blocks <b>4 different ways</b> (a block boundary must never split a surge and hide it), Oct-Jan blocks dropped by midpoint, then <b>every 28-week window</b> inside every chop is scored against its own median. The worst combination anywhere in its history is that variation&apos;s surge protection.
                 </p>
+                {c.trend.applied && (
+                  <p className="small" style={{ margin: '0 0 8px' }}>
+                    <b>Growth leveled out first:</b> this listing has a firing trend (+{f1(c.trend.perBlockPct)}% per 4 weeks), so before spikes are measured every week is scaled up to today&apos;s trend line. Whatever still sticks out is a real spike - plain growth is paid once, in step 4, never again as a surge.
+                  </p>
+                )}
                 <table>
                   <thead><tr><th>Variation</th><th>History</th><th>Data to</th><th>Worst chop</th><th>Worst window from</th><th>Surge protection</th></tr></thead>
                   <tbody>
@@ -479,7 +492,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <details key={dv.part.id} className="ap-drill">
                       <summary>{dv.part.name}: inside its worst window (+{pctOf(dv.pct)}%)</summary>
                       <p className="small" style={{ margin: '6px 0 0' }}>
-                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block - every spike below is measured against that.
+                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block - every spike below is measured against that.{c.trend.applied ? ' Block values are leveled to the trend line - growth taken out, spikes left in.' : ''}
                       </p>
                       <table>
                         <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
@@ -531,7 +544,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         ))}
                       </tbody>
                     </table>
-                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block):</p>
+                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block{c.trend.applied ? '; values leveled to the trend line first' : ''}):</p>
                     <table>
                       <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
                       <tbody>
@@ -593,7 +606,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   {c.trend.applied
                     ? 'Growth is applied to the projection for the first ' + f1(dial.trendHoriz) + ' months, then held flat - the order only buys ' + f1(dial.trendHoriz) + ' months of what the trend forecasts, and the next order re-reads it. A falling trend is shown but never shrinks an order.'
                     : 'Not applied: ' + c.trend.reason + '.'}
-                  {' '}Needs {dial.trendMin}+ months and +{dial.trendTh}%/month to fire; both are dials.
+                  {' '}Looks back {dial.trendLook} months; needs {dial.trendMin}+ months and +{dial.trendTh}%/month to fire; all are dials.
                 </p>
               </div>
             </div>
