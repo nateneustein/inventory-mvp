@@ -18,7 +18,7 @@ export async function saveAdvancedPredictionSettings(formData) {
   const partId = String(formData.get('part') || '')
   if (!category) redirect('/predictions/advanced')
 
-  const keys = ['base', 'pool', 'tmin', 'tth', 'thoriz', 'tclip', 'sth', 'npmin', 'npbump', 'flagx']
+  const keys = ['base', 'pool', 'tmin', 'tth', 'tlook', 'thoriz', 'tclip', 'sth', 'npmin', 'npbump', 'flagx']
   const settings = {}
   for (const k of keys) {
     const n = Number(formData.get(k))
