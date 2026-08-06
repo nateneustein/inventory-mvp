@@ -6,6 +6,7 @@ import {
   cleanRate, trendSearch, buildMonthly, seasonCheck, coveredCalendarMonths,
   newProductCheck, quantity,
 } from '@/lib/advanced-prediction'
+import { saveAdvancedPredictionSettings } from '@/lib/prediction-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,11 +26,6 @@ const f1 = (n) => (Math.round((Number(n) || 0) * 10) / 10).toFixed(1)
 const f2 = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2)
 const pctOf = (n) => Math.round(Number(n) || 0)
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-function readNum(v, fallback) {
-  const n = Number(v)
-  return Number.isFinite(n) && n > 0 ? n : fallback
-}
 
 /**
  * Supabase caps a single response at 1000 rows. The bigger categories have
@@ -51,25 +47,44 @@ export default async function AdvancedPredictionPage({ searchParams }) {
   const params = searchParams ? await searchParams : {}
   const { supabase } = await requireUser()
 
-  const dial = {
-    baseMonths: readNum(params.base, 3),
-    poolFrac: readNum(params.pool, 0.25),
-    trendMin: readNum(params.tmin, 4),
-    trendTh: readNum(params.tth, 2),
-    seasonTh: readNum(params.sth, 1.3),
-    npMin: readNum(params.npmin, 2),
-    npBump: readNum(params.npbump, 25),
-    flagX: readNum(params.flagx, 2.5),
-    surgeOnWait: params.wait === '1',
-  }
-  const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
-
   const { data: allParts } = await supabase.from('parts')
     .select('id, name, sku, category, lead_time_days_min, lead_time_days_max, safety_stock_days, reorder_horizon_days, moq, order_multiple, unit_price, currency, months_of_usage_to_order, supplier_id')
     .eq('active', true).order('name')
   const parts = allParts || []
   const selId = typeof params.part === 'string' ? params.part : ''
   const part = parts.find((p) => p.id === selId) || null
+
+  // Dials resolve in three layers: built-in defaults first, then this group's
+  // saved settings, then anything typed into the dial form for this one run.
+  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5 }
+  let savedSettings = {}
+  let savedAt = null
+  if (part && part.category) {
+    const { data: sRow } = await supabase.from('advanced_prediction_settings')
+      .select('settings, updated_at').eq('category', part.category).maybeSingle()
+    if (sRow && sRow.settings) { savedSettings = sRow.settings; savedAt = sRow.updated_at }
+  }
+  const pick = function (k) {
+    const u = Number(params[k])
+    if (Number.isFinite(u) && u > 0) return u
+    const sv = Number(savedSettings[k])
+    if (Number.isFinite(sv) && sv > 0) return sv
+    return DEFAULTS[k]
+  }
+  const dial = {
+    baseMonths: pick('base'),
+    poolFrac: pick('pool'),
+    trendMin: pick('tmin'),
+    trendTh: pick('tth'),
+    trendHoriz: pick('thoriz'),
+    trendClip: pick('tclip'),
+    seasonTh: pick('sth'),
+    npMin: pick('npmin'),
+    npBump: pick('npbump'),
+    flagX: pick('flagx'),
+    surgeOnWait: params.wait != null ? params.wait === '1' : Number(savedSettings.wait) === 1,
+  }
+  const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
 
   const byCategory = {}
   for (const p of parts) {
@@ -171,7 +186,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       if (listingWm) listingFirst = listingWm.first
       const trend = listingWm
         ? trendSearch(listingWm.first, listingWm.map, shopMedianLast,
-                      { minMonths: dial.trendMin, thresholdPct: dial.trendTh })
+                      { minMonths: dial.trendMin, thresholdPct: dial.trendTh, clipMult: dial.trendClip })
         : { applied: false, reason: 'no listing history', perBlockPct: 0, gWeekly: 0, blocks: [], clipped: [] }
 
       // Lead time straight off the part record.
@@ -220,6 +235,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         available, ratePerWeek: rate.perWeek, leadWeeks, coverWeeks: effWeeks,
         gWeekly: trend.applied ? trend.gWeekly : 0, weekFactor,
         newBumpPct: np.bumpPct, surgeOnWait: dial.surgeOnWait, waitSurgePct: effPct,
+        trendCapWeeks: Math.round((dial.trendHoriz * 13) / 3),
         orderMultiple: Number(part.order_multiple || 0),
       }) : null
 
@@ -270,6 +286,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             <label>Pool (top fraction)<input type="number" name="pool" step="0.05" defaultValue={dial.poolFrac} /></label>
             <label>Trend needs (months)<input type="number" name="tmin" step="1" defaultValue={dial.trendMin} /></label>
             <label>Trend fires from (%/mo)<input type="number" name="tth" step="0.5" defaultValue={dial.trendTh} /></label>
+            <label>Trend horizon (months)<input type="number" name="thoriz" step="0.5" defaultValue={dial.trendHoriz} /></label>
+            <label>Trend spike clip (x median)<input type="number" name="tclip" step="0.1" defaultValue={dial.trendClip} /></label>
             <label>Season fires from (x)<input type="number" name="sth" step="0.1" defaultValue={dial.seasonTh} /></label>
             <label>New product under (months)<input type="number" name="npmin" step="0.5" defaultValue={dial.npMin} /></label>
             <label>New product bump (%)<input type="number" name="npbump" step="5" defaultValue={dial.npBump} /></label>
@@ -278,6 +296,30 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           </div>
         </details>
       </form>
+
+      {part && (
+        <form action={saveAdvancedPredictionSettings} className="card ap-saverow">
+          <input type="hidden" name="category" value={part.category || ''} />
+          <input type="hidden" name="part" value={part.id} />
+          <input type="hidden" name="base" value={dial.baseMonths} />
+          <input type="hidden" name="pool" value={dial.poolFrac} />
+          <input type="hidden" name="tmin" value={dial.trendMin} />
+          <input type="hidden" name="tth" value={dial.trendTh} />
+          <input type="hidden" name="thoriz" value={dial.trendHoriz} />
+          <input type="hidden" name="tclip" value={dial.trendClip} />
+          <input type="hidden" name="sth" value={dial.seasonTh} />
+          <input type="hidden" name="npmin" value={dial.npMin} />
+          <input type="hidden" name="npbump" value={dial.npBump} />
+          <input type="hidden" name="flagx" value={dial.flagX} />
+          <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
+          <span className="ap-sm muted">
+            {savedAt
+              ? 'Saved dials are in use for this group (saved ' + date(String(savedAt).slice(0, 10)) + '). Saving again overwrites them with the dials applied above.'
+              : 'No saved dials for this group yet - the dials applied above come from the defaults (or this run). Save to make them the group baseline.'}
+          </span>
+          <button className="button" type="submit">Save these dials for this group</button>
+        </form>
+      )}
 
       {!part && (
         <div className="card"><div className="empty-state">Pick a part. Its whole group (every part with the exact same category name) is calculated together, because they sell as one listing.</div></div>
@@ -364,6 +406,34 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   {'(' + c.group.pool.map((x) => '+' + pctOf(x.pct) + '%').join(' + ') + ') / ' + c.group.k + '  =  +' + pctOf(c.group.pct) + '% surge protection for the whole group'}
                 </div>
                 <div className="ap-why">The top quarter rather than the average, so calm variations cannot hide the risk - and rather than the single worst, so one freak cannot set the number alone. What any variation on the listing has proved possible, all of them get protected against.</div>
+                {c.group.pool.map((x) => {
+                  const dv = c.perVariation.find((pv) => pv.part.name === x.name)
+                  if (!dv) return null
+                  return (
+                    <details key={dv.part.id} className="ap-drill">
+                      <summary>{dv.part.name}: inside its worst window (+{pctOf(dv.pct)}%)</summary>
+                      <p className="small" style={{ margin: '6px 0 0' }}>
+                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block - every spike below is measured against that.
+                      </p>
+                      <table>
+                        <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
+                        <tbody>
+                          {dv.s.seg.map((b, i) => (
+                            <tr key={i} className={b.used > dv.s.med ? 'ap-hot' : ''}>
+                              <td>{date(isoOf(b.starts))}</td><td>{f1(b.used)}</td>
+                              <td>{b.used > dv.s.med ? '+' + f1(b.used - dv.s.med) : '-'}</td>
+                              <td>{b.used > dv.s.med ? f2((b.used - dv.s.med) / dv.s.med) : '0'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="ap-calc">
+                        {'Spikes above normal   ' + f2(dv.s.excess) + ' blocks over ' + dv.s.winWeeks + ' weeks\n'}
+                        {'Surge protection   ' + f2(dv.s.excess) + ' x ' + baseWeeks + '/' + dv.s.winWeeks + '  /  ' + f2(baseWeeks / 4) + '  =  +' + pctOf(dv.pct) + '%'}
+                      </div>
+                    </details>
+                  )
+                })}
               </div>
             </div>
 
@@ -455,7 +525,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 )}
                 <p className="small" style={{ margin: '8px 0 0' }}>
                   {c.trend.applied
-                    ? 'Growth is applied to every projected week below - the further out a week is, the more it grows. A falling trend would be shown here but never shrinks an order.'
+                    ? 'Growth is applied to the projection for the first ' + f1(dial.trendHoriz) + ' months, then held flat - the order only buys ' + f1(dial.trendHoriz) + ' months of what the trend forecasts, and the next order re-reads it. A falling trend is shown but never shrinks an order.'
                     : 'Not applied: ' + c.trend.reason + '.'}
                   {' '}Needs {dial.trendMin}+ months and +{dial.trendTh}%/month to fire; both are dials.
                 </p>
