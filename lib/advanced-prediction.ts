@@ -280,8 +280,9 @@ export function quantity(q) {
   const bump = 1 + (q.newBumpPct || 0) / 100
   const g = q.gWeekly || 0
   const factorOf = q.weekFactor || function () { return 1 }
+  const cap = q.trendCapWeeks && q.trendCapWeeks > 0 ? q.trendCapWeeks : Infinity
   const demand = function (w) {
-    return q.ratePerWeek * (1 + g * w) * factorOf(w) * bump
+    return q.ratePerWeek * (1 + g * Math.min(w, cap)) * factorOf(w) * bump
   }
   let lead = 0
   for (let w = 1; w <= q.leadWeeks; w++) lead += demand(w)
