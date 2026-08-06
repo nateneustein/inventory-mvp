@@ -188,7 +188,10 @@ p { line-height: 1.5; margin: 0 0 10px; }
 .kpi.bad   { color: var(--danger); }
 .kpi.todo  { color: var(--muted-alert); }
 .kpi.moving{ color: var(--accent-strong); }
-.kpi.none  { color: #c3c8ce; font-weight: 500; }
+/* A zero is not an absence of news, it is good news - nothing to do here. Grey
+   read as "empty", which is why it now goes green instead. */
+.kpi.none  { color: var(--ok); }
+.kpi-stat .kpi.none + .kpi-c { color: var(--ok); opacity: .75; }
 
 /* --------------------------------------------------------------- badges -- */
 .badge {
