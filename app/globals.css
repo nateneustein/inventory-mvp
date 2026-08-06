@@ -790,3 +790,8 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-band > div, .ap-final > div { display: flex; flex-direction: column; }
 .ap-big { font-size: 26px; font-weight: 700; letter-spacing: -.8px; }
 .ap-band-note { flex-basis: 100%; opacity: .75; font-size: 12.5px; }
+
+.ap-drill { margin: 10px 0 0; border: 1px solid var(--line, #e2e5ea); border-radius: 7px; padding: 8px 12px; font-size: 13px; background: #fcfdfe; }
+.ap-drill summary { cursor: pointer; font-weight: 600; color: var(--accent-strong); }
+.ap-drill table { margin-top: 8px; }
+.ap-saverow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
