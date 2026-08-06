@@ -526,7 +526,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             {/* ---------------- STEP 2: this variation's check ---------------- */}
             <div className="ap-step">
               <div className="ap-step-h"><span className="ap-n">2</span><strong>{selName} - its own surge, as a check only</strong>
-                <span className="ap-out">uses +{pctOf(c.effPct)}%</span></div>
+                <span className="ap-out">uses +{pctOf(c.effPct)}%{c.stepPcs ? ' = +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs' : ''}</span></div>
               <div className="ap-step-b">
                 {c.mine ? (
                   <>
@@ -671,9 +671,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
             <div className="ap-final">
               <div><span className="ap-lbl">Order</span><span className="ap-big">{c.q ? f0(c.q.order) + ' pcs' : '-'}</span></div>
+              <div><span className="ap-lbl">Months of usage ordered</span><span className="ap-big">{c.q && c.rate && c.rate.perWeek > 0 ? f1(c.q.order / (c.rate.perWeek * 13 / 3)) + ' mo' : '-'}</span></div>
               <div><span className="ap-lbl">Arrives about</span><span className="ap-big">{date(isoOf(c.arrivalMs))}</span></div>
               <div><span className="ap-lbl">Covered to about</span><span className="ap-big">{date(isoOf(c.coveredToMs))}</span></div>
-              <div><span className="ap-lbl">Surge protection</span><span className="ap-big">+{pctOf(c.effPct)}%</span></div>
+              <div><span className="ap-lbl">Surge protection</span><span className="ap-big">+{pctOf(c.effPct)}%{c.stepPcs ? ' = +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs' : ''}</span></div>
               <div><span className="ap-lbl">Alert threshold</span><span className="ap-big">{f1(c.months.months)} mo</span></div>
               <span className="ap-band-note">Deterministic - the same inputs always give this same answer. Change any dial above and every step re-runs from there.</span>
             </div>
