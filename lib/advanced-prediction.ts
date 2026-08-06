@@ -62,18 +62,19 @@ export function weeklySeries(first, map, end) {
 }
 
 /** A block is seasonal when its midpoint lands in Oct, Nov, Dec or Jan. */
-export function isSeasonalBlock(startMs) {
+export function isSeasonalBlock(startMs, months) {
   const mo = new Date(startMs + 14 * DAY).getUTCMonth() + 1
-  return mo === 10 || mo === 11 || mo === 12 || mo === 1
+  const set = months && months.length ? months : [10, 11, 12, 1]
+  return set.indexOf(mo) >= 0
 }
 
 /** Non-overlapping 4-week blocks starting at week off; complete blocks only. */
-export function chop(series, first, off) {
+export function chop(series, first, off, excludeMonths) {
   const blocks = []
   for (let i = off; i + 4 <= series.length; i += 4) {
     const used = series[i] + series[i + 1] + series[i + 2] + series[i + 3]
     const starts = first + i * 7 * DAY
-    if (!isSeasonalBlock(starts)) blocks.push({ starts, used })
+    if (!isSeasonalBlock(starts, excludeMonths)) blocks.push({ starts, used })
   }
   return blocks
 }
@@ -85,7 +86,7 @@ export function chop(series, first, off) {
  * history wins - an average would dilute a real surge, and a single fixed
  * chop could split one across a block boundary and hide it.
  */
-export function surgeSearch(first, map, end, baseWeeks, detrend) {
+export function surgeSearch(first, map, end, baseWeeks, detrend, excludeMonths) {
   const bw = baseWeeks || 13
   const series = weeklySeries(first, map, end)
   // When the listing has a firing growth trend, level every week to the
@@ -101,7 +102,7 @@ export function surgeSearch(first, map, end, baseWeeks, detrend) {
   let best = null
   const cuts = []
   for (let off = 0; off < 4; off++) {
-    const blocks = chop(series, first, off)
+    const blocks = chop(series, first, off, excludeMonths)
     const n = blocks.length
     let cutBest = null
     if (n > 0) {
@@ -185,7 +186,7 @@ export function trendSearch(first, map, end, opts) {
     let used = 0
     for (let i = lo; i < hi; i++) used += series[i]
     const starts = first + lo * 7 * DAY
-    if (!isSeasonalBlock(starts)) all.unshift({ starts, used })
+    if (!isSeasonalBlock(starts, o.excludeMonths)) all.unshift({ starts, used })
   }
   const out = { applied: false, reason: '', perBlockPct: 0, gWeekly: 0,
                 blocks: all, clipped: [], med: 0, spanMonths: 0 }
@@ -254,6 +255,27 @@ export function seasonCheck(monthMap, year, mo) {
   const base = yearBaseline(monthMap, year - 1)
   if (prev === undefined || base === null || base <= 0) return { hasHistory: false, factor: 1 }
   return { hasHistory: true, factor: prev / base }
+}
+
+/**
+ * Multi-year season scan for one calendar month: EVERY prior year with data
+ * is checked against its own Feb-Sep baseline, so with 2+ years of history a
+ * repeated spike becomes a confident pattern instead of a maybe-one-off.
+ */
+export function seasonScan(monthMap, targetYear, mo, threshold) {
+  const th = threshold || 1.3
+  const years = []
+  for (let y = targetYear - 1; y >= targetYear - 6; y--) {
+    const val = monthMap.get(y * 100 + mo)
+    const base = yearBaseline(monthMap, y)
+    if (val === undefined || base === null || base <= 0) continue
+    years.push({ y, factor: val / base })
+  }
+  const hits = years.filter(function (r) { return r.factor >= th })
+  const factor = hits.length
+    ? median(hits.map(function (r) { return r.factor }))
+    : (years.length ? median(years.map(function (r) { return r.factor })) : 1)
+  return { hasHistory: years.length > 0, years, hits: hits.length, factor }
 }
 
 /** The calendar months a run of weeks touches, with how many weeks land in each. */
