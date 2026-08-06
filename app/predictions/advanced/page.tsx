@@ -239,6 +239,33 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         orderMultiple: Number(part.order_multiple || 0),
       }) : null
 
+      // Pieces each protection adds to THIS order: the same quantity math is
+      // re-run with the adjusters switched on one at a time, in page order,
+      // and each step's pieces are the difference it makes.
+      const flatWeek = () => 1
+      const vq = (over) => rate ? quantity({
+        available, ratePerWeek: rate.perWeek, leadWeeks,
+        coverWeeks: baseWeeks, gWeekly: 0, weekFactor: flatWeek,
+        newBumpPct: 0, surgeOnWait: false, waitSurgePct: 0,
+        trendCapWeeks: Math.round((dial.trendHoriz * 13) / 3),
+        orderMultiple: 0, ...over,
+      }) : null
+      const surgeOn = { coverWeeks: effWeeks, surgeOnWait: dial.surgeOnWait, waitSurgePct: effPct }
+      const trendOn = { ...surgeOn, gWeekly: trend.applied ? trend.gWeekly : 0 }
+      const seasonOn = { ...trendOn, weekFactor }
+      const npOn = { ...seasonOn, newBumpPct: np.bumpPct }
+      const av0 = vq({})
+      const av1 = vq(surgeOn)
+      const av2 = vq(trendOn)
+      const av3 = vq(seasonOn)
+      const av4 = vq(npOn)
+      const stepPcs = av0 ? {
+        surge: av1.orderRaw - av0.orderRaw,
+        trend: av2.orderRaw - av1.orderRaw,
+        season: av3.orderRaw - av2.orderRaw,
+        newProd: av4.orderRaw - av3.orderRaw,
+      } : null
+
       const plain3mo = rate ? 13 * rate.perWeek : 0
       const flagged = q && plain3mo > 0 && q.order > dial.flagX * plain3mo
       const coverWeeksNow = rate && rate.perWeek > 0 ? available / rate.perWeek : 0
@@ -246,7 +273,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
       calc = { perVariation, noData, group, months, poolNames, mine, ownPct, effPct, effWeeks,
                rate, trend, leadDays, leadWeeks, arrivalMs, coveredToMs, seasonRows, shopFlags,
-               np, available, q, plain3mo, flagged, coverWeeksNow, staleWeeks, selEnd, stRow }
+               np, available, q, plain3mo, flagged, stepPcs, coverWeeksNow, staleWeeks, selEnd, stRow }
     }
   }
 
@@ -280,19 +307,58 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <button className="button" type="submit">Calculate</button>
         </div>
         <details className="ap-dials">
-          <summary>Dials - every default is editable, changing one re-runs everything</summary>
+          <summary className="button ap-dials-btn">Adjust the dials</summary>
+          <p className="small" style={{ margin: '10px 0 2px' }}>
+            Change any dial and press <b>Calculate with these dials</b> to re-run every number on this page with it - a dial change on its own is only for this run. Press <b>Save these dials for this group</b> (below this panel) to make the current dials the group&apos;s baseline for everyone, every visit.
+          </p>
           <div className="ap-dial-grid">
-            <label>Base months<input type="number" name="base" step="0.5" defaultValue={dial.baseMonths} /></label>
-            <label>Pool (top fraction)<input type="number" name="pool" step="0.05" defaultValue={dial.poolFrac} /></label>
-            <label>Trend needs (months)<input type="number" name="tmin" step="1" defaultValue={dial.trendMin} /></label>
-            <label>Trend fires from (%/mo)<input type="number" name="tth" step="0.5" defaultValue={dial.trendTh} /></label>
-            <label>Trend horizon (months)<input type="number" name="thoriz" step="0.5" defaultValue={dial.trendHoriz} /></label>
-            <label>Trend spike clip (x median)<input type="number" name="tclip" step="0.1" defaultValue={dial.trendClip} /></label>
-            <label>Season fires from (x)<input type="number" name="sth" step="0.1" defaultValue={dial.seasonTh} /></label>
-            <label>New product under (months)<input type="number" name="npmin" step="0.5" defaultValue={dial.npMin} /></label>
-            <label>New product bump (%)<input type="number" name="npbump" step="5" defaultValue={dial.npBump} /></label>
-            <label>Big-order flag (x plain)<input type="number" name="flagx" step="0.5" defaultValue={dial.flagX} /></label>
-            <label className="ap-check"><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</label>
+            <label>Base months
+              <input type="number" name="base" step="0.5" defaultValue={dial.baseMonths} />
+              <span className="ap-dial-help">The plain order size before any protection: how many months of normal usage one order should cover. Every protection stacks on top of this.</span>
+            </label>
+            <label>Pool (top fraction)
+              <input type="number" name="pool" step="0.05" defaultValue={dial.poolFrac} />
+              <span className="ap-dial-help">Which slice of the group sets the surge %. 0.25 = the average of the top quarter of variations - one freak cannot set it alone, and calm ones cannot water it down.</span>
+            </label>
+            <label>Trend needs (months)
+              <input type="number" name="tmin" step="1" defaultValue={dial.trendMin} />
+              <span className="ap-dial-help">A growth trend only counts when the listing has at least this many months of history - with less, growth cannot be told apart from luck.</span>
+            </label>
+            <label>Trend fires from (%/mo)
+              <input type="number" name="tth" step="0.5" defaultValue={dial.trendTh} />
+              <span className="ap-dial-help">Growth slower than this per month is treated as noise and ignored. Only a real climb changes the order.</span>
+            </label>
+            <label>Trend horizon (months)
+              <input type="number" name="thoriz" step="0.5" defaultValue={dial.trendHoriz} />
+              <span className="ap-dial-help">How far out the trend keeps growing in the projection. After this many months it holds flat - so one order only buys this much of the forecast, and the next order re-reads the trend with fresh data.</span>
+            </label>
+            <label>Trend spike clip (x median)
+              <input type="number" name="tclip" step="0.1" defaultValue={dial.trendClip} />
+              <span className="ap-dial-help">Before the trend is measured, any 4-week block bigger than this x the listing&apos;s median is cut down to that ceiling - one surge spike cannot fake a lasting trend.</span>
+            </label>
+            <label>Season fires from (x)
+              <input type="number" name="sth" step="0.1" defaultValue={dial.seasonTh} />
+              <span className="ap-dial-help">A calendar month counts as seasonal when last year it sold at least this x its year&apos;s normal. Months this order covers get last year&apos;s multiplier applied.</span>
+            </label>
+            <label>New product under (months)
+              <input type="number" name="npmin" step="0.5" defaultValue={dial.npMin} />
+              <span className="ap-dial-help">A listing younger than this counts as a new product - too little history to trust its rate yet.</span>
+            </label>
+            <label>New product bump (%)
+              <input type="number" name="npbump" step="5" defaultValue={dial.npBump} />
+              <span className="ap-dial-help">The extra % added on top for new products, covering what the short history cannot show yet.</span>
+            </label>
+            <label>Big-order flag (x plain)
+              <input type="number" name="flagx" step="0.5" defaultValue={dial.flagX} />
+              <span className="ap-dial-help">If the final order is bigger than this x a plain 3-month order, the page flags it for a human double-check. The flag never blocks or shrinks the order.</span>
+            </label>
+            <label className="ap-check">
+              <span><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</span>
+              <span className="ap-dial-help">Also protect the pieces that sell while the shipment is on the water, not only the shelf target at arrival. Off by default - the surge % already covers the target.</span>
+            </label>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <button className="button" type="submit">Calculate with these dials</button>
           </div>
         </details>
       </form>
@@ -441,7 +507,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <div><span className="ap-lbl">Months of usage to order</span><span className="ap-big">{f1(c.months.months)}</span></div>
               <div><span className="ap-lbl">Start ordering when cover drops below</span><span className="ap-big">{f1(c.months.months)} mo</span></div>
               <div><span className="ap-lbl">In weeks</span><span className="ap-big">{c.months.weeks}</span></div>
-              <span className="ap-band-note">{dial.baseMonths} months x (1 + {pctOf(c.group.pct)}%) rounded to the nearest week - the same schedule for all {c.perVariation.length} variations, because they sell as one listing.</span>
+              <span className="ap-band-note">{dial.baseMonths} months x (1 + {pctOf(c.group.pct)}%) rounded to the nearest week - the same schedule for all {c.perVariation.length} variations, because they sell as one listing.{c.stepPcs ? ' On this part\u2019s order below, that surge protection adds ' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs.' : ''}</span>
             </div>
 
             {/* ---------------- STEP 2: this variation's check ---------------- */}
@@ -482,7 +548,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                       {'Surge in worst window   ' + f2(c.mine.s.excess) + ' blocks over ' + c.mine.s.winWeeks + ' weeks\n'}
                       {'Share of a ' + baseWeeks + '-week order  ' + f2(c.mine.s.excess) + ' x ' + baseWeeks + '/' + c.mine.s.winWeeks + '  =  ' + f2(c.mine.s.excess * baseWeeks / c.mine.s.winWeeks) + ' blocks\n'}
                       {'Surge protection        ' + f2(c.mine.s.excess * baseWeeks / c.mine.s.winWeeks) + ' / ' + f2(baseWeeks / 4) + '  =  +' + pctOf(c.ownPct) + '%\n\n'}
-                      {'This variation  +' + pctOf(c.ownPct) + '%   |   its group  +' + pctOf(c.group.pct) + '%   ->  the higher wins: +' + pctOf(c.effPct) + '%'}
+                      {'This variation  +' + pctOf(c.ownPct) + '%   |   its group  +' + pctOf(c.group.pct) + '%   ->  the higher wins: +' + pctOf(c.effPct) + '%' + (c.stepPcs ? '   =  +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs on this order' : '')}
                     </div>
                     <div className="ap-why">A quiet variation is lifted to the group floor - calm history is not proof of safety, only proof its bad quarter has not come yet. The reverse fires only for a genuine outlier, and it changes this variation&apos;s quantity only - never the group schedule.</div>
                   </>
@@ -514,7 +580,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             {/* ---------------- STEP 4: trend ---------------- */}
             <div className="ap-step">
               <div className="ap-step-h"><span className="ap-n">4</span><strong>Trend - the whole listing&apos;s direction</strong>
-                <span className={'ap-out' + (c.trend.applied ? '' : ' off')}>{c.trend.applied ? '+' + f1(c.trend.perBlockPct) + '% per 4 wks' : 'not applied'}</span></div>
+                <span className={'ap-out' + (c.trend.applied ? '' : ' off')}>{c.trend.applied ? '+' + f1(c.trend.perBlockPct) + '% per 4 wks  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.trend)) : '0') + ' pcs' : 'not applied'}</span></div>
               <div className="ap-step-b">
                 {c.trend.blocks.length > 0 && (
                   <div className="ap-calc">
@@ -536,7 +602,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             <div className="ap-step">
               <div className="ap-step-h"><span className="ap-n">5</span><strong>Seasonality - the months this order will cover</strong>
                 <span className={'ap-out' + (c.seasonRows.some((r) => r.applied > 1) ? '' : ' off')}>
-                  {c.seasonRows.some((r) => r.applied > 1) ? 'applied' : c.shopFlags.length ? 'flag only' : 'nothing found'}</span></div>
+                  {c.seasonRows.some((r) => r.applied > 1) ? 'applied  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.season)) : '0') + ' pcs' : c.shopFlags.length ? 'flag only' : 'nothing found'}</span></div>
               <div className="ap-step-b">
                 <table>
                   <thead><tr><th>Covered month</th><th>Weeks in it</th><th>This part last year</th><th>The listing last year</th><th>Whole shop last year</th><th>Applied</th></tr></thead>
@@ -562,7 +628,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             {/* ---------------- STEP 6: new product ---------------- */}
             <div className="ap-step">
               <div className="ap-step-h"><span className="ap-n">6</span><strong>New-product check</strong>
-                <span className={'ap-out' + (c.np.isNew ? '' : ' off')}>{c.np.isNew ? '+' + c.np.bumpPct + '% extra' : 'passes - no extra'}</span></div>
+                <span className={'ap-out' + (c.np.isNew ? '' : ' off')}>{c.np.isNew ? '+' + c.np.bumpPct + '% extra  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.newProd)) : '0') + ' pcs' : 'passes - no extra'}</span></div>
               <div className="ap-step-b">
                 <p className="small" style={{ margin: 0 }}>This listing&apos;s data starts {f1(c.np.ageMonths)} months ago; under {dial.npMin} months everything gets an extra +{dial.npBump}% because a few weeks of history can hide almost anything.</p>
               </div>
