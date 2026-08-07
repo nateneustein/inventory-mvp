@@ -86,14 +86,24 @@ export function chop(series, first, off, excludeMonths) {
  * history wins - an average would dilute a real surge, and a single fixed
  * chop could split one across a block boundary and hide it.
  */
-export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonths, medianFloorFrac, absFloorPcs) {
+export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonths, medianFloorFrac, absFloorPcs, lookbackWeeks) {
   const bw = baseWeeks || 13
   const series = weeklySeries(first, map, end)
+  // The surge must have HAPPENED recently: the search only reads the last
+  // lookbackWeeks of history (a yearly season always fits inside 12 months,
+  // so recurring spikes never fall out - only stale one-offs do). The
+  // whole-life median for the optional floor still uses the full history.
+  let sFirst = first
+  let ser = series
+  if (lookbackWeeks && lookbackWeeks > 0 && ser.length > lookbackWeeks) {
+    sFirst = first + (ser.length - lookbackWeeks) * 7 * DAY
+    ser = ser.slice(ser.length - lookbackWeeks)
+  }
   // Dead-period floor: the divider (a window's median) may never fall below
   // this fraction of the variation's WHOLE-LIFE median block - zeros included,
   // counted from its first reported week. A spike in a dead stretch must not
   // divide by almost-nothing and read as an absurd percentage forever.
-  const lifeBlocks = chop(series, first, 0, excludeMonths)
+  const lifeBlocks = chop(series, first, 0, excludeMonths) // full life, on purpose
   const lifeMed = lifeBlocks.length ? median(lifeBlocks.map(function (b) { return b.used })) : 0
   // Two independent floors, the higher wins: a fraction of the variation's
   // whole-life median, and/or an absolute pieces floor (used for the GROUP
@@ -102,7 +112,7 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
   let best = null
   const cuts = []
   for (let off = 0; off < 4; off++) {
-    const blocks = chop(series, first, off, excludeMonths)
+    const blocks = chop(ser, sFirst, off, excludeMonths)
     const n = blocks.length
     let cutBest = null
     if (n > 0) {
