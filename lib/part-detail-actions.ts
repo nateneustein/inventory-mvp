@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
+import { computeSnapshots, DEFAULT_ORDER_TEMPLATE } from '@/lib/prediction-snapshot'
 
 function value(formData: FormData, key: string) {
   const raw = formData.get(key)
@@ -405,4 +406,48 @@ export async function deletePartFile(formData: FormData) {
   }
 
   revalidatePart(partId)
+}
+
+/**
+ * Pin a part so the weekly auto-refresh leaves its warn window and order note
+ * alone. Everything else about the part still updates; only the two prediction
+ * fields are frozen to whatever was set by hand.
+ */
+export async function setPartAutoPin(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const id = value(formData, 'id')
+  const pinned = value(formData, 'auto_prediction_pinned') === '1'
+  const { error } = await supabase.from('parts').update({ auto_prediction_pinned: pinned }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePart(id)
+}
+
+/**
+ * Recompute the advanced-prediction group numbers for every part and write them
+ * back: the warn window (lead x (1+surge), in days) and the order-note tokens.
+ * Runs after each weekly upload, and can be triggered by hand. Pinned parts are
+ * skipped. Auto changes are recorded in each part's history so movement is
+ * visible. All writes happen inside one SECURITY DEFINER RPC.
+ */
+export async function refreshPredictionSnapshots() {
+  const { supabase } = await currentUserId()
+  const { results } = await computeSnapshots(supabase)
+  const payload = results.map((r) => ({
+    part_id: r.partId,
+    surge_pct: r.surgePct,
+    order_months: r.orderMonths,
+    alert_days: r.alertDays,
+    lead_days: r.leadDays,
+    trend_extra: null,
+    season_extra: null,
+    default_template: DEFAULT_ORDER_TEMPLATE,
+  }))
+  const { error } = await supabase.rpc('apply_prediction_snapshots', { snapshots: payload })
+  if (error) throw new Error(error.message)
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+  revalidatePath('/predictions/advanced')
+  revalidatePath('/reorder')
+  revalidatePath('/zero')
+  return { updated: results.length }
 }
