@@ -73,7 +73,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
   // Dials resolve in three layers: built-in defaults first, then this group's
   // saved settings, then anything typed into the dial form for this one run.
-  const DEFAULTS = { base: 3, pool: 0.5, tmin: 4, tth: 2, tlook: 6, thoriz: 6, tclip: 1.5, sth: 2, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0, gfloor: 2, slook: 48 }
+  const DEFAULTS = { base: 3, pool: 0.5, tmin: 4, tth: 2, tlook: 6, thoriz: 6, tclip: 1.5, sth: 2, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0, gfloor: 2, slook: 12 }
   let savedSettings = {}
   let savedAt = null
   if (part && part.category) {
