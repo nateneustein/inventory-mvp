@@ -813,3 +813,14 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 
 .ap-knocked td { opacity: 0.45; text-decoration: line-through; }
 .ap-knocked td:last-child { text-decoration: none; opacity: 1; }
+
+
+/* ---- Prediction snapshot: auto box, order-note tokens, scrollable history ---- */
+.ap-auto-box { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border, #2a2a2a); border-radius: 8px; background: rgba(127,127,127,0.06); }
+.ap-auto-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ap-auto-actions form { margin: 0; }
+.ap-tokens { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; opacity: 0.8; word-spacing: 4px; }
+.ap-note-preview { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--accent, #4a9); border-radius: 4px; background: rgba(127,127,127,0.06); }
+.ap-note-preview p { margin: 4px 0 0; }
+.ap-hist-scroll { max-height: 320px; overflow: auto; border: 1px solid var(--border, #2a2a2a); border-radius: 8px; }
+.ap-hist-scroll > * { border: 0; }
