@@ -240,7 +240,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         })
       }
       const t = ltCache[key]
-      return { applied: t.applied, gWeekly: t.gWeekly, perBlockPct: t.perBlockPct }
+      return { applied: t.applied || t.levelable === true, gWeekly: t.gWeekly, perBlockPct: t.perBlockPct }
     } : null
 
     const perVariation = []
@@ -611,9 +611,9 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 <p className="small" style={{ margin: '0 0 8px' }}>
                   Group = every part whose category is exactly <b>{part.category}</b> ({groupParts.length} parts). For each one: usage cut into 4-week blocks <b>4 different ways</b> (a block boundary must never split a surge and hide it), Oct-Jan blocks dropped by midpoint, then <b>every 28-week window</b> inside every chop is scored against its own median. The worst combination anywhere in its history is that variation&apos;s surge protection.
                 </p>
-                {c.perVariation.some((pv) => pv.s.ltPct > 0) && (
+                {c.perVariation.some((pv) => pv.s.ltPct !== 0) && (
                   <p className="small" style={{ margin: '0 0 8px' }}>
-                    <b>Era climbs removed:</b> before a window is scored, its own ~6 months are checked for a listing-wide climb (same gates and 1.5x spike-clip as step 4). A real climb in the window&apos;s own time is leveled out first - growth never masquerades as a surge, and an old advertising-driven year is judged against its own trajectory, not today&apos;s. Windows whose era shows no real climb are scored on raw numbers.
+                    <b>Era trends removed:</b> before a window is scored, its own ~6 months are checked for a listing-wide trend, up OR down (same gates and 1.5x spike-clip as step 4). A real slope in the window&apos;s own time is leveled out first - growth or decline never masquerades as a surge; what sticks out after leveling is the real spike. Windows whose era shows no real slope are scored on raw numbers.
                   </p>
                 )}
                 <table>
@@ -653,7 +653,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <details key={dv.part.id} className="ap-drill">
                       <summary>{dv.part.name}: inside its worst window (+{pctOf(dv.pct)}%)</summary>
                       <p className="small" style={{ margin: '6px 0 0' }}>
-                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block{dv.s.floored ? ' - its own median was only ' + f1(dv.s.medRaw) + ', so the floor lifted the divider to ' + f1(dv.s.med) + ' (group floor ' + f1(dial.groupFloor) + ' pcs / life-median floor x' + f1(dial.medFloor) + ')' : ''} - every spike below is measured against that.{dv.s.ltPct > 0 ? ' This window\u2019s own era was climbing +' + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that climb is removed: each block below is leveled to the window end before scoring.' : ' No real climb in this window\u2019s own era - raw values.'}
+                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block{dv.s.floored ? ' - its own median was only ' + f1(dv.s.medRaw) + ', so the floor lifted the divider to ' + f1(dv.s.med) + ' (group floor ' + f1(dial.groupFloor) + ' pcs / life-median floor x' + f1(dial.medFloor) + ')' : ''} - every spike below is measured against that.{dv.s.ltPct !== 0 ? ' This window\u2019s own era was ' + (dv.s.ltPct > 0 ? 'climbing +' : 'falling ') + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that slope is removed: each block below is leveled to the window end before scoring.' : ' No real trend in this window\u2019s own era - raw values.'}
                       </p>
                       <table>
                         <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
@@ -705,7 +705,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         ))}
                       </tbody>
                     </table>
-                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.sOwn.wfrom))}, {c.mine.sOwn.winWeeks} weeks, its own median {f1(c.mine.sOwn.med)} per block{c.mine.sOwn.floored ? ' (dead-period floor applied: raw median ' + f1(c.mine.sOwn.medRaw) + ')' : ''}{c.mine.sOwn.ltPct > 0 ? '; its era\u2019s climb of +' + f1(c.mine.sOwn.ltPct) + '%/4wks removed first' : ''}):</p>
+                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.sOwn.wfrom))}, {c.mine.sOwn.winWeeks} weeks, its own median {f1(c.mine.sOwn.med)} per block{c.mine.sOwn.floored ? ' (dead-period floor applied: raw median ' + f1(c.mine.sOwn.medRaw) + ')' : ''}{c.mine.sOwn.ltPct !== 0 ? '; its era\u2019s slope of ' + (c.mine.sOwn.ltPct > 0 ? '+' : '') + f1(c.mine.sOwn.ltPct) + '%/4wks removed first' : ''}):</p>
                     <table>
                       <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
                       <tbody>
