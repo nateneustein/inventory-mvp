@@ -810,3 +810,6 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-mo { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; }
 .ap-season-card { border: 1px solid var(--line, #e2e5ea); border-left: 4px solid #b7791f; border-radius: 7px; padding: 10px 12px; margin: 10px 0 0; font-size: 13px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #fffdf7; }
 .ap-linkbtn { background: none; border: none; padding: 0; color: var(--accent-strong, #2456d8); text-decoration: underline; cursor: pointer; font-size: 11px; }
+
+.ap-knocked td { opacity: 0.45; text-decoration: line-through; }
+.ap-knocked td:last-child { text-decoration: none; opacity: 1; }
