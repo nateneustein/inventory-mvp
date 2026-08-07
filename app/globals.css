@@ -803,3 +803,10 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 
 .ap-dial-grid .ap-check { flex-direction: column; align-items: flex-start; grid-column: 1 / -1; }
 .ap-dial-grid .ap-check > span:first-child { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+
+.ap-months { margin-top: 12px; border-top: 1px dashed var(--line, #e2e5ea); padding-top: 10px; }
+.ap-months-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.ap-months-lbl { font-size: 12px; font-weight: 600; min-width: 250px; }
+.ap-mo { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; }
+.ap-season-card { border: 1px solid var(--line, #e2e5ea); border-left: 4px solid #b7791f; border-radius: 7px; padding: 10px 12px; margin: 10px 0 0; font-size: 13px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #fffdf7; }
+.ap-linkbtn { background: none; border: none; padding: 0; color: var(--accent-strong, #2456d8); text-decoration: underline; cursor: pointer; font-size: 11px; }
