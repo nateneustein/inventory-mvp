@@ -717,6 +717,16 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   </tbody>
                 </table>
                 {(() => {
+                  const twice = []
+                  for (const r of c.seasonRows) {
+                    if (r.decision === 'approved' && surgeExclude.indexOf(r.mo) < 0 && twice.indexOf(r.mo) < 0) twice.push(r.mo)
+                  }
+                  if (!twice.length) return null
+                  return (
+                    <div className="ap-warn"><b>Paid twice:</b> {twice.map((m) => MONTH_NAMES[m]).join(', ')} is approved as seasonal but still ticked in &quot;Months that count - surge search&quot; in the dial panel. Its spike is being charged once inside the surge % and again as the seasonal factor. Untick it there (and Save) so it is only paid once, by the seasonality step.</div>
+                  )
+                })()}
+                {(() => {
                   const seen = []
                   const cards = c.seasonRows.filter((r) => {
                     if (!r.candidate || r.decision) return false
