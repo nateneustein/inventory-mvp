@@ -305,11 +305,15 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         if (r.part_id === part.id) mRows.sel.push(row)
       }
       const mm = { sel: buildMonthly(mRows.sel), listing: buildMonthly(mRows.listing), shop: buildMonthly(mRows.shop) }
-      // From TODAY until the order is used up: the waiting weeks plus the
-      // cover weeks, driven by this part's own lead time - a 40-day supply
-      // gets a short window, a 90-day import a long one. Nothing applies on
-      // its own: a suggested month must be approved by a human first.
-      const coverMonths = coveredCalendarMonths(todayMs, leadWeeks + effWeeks)
+      // Seasonality window: from TODAY out to the shipping wait plus three
+      // months - the stretch a fresh order actually has to survive a holiday
+      // in. Driven by this part's own lead time: a 40-day supply looks ~4
+      // months out, a 90-day import ~6. Not the full cover span (an order can
+      // hold a year of a slow mover, but we only care about seasons landing
+      // in the next order cycle). Nothing applies on its own - a suggested
+      // month must be approved by a human first.
+      const seasonWindowWeeks = leadWeeks + 13
+      const coverMonths = coveredCalendarMonths(todayMs, seasonWindowWeeks)
       const seasonRows = coverMonths.map((cm) => {
         const v = seasonScan(mm.sel, cm.y, cm.mo, dial.seasonTh)
         const l = seasonScan(mm.listing, cm.y, cm.mo, dial.seasonTh)
@@ -817,7 +821,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   {c.seasonRows.some((r) => r.applied > 1) ? 'applied  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.season)) : '0') + ' pcs' : c.seasonRows.some((r) => r.candidate && !r.decision) ? 'needs your decision' : c.shopFlags.length ? 'flag only' : 'nothing found'}</span></div>
               <div className="ap-step-b">
                 <table>
-                  <thead><tr><th>Month (wait + cover)</th><th>Weeks in it</th><th>This part, past years</th><th>The listing, past years</th><th>Whole shop, past years</th><th>Decision</th><th>Applied</th></tr></thead>
+                  <thead><tr><th>Month (wait + 3 mo)</th><th>Weeks in it</th><th>This part, past years</th><th>The listing, past years</th><th>Whole shop, past years</th><th>Decision</th><th>Applied</th></tr></thead>
                   <tbody>
                     {c.seasonRows.map((r) => (
                       <tr key={r.y * 100 + r.mo}>
