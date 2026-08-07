@@ -64,7 +64,7 @@ export function weeklySeries(first, map, end) {
 /** A block is seasonal when its midpoint lands in Oct, Nov, Dec or Jan. */
 export function isSeasonalBlock(startMs, months) {
   const mo = new Date(startMs + 14 * DAY).getUTCMonth() + 1
-  const set = months && months.length ? months : [10, 11, 12, 1]
+  const set = Array.isArray(months) ? months : [10, 11, 12, 1]
   return set.indexOf(mo) >= 0
 }
 
@@ -154,15 +154,17 @@ export function monthsToOrder(pct, baseMonths) {
  * Spikes are already paid for by the surge %, so the median keeps them out
  * of the rate; counting them here too would charge for them twice.
  */
-export function cleanRate(first, map, end, coverWeeks) {
+export function cleanRate(first, map, end, coverWeeks, excludeMonths) {
   const series = weeklySeries(first, map, end)
   const want = Math.max(1, Math.ceil((coverWeeks || 13) / 4))
   const blocks = []
   for (let hi = series.length; hi - 4 >= 0 && blocks.length < want; hi -= 4) {
     const lo = hi - 4
+    const starts = first + lo * 7 * DAY
+    if (excludeMonths && isSeasonalBlock(starts, excludeMonths)) continue
     let used = 0
     for (let i = lo; i < hi; i++) used += series[i]
-    blocks.unshift({ starts: first + lo * 7 * DAY, used })
+    blocks.unshift({ starts, used })
   }
   const med = median(blocks.map((b) => b.used))
   return { perWeek: med / 4, median4wk: med, blocks }
