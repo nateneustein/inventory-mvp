@@ -4,7 +4,7 @@ import { date, num, today } from '@/lib/format'
 import {
   dms, isoOf, buildWeekMap, surgeSearch, groupSurge, monthsToOrder,
   cleanRate, trendSearch, buildMonthly, seasonCheck, coveredCalendarMonths,
-  newProductCheck, quantity, seasonScan,
+  newProductCheck, quantity, seasonScan, weeklySeries,
 } from '@/lib/advanced-prediction'
 import { saveAdvancedPredictionSettings, saveSeasonDecision } from '@/lib/prediction-actions'
 
@@ -311,12 +311,22 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
       const plain3mo = rate ? 13 * rate.perWeek : 0
       const flagged = q && plain3mo > 0 && q.order > dial.flagX * plain3mo
+      // Actual raw usage over the alert window - spikes INCLUDED - so the
+      // clean-median months and the as-it-really-ran months sit side by side.
+      let actualRecent = null
+      if (selWm && rate) {
+        const sSel = weeklySeries(selWm.first, selWm.map, selEnd)
+        const nW = Math.min(effWeeks, sSel.length)
+        let tot = 0
+        for (let i = sSel.length - nW; i < sSel.length; i++) tot += sSel[i]
+        actualRecent = { weeks: nW, perWeek: nW > 0 ? tot / nW : 0 }
+      }
       const coverWeeksNow = rate && rate.perWeek > 0 ? available / rate.perWeek : 0
       const staleWeeks = Math.max(0, Math.floor((todayMs - selEnd) / (7 * DAY)))
 
       calc = { perVariation, noData, group, months, poolNames, mine, ownPct, effPct, effWeeks,
                rate, trend, leadDays, leadWeeks, arrivalMs, coveredToMs, seasonRows, shopFlags,
-               np, available, q, plain3mo, flagged, stepPcs, coverWeeksNow, staleWeeks, selEnd, stRow }
+               np, available, q, plain3mo, flagged, stepPcs, actualRecent, coverWeeksNow, staleWeeks, selEnd, stRow }
     }
   }
 
@@ -789,7 +799,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
             <div className="ap-final">
               <div><span className="ap-lbl">Order</span><span className="ap-big">{c.q ? f0(c.q.order) + ' pcs' : '-'}</span></div>
-              <div><span className="ap-lbl">Months of usage ordered</span><span className="ap-big">{c.q && c.rate && c.rate.perWeek > 0 ? f1(c.q.order / (c.rate.perWeek * 13 / 3)) + ' mo' : '-'}</span></div>
+              <div><span className="ap-lbl">Months of normal usage ordered</span><span className="ap-big">{c.q && c.rate && c.rate.perWeek > 0 ? f1(c.q.order / (c.rate.perWeek * 13 / 3)) + ' mo' : '-'}</span></div>
+              <div><span className="ap-lbl">{'Months of actual usage ordered' + (c.actualRecent ? ' (last ' + c.actualRecent.weeks + ' wks pace)' : '')}</span><span className="ap-big">{c.q && c.actualRecent && c.actualRecent.perWeek > 0 ? f1(c.q.order / (c.actualRecent.perWeek * 13 / 3)) + ' mo' : '-'}</span></div>
               <div><span className="ap-lbl">Arrives about</span><span className="ap-big">{date(isoOf(c.arrivalMs))}</span></div>
               <div><span className="ap-lbl">Covered to about</span><span className="ap-big">{date(isoOf(c.coveredToMs))}</span></div>
               <div><span className="ap-lbl">Surge protection</span><span className="ap-big">+{pctOf(c.effPct)}%{c.stepPcs ? ' = +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs' : ''}</span></div>
