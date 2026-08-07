@@ -291,6 +291,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         ? Number(part.lead_time_days_max) + Number(part.safety_stock_days || 0)
         : Number(part.reorder_horizon_days || 90)
       const leadWeeks = Math.max(1, Math.round(leadDays / 7))
+      // When to re-order: the alert fires when cover drops to one lead time,
+      // grossed up by the surge %. A 90-day China import alerts ~3 months out
+      // (about the same as the order-for target); a 5-week local part alerts
+      // only ~5 weeks out, so we do not scream months too early.
+      const alertMonths = (leadDays / 30.4368) * (1 + group.pct / 100)
       const horizMonths = thorizSet ? dial.trendHoriz : Math.max(1, Math.round(dial.baseMonths + leadDays / 30.44))
       const arrivalMs = todayMs + leadDays * DAY
       const coveredToMs = arrivalMs + effWeeks * 7 * DAY
@@ -395,7 +400,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
       calc = { perVariation, noData, group, months, poolNames, mine, ownPct, effPct, effWeeks,
                effAuto, surgeOvPct, trendAuto, inGroupCount: groupBase.length, knockedCount: perVariation.length - inGroup.length,
-               rate, trend, leadDays, leadWeeks, horizMonths, arrivalMs, coveredToMs, seasonRows, shopFlags,
+               rate, trend, leadDays, leadWeeks, alertMonths, horizMonths, arrivalMs, coveredToMs, seasonRows, shopFlags,
                np, available, q, plain3mo, flagged, stepPcs, actualRecent, coverWeeksNow, staleWeeks, selEnd, stRow }
     }
   }
@@ -689,9 +694,9 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
             <div className="ap-band">
               <div><span className="ap-lbl">Months of usage to order</span><span className="ap-big">{f1(c.months.months)}</span></div>
-              <div><span className="ap-lbl">Start ordering when cover drops below</span><span className="ap-big">{f1(c.months.months)} mo</span></div>
+              <div><span className="ap-lbl">Start ordering when cover drops below</span><span className="ap-big">{f1(c.alertMonths)} mo</span></div>
               <div><span className="ap-lbl">In weeks</span><span className="ap-big">{c.months.weeks}</span></div>
-              <span className="ap-band-note">{dial.baseMonths} months x (1 + {pctOf(c.group.pct)}%) rounded to the nearest week - the same schedule for all {c.perVariation.length} variations, because they sell as one listing.{c.stepPcs ? ' On this part\u2019s order below, that surge protection adds ' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs.' : ''}</span>
+              <span className="ap-band-note"><strong>Order for</strong> {dial.baseMonths} months x (1 + {pctOf(c.group.pct)}%) = {f1(c.months.months)} mo of stock - the same schedule for all {c.perVariation.length} variations, because they sell as one listing. <strong>Alert</strong> when cover drops to one lead time ({c.leadDays} days) x (1 + {pctOf(c.group.pct)}%) = {f1(c.alertMonths)} mo: for a ~90-day China import that matches the order-for number, for a short-lead local part it fires much later.{c.stepPcs ? ' On this part\u2019s order below, that surge protection adds ' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs.' : ''}</span>
             </div>
 
             {/* ---------------- STEP 2: this variation's check ---------------- */}
@@ -948,7 +953,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <div><span className="ap-lbl">Arrives about</span><span className="ap-big">{date(isoOf(c.arrivalMs))}</span></div>
               <div><span className="ap-lbl">Covered to about</span><span className="ap-big">{date(isoOf(c.coveredToMs))}</span></div>
               <div><span className="ap-lbl">Surge protection</span><span className="ap-big">+{pctOf(c.effPct)}%{c.stepPcs ? ' = +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs' : ''}</span></div>
-              <div><span className="ap-lbl">Alert threshold</span><span className="ap-big">{f1(c.months.months)} mo</span></div>
+              <div><span className="ap-lbl">Alert threshold (lead time based)</span><span className="ap-big">{f1(c.alertMonths)} mo</span></div>
               <span className="ap-band-note">Deterministic - the same inputs always give this same answer. Change any dial above and every step re-runs from there.</span>
             </div>
           </>
