@@ -79,3 +79,48 @@ export async function saveSeasonDecision(formData) {
   revalidatePath('/predictions/advanced')
   redirect('/predictions/advanced?part=' + encodeURIComponent(partId))
 }
+
+/**
+ * Manual calculation overrides, saved per group:
+ *  - knockout: toggle a variation out of / back into the GROUP surge pool
+ *    (its own step-2 number is never touched - it still protects itself)
+ *  - surge: pin one variation's protection % by hand (empty value = back to auto)
+ *  - trend: auto / off / a hand-set %/4wks for the projection
+ */
+export async function saveCalcOverride(formData) {
+  const { supabase, user } = await requireUser()
+
+  const category = String(formData.get('category') || '')
+  const partId = String(formData.get('part') || '')
+  const kind = String(formData.get('kind') || '')
+  if (!category || !kind) redirect('/predictions/advanced')
+
+  const settings = await loadSettings(supabase, category)
+  if (kind === 'knockout') {
+    const target = String(formData.get('target') || '')
+    const list = Array.isArray(settings.knockouts) ? [...settings.knockouts] : []
+    const i = list.indexOf(target)
+    if (i >= 0) list.splice(i, 1)
+    else if (target) list.push(target)
+    settings.knockouts = list
+  } else if (kind === 'surge') {
+    const raw = String(formData.get('value') || '').trim()
+    const ov = settings.surgeOv && typeof settings.surgeOv === 'object' ? { ...settings.surgeOv } : {}
+    const n = Number(raw)
+    if (raw !== '' && Number.isFinite(n) && n >= 0) ov[partId] = n
+    else delete ov[partId]
+    settings.surgeOv = ov
+  } else if (kind === 'trend') {
+    const mode = String(formData.get('mode') || 'auto')
+    if (mode === 'off') settings.trendOv = 'off'
+    else if (mode === 'manual') {
+      const n = Number(formData.get('value'))
+      if (Number.isFinite(n) && n >= 0) settings.trendOv = n
+      else delete settings.trendOv
+    } else delete settings.trendOv
+  }
+
+  await storeSettings(supabase, category, settings, user.id)
+  revalidatePath('/predictions/advanced')
+  redirect('/predictions/advanced?part=' + encodeURIComponent(partId))
+}
