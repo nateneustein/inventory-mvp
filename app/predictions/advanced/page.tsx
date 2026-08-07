@@ -116,6 +116,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     surgeLook: pick0('slook'),
     surgeOnWait: params.waitset != null ? params.wait === '1' : savedSettings.wait == null ? true : Number(savedSettings.wait) === 1,
   }
+  // Trend horizon: left blank, it follows each part's own order window -
+  // base cover months plus the shipping wait. A 90-day lead gives 3 + 3 = 6
+  // months, a 40-day lead gives 3 + 1.3 -> 4 months of projected growth.
+  const thorizSet = (Number.isFinite(Number(params.thoriz)) && Number(params.thoriz) > 0) ||
+    (Number.isFinite(Number(savedSettings.thoriz)) && Number(savedSettings.thoriz) > 0)
   const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
 
   // Month lists: which calendar months are ignored when measuring normal
@@ -286,6 +291,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         ? Number(part.lead_time_days_max) + Number(part.safety_stock_days || 0)
         : Number(part.reorder_horizon_days || 90)
       const leadWeeks = Math.max(1, Math.round(leadDays / 7))
+      const horizMonths = thorizSet ? dial.trendHoriz : Math.max(1, Math.round(dial.baseMonths + leadDays / 30.44))
       const arrivalMs = todayMs + leadDays * DAY
       const coveredToMs = arrivalMs + effWeeks * 7 * DAY
 
@@ -337,7 +343,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         available, ratePerWeek: rate.perWeek, leadWeeks, coverWeeks: effWeeks,
         gWeekly: trend.applied ? trend.gWeekly : 0, weekFactor,
         newBumpPct: np.bumpPct, surgeOnWait: dial.surgeOnWait, waitSurgePct: effPct,
-        trendCapWeeks: Math.round((dial.trendHoriz * 13) / 3),
+        trendCapWeeks: Math.round((horizMonths * 13) / 3),
         orderMultiple: Number(part.order_multiple || 0),
       }) : null
 
@@ -349,7 +355,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         available, ratePerWeek: rate.perWeek, leadWeeks,
         coverWeeks: baseWeeks, gWeekly: 0, weekFactor: flatWeek,
         newBumpPct: 0, surgeOnWait: false, waitSurgePct: 0,
-        trendCapWeeks: Math.round((dial.trendHoriz * 13) / 3),
+        trendCapWeeks: Math.round((horizMonths * 13) / 3),
         orderMultiple: 0, ...over,
       }) : null
       const surgeOn = { coverWeeks: effWeeks, surgeOnWait: dial.surgeOnWait, waitSurgePct: effPct }
@@ -385,7 +391,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
       calc = { perVariation, noData, group, months, poolNames, mine, ownPct, effPct, effWeeks,
                effAuto, surgeOvPct, trendAuto, inGroupCount: groupBase.length, knockedCount: perVariation.length - inGroup.length,
-               rate, trend, leadDays, leadWeeks, arrivalMs, coveredToMs, seasonRows, shopFlags,
+               rate, trend, leadDays, leadWeeks, horizMonths, arrivalMs, coveredToMs, seasonRows, shopFlags,
                np, available, q, plain3mo, flagged, stepPcs, actualRecent, coverWeeksNow, staleWeeks, selEnd, stRow }
     }
   }
@@ -446,8 +452,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <span className="ap-dial-help">How much history the trend line is measured from. Shorter feels a new climb faster; longer is steadier but can flatten a recent takeoff.</span>
             </label>
             <label>Trend horizon (months)
-              <input type="number" name="thoriz" step="0.5" defaultValue={dial.trendHoriz} />
-              <span className="ap-dial-help">How far out the trend keeps growing in the projection. After this many months it holds flat - so one order only buys this much of the forecast, and the next order re-reads the trend with fresh data.</span>
+              <input type="number" name="thoriz" step="0.5" defaultValue={thorizSet ? dial.trendHoriz : ''} placeholder="auto" />
+              <span className="ap-dial-help">How far out the trend keeps growing in the projection. After this many months it holds flat - so one order only buys this much of the forecast, and the next order re-reads the trend with fresh data. Left blank it sets itself from the order window: base months + shipping wait, so 6 for a 90-day lead and 4 for a 40-day lead.{calc && !thorizSet ? ' This part right now: ' + calc.horizMonths + ' months.' : ''}</span>
             </label>
             <label>Trend spike clip (x median)
               <input type="number" name="tclip" step="0.1" defaultValue={dial.trendClip} />
@@ -525,7 +531,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="tmin" value={dial.trendMin} />
           <input type="hidden" name="tth" value={dial.trendTh} />
           <input type="hidden" name="tlook" value={dial.trendLook} />
-          <input type="hidden" name="thoriz" value={dial.trendHoriz} />
+          <input type="hidden" name="thoriz" value={thorizSet ? dial.trendHoriz : ''} />
           <input type="hidden" name="tclip" value={dial.trendClip} />
           <input type="hidden" name="sth" value={dial.seasonTh} />
           <input type="hidden" name="npmin" value={dial.npMin} />
