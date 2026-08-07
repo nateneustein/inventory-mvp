@@ -275,12 +275,12 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const l = seasonScan(mm.listing, cm.y, cm.mo, dial.seasonTh)
         const s = seasonScan(mm.shop, cm.y, cm.mo, dial.seasonTh)
         const decision = seasonDecisions[String(cm.mo)] || null
-        const candidate = v.hits > 0 || l.hits > 0
+        // The GROUP decides seasonality: one variation's month cannot be
+        // seasonal on its own - they sell as one listing.
+        const candidate = l.hits > 0
         let applied = 1
         if (decision === 'approved') {
-          if (v.hits > 0) applied = Math.max(applied, v.factor)
-          else if (l.hits > 0) applied = Math.max(applied, l.factor)
-          else if (v.hasHistory && v.factor > 1) applied = Math.max(applied, v.factor)
+          if (l.hits > 0) applied = Math.max(applied, l.factor)
           else if (l.hasHistory && l.factor > 1) applied = Math.max(applied, l.factor)
         }
         return { ...cm, v, l, s, decision, candidate, applied }
@@ -753,8 +753,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     return true
                   })
                   return cards.map((r) => {
-                    const ev = r.v.hits > 0 ? r.v : r.l
-                    const level = r.v.hits > 0 ? 'this part' : 'the whole listing'
+                    const ev = r.l
+                    const level = 'the whole group'
                     const conf = ev.years.length >= 2 && ev.hits >= 2
                       ? 'Very confident: it spiked in ' + ev.hits + ' of ' + ev.years.length + ' years with data.'
                       : 'Based on ' + ev.years.length + ' year of data - it could be a one-off.'
