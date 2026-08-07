@@ -35,7 +35,7 @@ export async function saveAdvancedPredictionSettings(formData) {
   if (!category) redirect('/predictions/advanced')
 
   const settings = await loadSettings(supabase, category)
-  const keys = ['base', 'pool', 'tmin', 'tth', 'tlook', 'thoriz', 'tclip', 'sth', 'npmin', 'npbump', 'flagx']
+  const keys = ['base', 'pool', 'tmin', 'tth', 'tlook', 'thoriz', 'tclip', 'sth', 'npmin', 'npbump', 'flagx', 'mfloor']
   for (const k of keys) {
     const n = Number(formData.get(k))
     if (Number.isFinite(n) && n > 0) settings[k] = n
