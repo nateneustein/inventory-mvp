@@ -4,9 +4,9 @@ import { date, num, today } from '@/lib/format'
 import {
   dms, isoOf, buildWeekMap, surgeSearch, groupSurge, monthsToOrder,
   cleanRate, trendSearch, buildMonthly, seasonCheck, coveredCalendarMonths,
-  newProductCheck, quantity,
+  newProductCheck, quantity, seasonScan,
 } from '@/lib/advanced-prediction'
-import { saveAdvancedPredictionSettings } from '@/lib/prediction-actions'
+import { saveAdvancedPredictionSettings, saveSeasonDecision } from '@/lib/prediction-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +26,23 @@ const f1 = (n) => (Math.round((Number(n) || 0) * 10) / 10).toFixed(1)
 const f2 = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2)
 const pctOf = (n) => Math.round(Number(n) || 0)
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Why a month may spike: holidays and seasons, INCLUDING the run-up months -
+ *  personalized gifts get ordered one to two months before the day itself. */
+const OCCASIONS = {
+  1: ['Valentine\u2019s buying starts late January'],
+  2: ['Valentine\u2019s Day'],
+  3: ['Mother\u2019s Day run-up (gifts ordered early)', 'wedding-season buying begins'],
+  4: ['Mother\u2019s Day run-up', 'wedding season', 'graduation gifts start'],
+  5: ['Mother\u2019s Day', 'wedding season', 'graduation season', 'Father\u2019s Day run-up'],
+  6: ['Father\u2019s Day', 'graduations', 'weddings'],
+  7: ['weddings'],
+  8: ['weddings', 'back-to-school'],
+  9: ['weddings', 'back-to-school'],
+  10: ['Christmas run-up begins (personalized gifts ordered early)'],
+  11: ['Christmas buying', 'Black Friday'],
+  12: ['Christmas'],
+}
 
 /**
  * Supabase caps a single response at 1000 rows. The bigger categories have
@@ -86,6 +103,18 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     surgeOnWait: params.wait != null ? params.wait === '1' : Number(savedSettings.wait) === 1,
   }
   const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
+
+  // Month lists: which calendar months are ignored when measuring normal
+  // behavior. Separate lists for the surge search and the trend measure,
+  // resolved the same three-layer way (default Oct-Jan < saved < this run).
+  const parseMonths = function (val, saved, marker) {
+    if (marker) return [].concat(val || []).map(Number).filter((n) => n >= 1 && n <= 12)
+    if (Array.isArray(saved)) return saved.map(Number).filter((n) => n >= 1 && n <= 12)
+    return [10, 11, 12, 1]
+  }
+  const surgeExclude = parseMonths(params.sx, savedSettings.sx, params.sxset === '1')
+  const trendExclude = parseMonths(params.tx, savedSettings.tx, params.txset === '1')
+  const seasonDecisions = savedSettings.seasons && typeof savedSettings.seasons === 'object' ? savedSettings.seasons : {}
 
   const byCategory = {}
   for (const p of parts) {
@@ -160,7 +189,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     const trend = listingWm
       ? trendSearch(listingWm.first, listingWm.map, shopMedianLast,
                     { minMonths: dial.trendMin, thresholdPct: dial.trendTh, clipMult: dial.trendClip,
-                      maxBlocks: Math.max(4, Math.round((dial.trendLook * 13) / 12)) })
+                      maxBlocks: Math.max(4, Math.round((dial.trendLook * 13) / 12)),
+                      excludeMonths: trendExclude })
       : { applied: false, reason: 'no listing history', perBlockPct: 0, gWeekly: 0, blocks: [], clipped: [] }
     const detrend = trend.applied ? { gWeekly: trend.gWeekly, anchor: shopMedianLast } : null
 
@@ -172,7 +202,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       wmBy[p.id] = wm
       if (!wm) { noData.push(p); continue }
       const end = Math.max(wm.ownLast, shopMedianLast)
-      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, detrend)
+      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, detrend, surgeExclude)
       if (!s) { noData.push(p); continue }
       perVariation.push({ part: p, wm, end, s, pct: s.pct })
     }
@@ -210,15 +240,25 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         if (r.part_id === part.id) mRows.sel.push(row)
       }
       const mm = { sel: buildMonthly(mRows.sel), listing: buildMonthly(mRows.listing), shop: buildMonthly(mRows.shop) }
-      const coverMonths = coveredCalendarMonths(arrivalMs, effWeeks)
+      // From TODAY until the order is used up: the waiting weeks plus the
+      // cover weeks, driven by this part's own lead time - a 40-day supply
+      // gets a short window, a 90-day import a long one. Nothing applies on
+      // its own: a suggested month must be approved by a human first.
+      const coverMonths = coveredCalendarMonths(todayMs, leadWeeks + effWeeks)
       const seasonRows = coverMonths.map((cm) => {
-        const v = seasonCheck(mm.sel, cm.y, cm.mo)
-        const l = seasonCheck(mm.listing, cm.y, cm.mo)
-        const s = seasonCheck(mm.shop, cm.y, cm.mo)
+        const v = seasonScan(mm.sel, cm.y, cm.mo, dial.seasonTh)
+        const l = seasonScan(mm.listing, cm.y, cm.mo, dial.seasonTh)
+        const s = seasonScan(mm.shop, cm.y, cm.mo, dial.seasonTh)
+        const decision = seasonDecisions[String(cm.mo)] || null
+        const candidate = v.hits > 0 || l.hits > 0
         let applied = 1
-        if (v.hasHistory && v.factor >= dial.seasonTh) applied = Math.max(applied, v.factor)
-        if (l.hasHistory && l.factor >= dial.seasonTh) applied = Math.max(applied, l.factor)
-        return { ...cm, v, l, s, applied }
+        if (decision === 'approved') {
+          if (v.hits > 0) applied = Math.max(applied, v.factor)
+          else if (l.hits > 0) applied = Math.max(applied, l.factor)
+          else if (v.hasHistory && v.factor > 1) applied = Math.max(applied, v.factor)
+          else if (l.hasHistory && l.factor > 1) applied = Math.max(applied, l.factor)
+        }
+        return { ...cm, v, l, s, decision, candidate, applied }
       })
       const appliedByMonth = {}
       for (const r of seasonRows) appliedByMonth[r.y * 100 + r.mo] = r.applied
@@ -227,7 +267,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const key = mid.getUTCFullYear() * 100 + (mid.getUTCMonth() + 1)
         return appliedByMonth[key] || 1
       }
-      const shopFlags = seasonRows.filter((r) => r.s.hasHistory && r.s.factor >= dial.seasonTh && r.applied === 1)
+      const shopFlags = seasonRows.filter((r) => r.s.hits > 0 && r.applied === 1 && !r.candidate)
 
       const np = newProductCheck(listingFirst, todayMs, dial.npMin, dial.npBump)
 
@@ -364,6 +404,23 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <span className="ap-dial-help">Also protect the pieces that sell while the shipment is on the water, not only the shelf target at arrival. Off by default - the surge % already covers the target.</span>
             </label>
           </div>
+          <div className="ap-months">
+            <div className="ap-months-row">
+              <span className="ap-months-lbl">Months ignored by the surge search</span>
+              <input type="hidden" name="sxset" value="1" />
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <label key={m} className="ap-mo"><input type="checkbox" name="sx" value={m} defaultChecked={surgeExclude.indexOf(m) >= 0} />{MONTH_NAMES[m]}</label>
+              ))}
+            </div>
+            <div className="ap-months-row">
+              <span className="ap-months-lbl">Months ignored by the trend measure</span>
+              <input type="hidden" name="txset" value="1" />
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <label key={m} className="ap-mo"><input type="checkbox" name="tx" value={m} defaultChecked={trendExclude.indexOf(m) >= 0} />{MONTH_NAMES[m]}</label>
+              ))}
+            </div>
+            <p className="ap-sm muted" style={{ margin: '4px 0 0' }}>Ticked months never count when measuring normal behavior - a known season (Mother&apos;s Day, Christmas...) should be handled by step 5, not read as a surge or a trend. Oct-Jan is the built-in default; each list saves with the dials.</p>
+          </div>
           <div style={{ marginTop: 10 }}>
             <button className="button" type="submit">Calculate with these dials</button>
           </div>
@@ -386,6 +443,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="npbump" value={dial.npBump} />
           <input type="hidden" name="flagx" value={dial.flagX} />
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
+          <input type="hidden" name="sx" value={surgeExclude.join(',')} />
+          <input type="hidden" name="tx" value={trendExclude.join(',')} />
           <span className="ap-sm muted">
             {savedAt
               ? 'Saved dials are in use for this group (saved ' + date(String(savedAt).slice(0, 10)) + '). Saving again overwrites them with the dials applied above.'
@@ -613,28 +672,87 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
             {/* ---------------- STEP 5: seasonality ---------------- */}
             <div className="ap-step">
-              <div className="ap-step-h"><span className="ap-n">5</span><strong>Seasonality - the months this order will cover</strong>
+              <div className="ap-step-h"><span className="ap-n">5</span><strong>Seasonality - from today until the order is used up</strong>
                 <span className={'ap-out' + (c.seasonRows.some((r) => r.applied > 1) ? '' : ' off')}>
-                  {c.seasonRows.some((r) => r.applied > 1) ? 'applied  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.season)) : '0') + ' pcs' : c.shopFlags.length ? 'flag only' : 'nothing found'}</span></div>
+                  {c.seasonRows.some((r) => r.applied > 1) ? 'applied  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.season)) : '0') + ' pcs' : c.seasonRows.some((r) => r.candidate && !r.decision) ? 'needs your decision' : c.shopFlags.length ? 'flag only' : 'nothing found'}</span></div>
               <div className="ap-step-b">
                 <table>
-                  <thead><tr><th>Covered month</th><th>Weeks in it</th><th>This part last year</th><th>The listing last year</th><th>Whole shop last year</th><th>Applied</th></tr></thead>
+                  <thead><tr><th>Month (wait + cover)</th><th>Weeks in it</th><th>This part, past years</th><th>The listing, past years</th><th>Whole shop, past years</th><th>Decision</th><th>Applied</th></tr></thead>
                   <tbody>
                     {c.seasonRows.map((r) => (
                       <tr key={r.y * 100 + r.mo}>
                         <td>{MONTH_NAMES[r.mo]} {r.y}</td><td>{r.weeksIn}</td>
-                        <td>{r.v.hasHistory ? f1(r.v.factor) + 'x' : 'no history'}</td>
-                        <td>{r.l.hasHistory ? f1(r.l.factor) + 'x' : 'no history'}</td>
-                        <td>{r.s.hasHistory ? f1(r.s.factor) + 'x' : 'no history'}</td>
+                        <td>{r.v.hasHistory ? f1(r.v.factor) + 'x' + (r.v.years.length > 1 ? ' (' + r.v.hits + ' of ' + r.v.years.length + ' yrs)' : '') : 'no history'}</td>
+                        <td>{r.l.hasHistory ? f1(r.l.factor) + 'x' + (r.l.years.length > 1 ? ' (' + r.l.hits + ' of ' + r.l.years.length + ' yrs)' : '') : 'no history'}</td>
+                        <td>{r.s.hasHistory ? f1(r.s.factor) + 'x' + (r.s.years.length > 1 ? ' (' + r.s.hits + ' of ' + r.s.years.length + ' yrs)' : '') : 'no history'}</td>
+                        <td>{r.decision === 'approved' ? 'approved' : r.decision === 'dismissed' ? 'dismissed' : r.candidate ? 'waiting' : '-'}</td>
                         <td>{r.applied > 1 ? <b>{f1(r.applied)}x</b> : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {(() => {
+                  const seen = []
+                  const cards = c.seasonRows.filter((r) => {
+                    if (!r.candidate || r.decision) return false
+                    if (seen.indexOf(r.mo) >= 0) return false
+                    seen.push(r.mo)
+                    return true
+                  })
+                  return cards.map((r) => {
+                    const ev = r.v.hits > 0 ? r.v : r.l
+                    const level = r.v.hits > 0 ? 'this part' : 'the whole listing'
+                    const conf = ev.years.length >= 2 && ev.hits >= 2
+                      ? 'Very confident: it spiked in ' + ev.hits + ' of ' + ev.years.length + ' years with data.'
+                      : 'Based on ' + ev.years.length + ' year of data - it could be a one-off.'
+                    return (
+                      <div key={r.mo} className="ap-season-card">
+                        <div>
+                          <b>{MONTH_NAMES[r.mo]} looks seasonal: {f1(ev.factor)}x normal for {level}.</b>{' '}
+                          {conf}{' '}Possible reason{(OCCASIONS[r.mo] || []).length > 1 ? 's' : ''}: {(OCCASIONS[r.mo] || ['none known']).join('; ')}.
+                          {' '}Approve to apply {f1(ev.factor)}x to every {MONTH_NAMES[r.mo]} this order touches; dismiss to stop suggesting it.
+                        </div>
+                        <div style={{ whiteSpace: 'nowrap' }}>
+                          <form action={saveSeasonDecision} style={{ display: 'inline' }}>
+                            <input type="hidden" name="category" value={part.category || ''} />
+                            <input type="hidden" name="part" value={part.id} />
+                            <input type="hidden" name="month" value={r.mo} />
+                            <input type="hidden" name="decision" value="approved" />
+                            <button className="button" type="submit">Approve</button>
+                          </form>
+                          <form action={saveSeasonDecision} style={{ display: 'inline', marginLeft: 8 }}>
+                            <input type="hidden" name="category" value={part.category || ''} />
+                            <input type="hidden" name="part" value={part.id} />
+                            <input type="hidden" name="month" value={r.mo} />
+                            <input type="hidden" name="decision" value="dismissed" />
+                            <button className="button" type="submit">Dismiss</button>
+                          </form>
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+                {Object.keys(seasonDecisions).length > 0 && (
+                  <div className="ap-sm muted" style={{ margin: '8px 0 0' }}>
+                    Decided months:{' '}
+                    {Object.keys(seasonDecisions).map((mk) => (
+                      <span key={mk} style={{ marginRight: 12 }}>
+                        {MONTH_NAMES[Number(mk)]}: {seasonDecisions[mk]}
+                        <form action={saveSeasonDecision} style={{ display: 'inline', marginLeft: 4 }}>
+                          <input type="hidden" name="category" value={part.category || ''} />
+                          <input type="hidden" name="part" value={part.id} />
+                          <input type="hidden" name="month" value={mk} />
+                          <input type="hidden" name="decision" value="clear" />
+                          <button className="ap-linkbtn" type="submit">undo</button>
+                        </form>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {c.shopFlags.length > 0 && (
                   <div className="ap-warn"><b>Seasonal months are inside this order&apos;s window and this listing has no history for them.</b> Shop-wide last year: {c.shopFlags.map((r) => MONTH_NAMES[r.mo] + ' ran ' + f1(r.s.factor) + 'x').join(', ')}. Per your rule a shop-wide signal is never added automatically - if this listing follows the shop, raise the order by hand.</div>
                 )}
-                <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. The part and its listing apply automatically at {f1(dial.seasonTh)}x or more; the whole shop only ever flags.</div>
+                <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. Nothing is applied automatically: a month at {f1(dial.seasonTh)}x or more becomes a suggestion with the likely holiday or season named, and only your Approve applies it. The whole shop column only ever flags. With 2+ years of data a repeated spike is called out as very confident.</div>
               </div>
             </div>
 
