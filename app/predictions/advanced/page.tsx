@@ -73,7 +73,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
   // Dials resolve in three layers: built-in defaults first, then this group's
   // saved settings, then anything typed into the dial form for this one run.
-  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0.5 }
+  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 1 }
   let savedSettings = {}
   let savedAt = null
   if (part && part.category) {
@@ -437,7 +437,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             </label>
             <label>Dead-period floor (x life median)
               <input type="number" name="mfloor" step="0.1" defaultValue={dial.medFloor} />
-              <span className="ap-dial-help">A surge window&apos;s &quot;normal&quot; may never fall below this x the variation&apos;s whole-life median block (zeros included, from its first reported week). Stops a spike in a dead stretch from dividing by almost nothing. 0 turns it off.</span>
+              <span className="ap-dial-help">Spikes are measured against the variation&apos;s TOTAL median block (zeros included, from its own first reported week) x this number - unless the window&apos;s own median is higher, which then wins, so plain growth is never re-counted as a surge. 1 = the full life median. 0 turns it off.</span>
             </label>
             <label className="ap-check">
               <span><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</span>
