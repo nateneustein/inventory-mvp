@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
 import { CONDITION_FIELDS, CONDITION_TYPES, conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
 import { today } from '@/lib/format'
+import { refreshPredictionSnapshots } from '@/lib/part-detail-actions'
 
 type CsvRow = Record<string, string>
 
@@ -623,6 +624,10 @@ export async function postImportedOrdersToInventory(): Promise<void> {
   revalidatePath('/usage')
   revalidatePath('/parts')
   revalidatePath('/dashboard')
+
+  // Keep the prediction snapshot (warn window + order-note tokens) current with
+  // the usage this upload just posted. Never let a snapshot hiccup fail the post.
+  try { await refreshPredictionSnapshots() } catch (e) { console.error('snapshot refresh after post failed', e) }
 }
 
 export async function createSupplier(formData: FormData) {
