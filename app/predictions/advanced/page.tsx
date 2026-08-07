@@ -73,7 +73,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
   // Dials resolve in three layers: built-in defaults first, then this group's
   // saved settings, then anything typed into the dial form for this one run.
-  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 1 }
+  const DEFAULTS = { base: 3, pool: 0.5, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0, gfloor: 2 }
   let savedSettings = {}
   let savedAt = null
   if (part && part.category) {
@@ -88,6 +88,17 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     if (Number.isFinite(sv) && sv > 0) return sv
     return DEFAULTS[k]
   }
+  const pick0 = function (k) {
+    if (params[k] !== undefined && params[k] !== '') {
+      const u = Number(params[k])
+      if (Number.isFinite(u) && u >= 0) return u
+    }
+    if (savedSettings[k] !== undefined && savedSettings[k] !== null) {
+      const sv = Number(savedSettings[k])
+      if (Number.isFinite(sv) && sv >= 0) return sv
+    }
+    return DEFAULTS[k]
+  }
   const dial = {
     baseMonths: pick('base'),
     poolFrac: pick('pool'),
@@ -100,7 +111,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     npMin: pick('npmin'),
     npBump: pick('npbump'),
     flagX: pick('flagx'),
-    medFloor: pick('mfloor'),
+    medFloor: pick0('mfloor'),
+    groupFloor: pick0('gfloor'),
     surgeOnWait: params.wait != null ? params.wait === '1' : Number(savedSettings.wait) === 1,
   }
   const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
@@ -228,9 +240,13 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       wmBy[p.id] = wm
       if (!wm) { noData.push(p); continue }
       const end = Math.max(wm.ownLast, shopMedianLast)
-      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor)
+      // Two numbers per variation: the GROUP-side one has the pieces floor
+      // (a tiny variation's 1-to-25 jump cannot inflate everyone), the OWN
+      // one is raw so the variation still fully protects itself in step 2.
+      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor, dial.groupFloor)
       if (!s) { noData.push(p); continue }
-      perVariation.push({ part: p, wm, end, s, pct: s.pct })
+      const sOwn = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor, 0) || s
+      perVariation.push({ part: p, wm, end, s, sOwn, pct: s.pct })
     }
     perVariation.sort((a, b) => b.pct - a.pct)
 
@@ -240,7 +256,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       const poolNames = new Set(group.pool.map((x) => x.name))
 
       const mine = perVariation.find((v) => v.part.id === part.id) || null
-      const ownPct = mine ? mine.pct : 0
+      const ownPct = mine ? mine.sOwn.pct : 0
       const effPct = Math.max(ownPct, group.pct)
       const effWeeks = monthsToOrder(effPct, dial.baseMonths).weeks
 
@@ -435,9 +451,13 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <input type="number" name="flagx" step="0.5" defaultValue={dial.flagX} />
               <span className="ap-dial-help">If the final order is bigger than this x a plain 3-month order, the page flags it for a human double-check. The flag never blocks or shrinks the order.</span>
             </label>
-            <label>Dead-period floor (x life median)
+            <label>Life-median floor (x total median)
               <input type="number" name="mfloor" step="0.1" defaultValue={dial.medFloor} />
-              <span className="ap-dial-help">Spikes are measured against the variation&apos;s TOTAL median block (zeros included, from its own first reported week) x this number - unless the window&apos;s own median is higher, which then wins, so plain growth is never re-counted as a surge. 1 = the full life median. 0 turns it off.</span>
+              <span className="ap-dial-help">Optional: the surge divider never falls below this x the variation&apos;s whole-life median block. 0 (default) = off - windows use their own median.</span>
+            </label>
+            <label>Group surge floor (pcs)
+              <input type="number" name="gfloor" step="1" defaultValue={dial.groupFloor} />
+              <span className="ap-dial-help">For the GROUP number only: spikes are measured against at least this many pieces per 4-week block, so a tiny variation jumping 1-to-25 cannot inflate the whole group. Each variation&apos;s own check (step 2) ignores this floor and keeps its raw number, so it still protects itself.</span>
             </label>
             <label className="ap-check">
               <span><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</span>
@@ -490,6 +510,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="npbump" value={dial.npBump} />
           <input type="hidden" name="flagx" value={dial.flagX} />
           <input type="hidden" name="mfloor" value={dial.medFloor} />
+          <input type="hidden" name="gfloor" value={dial.groupFloor} />
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
@@ -600,7 +621,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <details key={dv.part.id} className="ap-drill">
                       <summary>{dv.part.name}: inside its worst window (+{pctOf(dv.pct)}%)</summary>
                       <p className="small" style={{ margin: '6px 0 0' }}>
-                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block{dv.s.floored ? ' - its own median was only ' + f1(dv.s.medRaw) + ' (a dead stretch), so the dead-period floor lifted the divider to ' + f1(dv.s.med) + ' (x' + f1(dial.medFloor) + ' of its life median ' + f1(dv.s.lifeMed) + ')' : ''} - every spike below is measured against that.{dv.s.ltPct > 0 ? ' This window\u2019s own era was climbing +' + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that climb is removed: each block below is leveled to the window end before scoring.' : ' No real climb in this window\u2019s own era - raw values.'}
+                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block{dv.s.floored ? ' - its own median was only ' + f1(dv.s.medRaw) + ', so the floor lifted the divider to ' + f1(dv.s.med) + ' (group floor ' + f1(dial.groupFloor) + ' pcs / life-median floor x' + f1(dial.medFloor) + ')' : ''} - every spike below is measured against that.{dv.s.ltPct > 0 ? ' This window\u2019s own era was climbing +' + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that climb is removed: each block below is leveled to the window end before scoring.' : ' No real climb in this window\u2019s own era - raw values.'}
                       </p>
                       <table>
                         <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
@@ -641,9 +662,9 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <table>
                       <thead><tr><th>Chop</th><th>Blocks</th><th>Best window from</th><th>Window</th><th>Surge</th></tr></thead>
                       <tbody>
-                        {c.mine.s.cuts.map((k) => (
-                          <tr key={k.off} className={k.off === c.mine.s.off ? 'ap-me' : ''}>
-                            <td>start +{k.off} wk{k.off === c.mine.s.off ? ' <- worst' : ''}</td>
+                        {c.mine.sOwn.cuts.map((k) => (
+                          <tr key={k.off} className={k.off === c.mine.sOwn.off ? 'ap-me' : ''}>
+                            <td>start +{k.off} wk{k.off === c.mine.sOwn.off ? ' <- worst' : ''}</td>
                             <td>{k.nBlocks}</td>
                             <td>{k.bestFrom ? date(isoOf(k.bestFrom)) : '-'}</td>
                             <td>{k.bestWeeks ? k.bestWeeks + ' wks' : '-'}</td>
@@ -652,23 +673,23 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         ))}
                       </tbody>
                     </table>
-                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block{c.mine.s.floored ? ' (dead-period floor applied: raw median ' + f1(c.mine.s.medRaw) + ')' : ''}{c.mine.s.ltPct > 0 ? '; its era\u2019s climb of +' + f1(c.mine.s.ltPct) + '%/4wks removed first' : ''}):</p>
+                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.sOwn.wfrom))}, {c.mine.sOwn.winWeeks} weeks, its own median {f1(c.mine.sOwn.med)} per block{c.mine.sOwn.floored ? ' (dead-period floor applied: raw median ' + f1(c.mine.sOwn.medRaw) + ')' : ''}{c.mine.sOwn.ltPct > 0 ? '; its era\u2019s climb of +' + f1(c.mine.sOwn.ltPct) + '%/4wks removed first' : ''}):</p>
                     <table>
                       <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
                       <tbody>
-                        {c.mine.s.seg.map((b, i) => (
-                          <tr key={i} className={b.used > c.mine.s.med ? 'ap-hot' : ''}>
+                        {c.mine.sOwn.seg.map((b, i) => (
+                          <tr key={i} className={b.used > c.mine.sOwn.med ? 'ap-hot' : ''}>
                             <td>{date(isoOf(b.starts))}</td><td>{f1(b.used)}</td>
-                            <td>{b.used > c.mine.s.med ? '+' + f1(b.used - c.mine.s.med) : '-'}</td>
-                            <td>{b.used > c.mine.s.med ? f2((b.used - c.mine.s.med) / c.mine.s.med) : '0'}</td>
+                            <td>{b.used > c.mine.sOwn.med ? '+' + f1(b.used - c.mine.sOwn.med) : '-'}</td>
+                            <td>{b.used > c.mine.sOwn.med ? f2((b.used - c.mine.sOwn.med) / c.mine.sOwn.med) : '0'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                     <div className="ap-calc">
-                      {'Surge in worst window   ' + f2(c.mine.s.excess) + ' blocks over ' + c.mine.s.winWeeks + ' weeks\n'}
-                      {'Share of a ' + baseWeeks + '-week order  ' + f2(c.mine.s.excess) + ' x ' + baseWeeks + '/' + c.mine.s.winWeeks + '  =  ' + f2(c.mine.s.excess * baseWeeks / c.mine.s.winWeeks) + ' blocks\n'}
-                      {'Surge protection        ' + f2(c.mine.s.excess * baseWeeks / c.mine.s.winWeeks) + ' / ' + f2(baseWeeks / 4) + '  =  +' + pctOf(c.ownPct) + '%\n\n'}
+                      {'Surge in worst window   ' + f2(c.mine.sOwn.excess) + ' blocks over ' + c.mine.sOwn.winWeeks + ' weeks\n'}
+                      {'Share of a ' + baseWeeks + '-week order  ' + f2(c.mine.sOwn.excess) + ' x ' + baseWeeks + '/' + c.mine.sOwn.winWeeks + '  =  ' + f2(c.mine.sOwn.excess * baseWeeks / c.mine.sOwn.winWeeks) + ' blocks\n'}
+                      {'Surge protection        ' + f2(c.mine.sOwn.excess * baseWeeks / c.mine.sOwn.winWeeks) + ' / ' + f2(baseWeeks / 4) + '  =  +' + pctOf(c.ownPct) + '%\n\n'}
                       {'This variation  +' + pctOf(c.ownPct) + '%   |   its group  +' + pctOf(c.group.pct) + '%   ->  the higher wins: +' + pctOf(c.effPct) + '%' + (c.stepPcs ? '   =  +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs on this order' : '')}
                     </div>
                     <div className="ap-why">A quiet variation is lifted to the group floor - calm history is not proof of safety, only proof its bad quarter has not come yet. The reverse fires only for a genuine outlier, and it changes this variation&apos;s quantity only - never the group schedule.</div>
