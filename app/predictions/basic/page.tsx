@@ -22,6 +22,8 @@ const usagePeriods = [
 ]
 
 const projectionPeriods = [
+  { label: 'Stock 6 Month', weeks: 26.0714 },
+  { label: 'Stock 5 Month', weeks: 21.7262 },
   { label: 'Stock 4 Month', weeks: 17.381 },
   { label: 'Stock 3 Month', weeks: 13.0357 },
   { label: 'Stock 2.5 Month', weeks: 10.8631 },
@@ -134,7 +136,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
           <p className="muted">
             Spreadsheet-style prediction, matching the PREDICTION tab. Each block uses a different recent
             usage period, then projects what stock will be left after 5 weeks, 2 months, 2.5 months,
-            3 months and 4 months.
+            3, 4, 5 and 6 months.
           </p>
         </div>
         <Link className="button" href={`/predictions/advanced?as_of=${asOf}`}>Advanced calculator</Link>
