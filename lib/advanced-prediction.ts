@@ -122,9 +122,26 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
     const n = blocks.length
     let cutBest = null
     if (n > 0) {
-      const windows = n >= 7
-        ? Array.from({ length: n - 6 }, (_, i) => [i, i + 6])
-        : [[0, n - 1]]
+      // A window must be CONSECUTIVE in real time. When excluded months cut
+      // the timeline (e.g. Oct-Jan dropped), a window may never stitch
+      // September onto February - each unbroken stretch is scored on its own,
+      // with every 7-block window inside it (or the whole stretch if shorter).
+      const segs = []
+      let segStart = 0
+      for (let i = 1; i <= n; i++) {
+        if (i === n || blocks[i].starts - blocks[i - 1].starts !== 28 * DAY) {
+          segs.push([segStart, i - 1])
+          segStart = i
+        }
+      }
+      const windows = []
+      for (const [sa, sb] of segs) {
+        if (sb - sa + 1 >= 7) {
+          for (let i = sa; i + 6 <= sb; i++) windows.push([i, i + 6])
+        } else {
+          windows.push([sa, sb])
+        }
+      }
       for (const [ws, we] of windows) {
         const raw = blocks.slice(ws, we + 1)
         // The window's own ERA is checked for a listing-wide climb (same
