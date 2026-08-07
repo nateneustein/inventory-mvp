@@ -122,8 +122,11 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
           return { starts: b.starts, used: f > 0 ? b.used * f : b.used, lift: f }
         })
         const medRaw = median(seg.map((b) => b.used))
+        // A window whose own median is zero is a dead window - never scoreable.
+        // The floor only lifts LOW-but-alive medians, it must not resurrect
+        // windows that were rightly skipped before.
+        if (medRaw <= 0) continue
         const med = Math.max(medRaw, floorVal)
-        if (med <= 0) continue
         const excess = seg.reduce((s, b) => s + Math.max(b.used - med, 0), 0) / med
         const winWeeks = seg.length * 4
         const score = (excess * bw) / winWeeks / (bw / 4)
