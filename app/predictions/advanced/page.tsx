@@ -73,7 +73,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
   // Dials resolve in three layers: built-in defaults first, then this group's
   // saved settings, then anything typed into the dial form for this one run.
-  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5 }
+  const DEFAULTS = { base: 3, pool: 0.25, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0.5 }
   let savedSettings = {}
   let savedAt = null
   if (part && part.category) {
@@ -100,6 +100,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     npMin: pick('npmin'),
     npBump: pick('npbump'),
     flagX: pick('flagx'),
+    medFloor: pick('mfloor'),
     surgeOnWait: params.wait != null ? params.wait === '1' : Number(savedSettings.wait) === 1,
   }
   const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
@@ -227,7 +228,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       wmBy[p.id] = wm
       if (!wm) { noData.push(p); continue }
       const end = Math.max(wm.ownLast, shopMedianLast)
-      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude)
+      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor)
       if (!s) { noData.push(p); continue }
       perVariation.push({ part: p, wm, end, s, pct: s.pct })
     }
@@ -434,6 +435,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <input type="number" name="flagx" step="0.5" defaultValue={dial.flagX} />
               <span className="ap-dial-help">If the final order is bigger than this x a plain 3-month order, the page flags it for a human double-check. The flag never blocks or shrinks the order.</span>
             </label>
+            <label>Dead-period floor (x life median)
+              <input type="number" name="mfloor" step="0.1" defaultValue={dial.medFloor} />
+              <span className="ap-dial-help">A surge window&apos;s &quot;normal&quot; may never fall below this x the variation&apos;s whole-life median block (zeros included, from its first reported week). Stops a spike in a dead stretch from dividing by almost nothing. 0 turns it off.</span>
+            </label>
             <label className="ap-check">
               <span><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</span>
               <span className="ap-dial-help">Also protect the pieces that sell while the shipment is on the water, not only the shelf target at arrival. Off by default - the surge % already covers the target.</span>
@@ -484,6 +489,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="npmin" value={dial.npMin} />
           <input type="hidden" name="npbump" value={dial.npBump} />
           <input type="hidden" name="flagx" value={dial.flagX} />
+          <input type="hidden" name="mfloor" value={dial.medFloor} />
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
@@ -594,7 +600,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <details key={dv.part.id} className="ap-drill">
                       <summary>{dv.part.name}: inside its worst window (+{pctOf(dv.pct)}%)</summary>
                       <p className="small" style={{ margin: '6px 0 0' }}>
-                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block - every spike below is measured against that.{dv.s.ltPct > 0 ? ' This window\u2019s own era was climbing +' + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that climb is removed: each block below is leveled to the window end before scoring.' : ' No real climb in this window\u2019s own era - raw values.'}
+                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block{dv.s.floored ? ' - its own median was only ' + f1(dv.s.medRaw) + ' (a dead stretch), so the dead-period floor lifted the divider to ' + f1(dv.s.med) + ' (x' + f1(dial.medFloor) + ' of its life median ' + f1(dv.s.lifeMed) + ')' : ''} - every spike below is measured against that.{dv.s.ltPct > 0 ? ' This window\u2019s own era was climbing +' + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that climb is removed: each block below is leveled to the window end before scoring.' : ' No real climb in this window\u2019s own era - raw values.'}
                       </p>
                       <table>
                         <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
@@ -646,7 +652,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         ))}
                       </tbody>
                     </table>
-                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block{c.mine.s.ltPct > 0 ? '; its era\u2019s climb of +' + f1(c.mine.s.ltPct) + '%/4wks removed first' : ''}):</p>
+                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block{c.mine.s.floored ? ' (dead-period floor applied: raw median ' + f1(c.mine.s.medRaw) + ')' : ''}{c.mine.s.ltPct > 0 ? '; its era\u2019s climb of +' + f1(c.mine.s.ltPct) + '%/4wks removed first' : ''}):</p>
                     <table>
                       <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
                       <tbody>
