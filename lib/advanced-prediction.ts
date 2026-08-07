@@ -152,7 +152,7 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
         // own trajectory, not today's. No real climb -> raw numbers.
         const winEnd = raw[raw.length - 1].starts + 28 * DAY
         const lt = localTrend ? localTrend(raw[0].starts, winEnd) : null
-        const g = lt && lt.applied && lt.gWeekly > 0 ? lt.gWeekly : 0
+        const g = lt && lt.applied && lt.gWeekly !== 0 ? lt.gWeekly : 0
         const seg = raw.map((b) => {
           const f = g > 0 ? 1 + g * ((winEnd - (b.starts + 14 * DAY)) / (7 * DAY)) : 1
           return { starts: b.starts, used: f > 0 ? b.used * f : b.used, lift: f }
@@ -169,7 +169,7 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
         const cand = { score, pct: score * 100, off, wfrom: seg[0].starts,
                        winWeeks, med, medRaw, lifeMed, floored: med > medRaw + 1e-9,
                        excess, seg, blocksInHistory: n,
-                       ltPct: g > 0 ? lt.perBlockPct : 0 }
+                       ltPct: g !== 0 ? lt.perBlockPct : 0 }
         if (!cutBest || score > cutBest.score) cutBest = cand
         if (!best || score > best.score) best = cand
       }
@@ -265,6 +265,13 @@ export function trendSearch(first, map, end, opts) {
   }
   const slope = median(slopes)
   out.perBlockPct = (slope / med) * 100
+  // A real trend in EITHER direction is usable for surge-leveling (judging a
+  // window against its own era's trajectory). The projection in step 4 still
+  // only ever applies upward - an order is never shrunk by a falling trend.
+  if (Math.abs(out.perBlockPct) >= o.thresholdPct) {
+    out.levelable = true
+    out.gWeekly = out.perBlockPct / 100 / 4
+  }
   if (out.perBlockPct <= 0) {
     out.reason = 'direction is flat or down - an order is never shrunk'
     return out
