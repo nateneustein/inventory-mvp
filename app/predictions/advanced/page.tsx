@@ -199,7 +199,22 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                       maxBlocks: Math.max(4, Math.round((dial.trendLook * 13) / 12)),
                       excludeMonths: trendExclude })
       : { applied: false, reason: 'no listing history', perBlockPct: 0, gWeekly: 0, blocks: [], clipped: [] }
-    const detrend = trend.applied ? { gWeekly: trend.gWeekly, anchor: shopMedianLast } : null
+    // Every candidate surge window is checked against its own era's
+    // listing-wide climb: the ~6 months (7 blocks) ending where that window
+    // ends, same gates and spike-clip as step 4. Cached per window end.
+    const ltCache = {}
+    const localTrend = listingWm ? function (fromMs, toMs) {
+      const ltEnd = Math.min(toMs, shopMedianLast)
+      const key = String(ltEnd)
+      if (!ltCache[key]) {
+        ltCache[key] = trendSearch(listingWm.first, listingWm.map, ltEnd, {
+          minMonths: dial.trendMin, thresholdPct: dial.trendTh, clipMult: dial.trendClip,
+          maxBlocks: 7, excludeMonths: trendExclude,
+        })
+      }
+      const t = ltCache[key]
+      return { applied: t.applied, gWeekly: t.gWeekly, perBlockPct: t.perBlockPct }
+    } : null
 
     const perVariation = []
     const noData = []
@@ -209,7 +224,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       wmBy[p.id] = wm
       if (!wm) { noData.push(p); continue }
       const end = Math.max(wm.ownLast, shopMedianLast)
-      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, detrend, surgeExclude)
+      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude)
       if (!s) { noData.push(p); continue }
       perVariation.push({ part: p, wm, end, s, pct: s.pct })
     }
@@ -543,9 +558,9 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 <p className="small" style={{ margin: '0 0 8px' }}>
                   Group = every part whose category is exactly <b>{part.category}</b> ({groupParts.length} parts). For each one: usage cut into 4-week blocks <b>4 different ways</b> (a block boundary must never split a surge and hide it), Oct-Jan blocks dropped by midpoint, then <b>every 28-week window</b> inside every chop is scored against its own median. The worst combination anywhere in its history is that variation&apos;s surge protection.
                 </p>
-                {c.trend.applied && (
+                {c.perVariation.some((pv) => pv.s.ltPct > 0) && (
                   <p className="small" style={{ margin: '0 0 8px' }}>
-                    <b>Growth leveled out first:</b> this listing has a firing trend (+{f1(c.trend.perBlockPct)}% per 4 weeks), so before spikes are measured every week is scaled up to today&apos;s trend line. Whatever still sticks out is a real spike - plain growth is paid once, in step 4, never again as a surge.
+                    <b>Era climbs removed:</b> before a window is scored, its own ~6 months are checked for a listing-wide climb (same gates and 1.5x spike-clip as step 4). A real climb in the window&apos;s own time is leveled out first - growth never masquerades as a surge, and an old advertising-driven year is judged against its own trajectory, not today&apos;s. Windows whose era shows no real climb are scored on raw numbers.
                   </p>
                 )}
                 <table>
@@ -576,7 +591,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <details key={dv.part.id} className="ap-drill">
                       <summary>{dv.part.name}: inside its worst window (+{pctOf(dv.pct)}%)</summary>
                       <p className="small" style={{ margin: '6px 0 0' }}>
-                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block - every spike below is measured against that.{c.trend.applied ? ' Block values are leveled to the trend line - growth taken out, spikes left in.' : ''}
+                        Chop start +{dv.s.off} wk. Window from {date(isoOf(dv.s.wfrom))}, {dv.s.winWeeks} weeks. Normal for that window (its median) is <b>{f1(dv.s.med)}</b> per 4-week block - every spike below is measured against that.{dv.s.ltPct > 0 ? ' This window\u2019s own era was climbing +' + f1(dv.s.ltPct) + '% per 4 weeks (listing-wide) - that climb is removed: each block below is leveled to the window end before scoring.' : ' No real climb in this window\u2019s own era - raw values.'}
                       </p>
                       <table>
                         <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
@@ -628,7 +643,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         ))}
                       </tbody>
                     </table>
-                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block{c.trend.applied ? '; values leveled to the trend line first' : ''}):</p>
+                    <p className="small" style={{ margin: '10px 0 6px' }}><b>Inside the worst window</b> ({date(isoOf(c.mine.s.wfrom))}, {c.mine.s.winWeeks} weeks, its own median {f1(c.mine.s.med)} per block{c.mine.s.ltPct > 0 ? '; its era\u2019s climb of +' + f1(c.mine.s.ltPct) + '%/4wks removed first' : ''}):</p>
                     <table>
                       <thead><tr><th>Block</th><th>Used</th><th>Above normal</th><th>As blocks</th></tr></thead>
                       <tbody>
