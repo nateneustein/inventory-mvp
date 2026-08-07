@@ -86,19 +86,9 @@ export function chop(series, first, off, excludeMonths) {
  * history wins - an average would dilute a real surge, and a single fixed
  * chop could split one across a block boundary and hide it.
  */
-export function surgeSearch(first, map, end, baseWeeks, detrend, excludeMonths) {
+export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonths) {
   const bw = baseWeeks || 13
   const series = weeklySeries(first, map, end)
-  // When the listing has a firing growth trend, level every week to the
-  // trend line (anchored at the newest trustworthy week) before hunting for
-  // spikes: growth is paid once by the trend step, never again as a surge.
-  if (detrend && detrend.gWeekly > 0) {
-    for (let i = 0; i < series.length; i++) {
-      const weeksBack = (detrend.anchor - (first + i * 7 * DAY)) / (7 * DAY)
-      const f = 1 + detrend.gWeekly * weeksBack
-      if (f > 0) series[i] = series[i] * f
-    }
-  }
   let best = null
   const cuts = []
   for (let off = 0; off < 4; off++) {
@@ -110,14 +100,28 @@ export function surgeSearch(first, map, end, baseWeeks, detrend, excludeMonths) 
         ? Array.from({ length: n - 6 }, (_, i) => [i, i + 6])
         : [[0, n - 1]]
       for (const [ws, we] of windows) {
-        const seg = blocks.slice(ws, we + 1)
+        const raw = blocks.slice(ws, we + 1)
+        // The window's own ERA is checked for a listing-wide climb (same
+        // gates and 1.5x spike-clip as the trend step, measured over the
+        // ~6 months ending where this window ends). A real era climb is
+        // leveled out block by block - growth must never masquerade as a
+        // surge, and an old advertising-driven year is judged against its
+        // own trajectory, not today's. No real climb -> raw numbers.
+        const winEnd = raw[raw.length - 1].starts + 28 * DAY
+        const lt = localTrend ? localTrend(raw[0].starts, winEnd) : null
+        const g = lt && lt.applied && lt.gWeekly > 0 ? lt.gWeekly : 0
+        const seg = raw.map((b) => {
+          const f = g > 0 ? 1 + g * ((winEnd - (b.starts + 14 * DAY)) / (7 * DAY)) : 1
+          return { starts: b.starts, used: f > 0 ? b.used * f : b.used, lift: f }
+        })
         const med = median(seg.map((b) => b.used))
         if (med <= 0) continue
         const excess = seg.reduce((s, b) => s + Math.max(b.used - med, 0), 0) / med
         const winWeeks = seg.length * 4
         const score = (excess * bw) / winWeeks / (bw / 4)
         const cand = { score, pct: score * 100, off, wfrom: seg[0].starts,
-                       winWeeks, med, excess, seg, blocksInHistory: n }
+                       winWeeks, med, excess, seg, blocksInHistory: n,
+                       ltPct: g > 0 ? lt.perBlockPct : 0 }
         if (!cutBest || score > cutBest.score) cutBest = cand
         if (!best || score > best.score) best = cand
       }
