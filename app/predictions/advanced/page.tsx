@@ -617,16 +617,25 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   </p>
                 )}
                 <table>
-                  <thead><tr><th>Variation</th><th>History</th><th>Data to</th><th>Worst chop</th><th>Worst window from</th><th>Surge protection</th></tr></thead>
+                  <thead><tr><th>Variation</th><th>History</th><th>Data to</th><th>Worst chop</th><th>Worst window from</th><th>Surge protection</th><th></th></tr></thead>
                   <tbody>
                     {c.perVariation.map((v) => (
-                      <tr key={v.part.id} className={(c.poolNames.has(v.part.name) ? 'ap-pool' : '') + (v.part.id === part.id ? ' ap-me' : '')}>
+                      <tr key={v.part.id} className={(knockouts.indexOf(v.part.id) >= 0 ? 'ap-knocked ' : '') + (c.poolNames.has(v.part.name) ? 'ap-pool' : '') + (v.part.id === part.id ? ' ap-me' : '')}>
                         <td>{v.part.name}{v.part.id === part.id ? ' <- this one' : ''}</td>
                         <td>{v.s.blocksInHistory} blocks</td>
                         <td>{date(isoOf(v.end))}</td>
                         <td>cut +{v.s.off}wk</td>
                         <td>{date(isoOf(v.s.wfrom))} ({v.s.winWeeks} wks)</td>
                         <td><b>+{pctOf(v.pct)}%</b></td>
+                        <td>
+                          <form action={saveCalcOverride} style={{ display: 'inline' }}>
+                            <input type="hidden" name="category" value={part.category || ''} />
+                            <input type="hidden" name="part" value={part.id} />
+                            <input type="hidden" name="kind" value="knockout" />
+                            <input type="hidden" name="target" value={v.part.id} />
+                            <button className="ap-linkbtn" type="submit">{knockouts.indexOf(v.part.id) >= 0 ? 'put back' : 'knock out'}</button>
+                          </form>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
