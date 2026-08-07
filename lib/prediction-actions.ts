@@ -35,11 +35,11 @@ export async function saveAdvancedPredictionSettings(formData) {
   if (!category) redirect('/predictions/advanced')
 
   const settings = await loadSettings(supabase, category)
-  const keys = ['base', 'pool', 'tmin', 'tth', 'tlook', 'thoriz', 'tclip', 'sth', 'npmin', 'npbump', 'flagx', 'mfloor', 'gfloor']
+  const keys = ['base', 'pool', 'tmin', 'tth', 'tlook', 'thoriz', 'tclip', 'sth', 'npmin', 'npbump', 'flagx', 'mfloor', 'gfloor', 'slook']
   for (const k of keys) {
     const n = Number(formData.get(k))
     // the two floor dials may legitimately be saved as 0 (off)
-    if (Number.isFinite(n) && (n > 0 || ((k === 'mfloor' || k === 'gfloor') && n >= 0))) settings[k] = n
+    if (Number.isFinite(n) && (n > 0 || ((k === 'mfloor' || k === 'gfloor' || k === 'slook') && n >= 0))) settings[k] = n
   }
   settings.wait = formData.get('wait') === '1' ? 1 : 0
   for (const mk of ['sx', 'tx', 'rx']) {
