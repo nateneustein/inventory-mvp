@@ -41,7 +41,7 @@ export async function saveAdvancedPredictionSettings(formData) {
     if (Number.isFinite(n) && n > 0) settings[k] = n
   }
   settings.wait = formData.get('wait') === '1' ? 1 : 0
-  for (const mk of ['sx', 'tx']) {
+  for (const mk of ['sx', 'tx', 'rx']) {
     const raw = formData.get(mk)
     if (raw !== null) {
       settings[mk] = String(raw).split(',').map((x) => Number(x))
