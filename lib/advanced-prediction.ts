@@ -154,7 +154,7 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
         const lt = localTrend ? localTrend(raw[0].starts, winEnd) : null
         const g = lt && lt.applied && lt.gWeekly !== 0 ? lt.gWeekly : 0
         const seg = raw.map((b) => {
-          const f = g > 0 ? 1 + g * ((winEnd - (b.starts + 14 * DAY)) / (7 * DAY)) : 1
+          const f = g !== 0 ? 1 + g * ((winEnd - (b.starts + 14 * DAY)) / (7 * DAY)) : 1
           return { starts: b.starts, used: f > 0 ? b.used * f : b.used, lift: f }
         })
         const medRaw = median(seg.map((b) => b.used))
