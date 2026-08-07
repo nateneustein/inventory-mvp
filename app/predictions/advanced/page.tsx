@@ -107,13 +107,20 @@ export default async function AdvancedPredictionPage({ searchParams }) {
   // Month lists: which calendar months are ignored when measuring normal
   // behavior. Separate lists for the surge search and the trend measure,
   // resolved the same three-layer way (default Oct-Jan < saved < this run).
-  const parseMonths = function (val, saved, marker) {
-    if (marker) return [].concat(val || []).map(Number).filter((n) => n >= 1 && n <= 12)
-    if (Array.isArray(saved)) return saved.map(Number).filter((n) => n >= 1 && n <= 12)
+  // The form submits the months that COUNT; internally everything works on
+  // the excluded list (stored as sx/tx/rx), so saved settings stay stable.
+  const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  const parseCount = function (val, savedExclude, marker) {
+    if (marker) {
+      const inc = [].concat(val || []).map(Number)
+      return ALL_MONTHS.filter((m) => inc.indexOf(m) < 0)
+    }
+    if (Array.isArray(savedExclude)) return savedExclude.map(Number).filter((n) => n >= 1 && n <= 12)
     return [10, 11, 12, 1]
   }
-  const surgeExclude = parseMonths(params.sx, savedSettings.sx, params.sxset === '1')
-  const trendExclude = parseMonths(params.tx, savedSettings.tx, params.txset === '1')
+  const surgeExclude = parseCount(params.sc, savedSettings.sx, params.scset === '1')
+  const trendExclude = parseCount(params.tc, savedSettings.tx, params.tcset === '1')
+  const rateExclude = parseCount(params.rc, savedSettings.rx, params.rcset === '1')
   const seasonDecisions = savedSettings.seasons && typeof savedSettings.seasons === 'object' ? savedSettings.seasons : {}
 
   const byCategory = {}
@@ -220,7 +227,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
       const selWm = wmBy[part.id]
       const selEnd = selWm ? Math.max(selWm.ownLast, shopMedianLast) : shopMedianLast
-      const rate = selWm ? cleanRate(selWm.first, selWm.map, selEnd, effWeeks) : null
+      const rate = selWm ? cleanRate(selWm.first, selWm.map, selEnd, effWeeks, rateExclude) : null
 
       // Lead time straight off the part record.
       const leadDays = part.lead_time_days_max != null
@@ -416,20 +423,27 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           </div>
           <div className="ap-months">
             <div className="ap-months-row">
-              <span className="ap-months-lbl">Months ignored by the surge search</span>
-              <input type="hidden" name="sxset" value="1" />
+              <span className="ap-months-lbl">Months that count - surge search</span>
+              <input type="hidden" name="scset" value="1" />
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <label key={m} className="ap-mo"><input type="checkbox" name="sx" value={m} defaultChecked={surgeExclude.indexOf(m) >= 0} />{MONTH_NAMES[m]}</label>
+                <label key={m} className="ap-mo"><input type="checkbox" name="sc" value={m} defaultChecked={surgeExclude.indexOf(m) < 0} />{MONTH_NAMES[m]}</label>
               ))}
             </div>
             <div className="ap-months-row">
-              <span className="ap-months-lbl">Months ignored by the trend measure</span>
-              <input type="hidden" name="txset" value="1" />
+              <span className="ap-months-lbl">Months that count - trend measure</span>
+              <input type="hidden" name="tcset" value="1" />
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                <label key={m} className="ap-mo"><input type="checkbox" name="tx" value={m} defaultChecked={trendExclude.indexOf(m) >= 0} />{MONTH_NAMES[m]}</label>
+                <label key={m} className="ap-mo"><input type="checkbox" name="tc" value={m} defaultChecked={trendExclude.indexOf(m) < 0} />{MONTH_NAMES[m]}</label>
               ))}
             </div>
-            <p className="ap-sm muted" style={{ margin: '4px 0 0' }}>Ticked months never count when measuring normal behavior - a known season (Mother&apos;s Day, Christmas...) should be handled by step 5, not read as a surge or a trend. Oct-Jan is the built-in default; each list saves with the dials.</p>
+            <div className="ap-months-row">
+              <span className="ap-months-lbl">Months that count - clean usage rate</span>
+              <input type="hidden" name="rcset" value="1" />
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <label key={m} className="ap-mo"><input type="checkbox" name="rc" value={m} defaultChecked={rateExclude.indexOf(m) < 0} />{MONTH_NAMES[m]}</label>
+              ))}
+            </div>
+            <p className="ap-sm muted" style={{ margin: '4px 0 0' }}>A ticked month counts as normal behavior for that calculation. Untick a month you KNOW is special (Mother&apos;s Day, Christmas...) and its spike is handed to the seasonality step instead of being read as a surge, a trend, or the everyday rate. Oct-Jan comes unticked out of the box; the walk just reaches further back for replacement blocks. Each row saves with the dials.</p>
           </div>
           <div style={{ marginTop: 10 }}>
             <button className="button" type="submit">Calculate with these dials</button>
@@ -455,6 +469,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
+          <input type="hidden" name="rx" value={rateExclude.join(',')} />
           <span className="ap-sm muted">
             {savedAt
               ? 'Saved dials are in use for this group (saved ' + date(String(savedAt).slice(0, 10)) + '). Saving again overwrites them with the dials applied above.'
@@ -653,7 +668,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         <tr key={i}><td>{date(isoOf(b.starts))}</td><td>{f1(b.used)}</td></tr>))}</tbody>
                     </table>
                     <div className="ap-calc">{'Median of the last ' + c.rate.blocks.length + ' blocks  =  ' + f1(c.rate.median4wk) + ' per 4 weeks  =  ' + f2(c.rate.perWeek) + ' per week'}</div>
-                    <div className="ap-why">The median of the <b>actual most recent months</b> - anchored backward from the newest data, never taken from the surge window. Spikes are already paid for by the surge %; the median keeps them out of the rate so they are never charged twice.</div>
+                    <div className="ap-why">The median of the <b>actual most recent months</b> - anchored backward from the newest data, never taken from the surge window. Blocks landing in months unticked for the clean rate are skipped and the walk reaches further back instead. Spikes are already paid for by the surge %; the median keeps them out of the rate so they are never charged twice.</div>
                   </>
                 )}
               </div>
