@@ -6,7 +6,7 @@ import {
   cleanRate, trendSearch, buildMonthly, seasonCheck, coveredCalendarMonths,
   newProductCheck, quantity, seasonScan, weeklySeries,
 } from '@/lib/advanced-prediction'
-import { saveAdvancedPredictionSettings, saveSeasonDecision } from '@/lib/prediction-actions'
+import { saveAdvancedPredictionSettings, saveSeasonDecision, saveCalcOverride } from '@/lib/prediction-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -136,6 +136,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
   const trendExclude = parseCount(params.tc, savedSettings.tx, params.tcset === '1')
   const rateExclude = parseCount(params.rc, savedSettings.rx, params.rcset === '1')
   const seasonDecisions = savedSettings.seasons && typeof savedSettings.seasons === 'object' ? savedSettings.seasons : {}
+  const knockouts = Array.isArray(savedSettings.knockouts) ? savedSettings.knockouts : []
+  const surgeOv = savedSettings.surgeOv && typeof savedSettings.surgeOv === 'object' ? savedSettings.surgeOv : {}
+  const trendOvRaw = savedSettings.trendOv
+  const trendOv = trendOvRaw === 'off' ? 'off' : (trendOvRaw !== undefined && trendOvRaw !== null && Number.isFinite(Number(trendOvRaw)) ? Number(trendOvRaw) : null)
 
   const byCategory = {}
   for (const p of parts) {
@@ -207,12 +211,18 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     }
     const listingWm = buildWeekMap(listingRows)
     if (listingWm) listingFirst = listingWm.first
-    const trend = listingWm
+    const trendAuto = listingWm
       ? trendSearch(listingWm.first, listingWm.map, shopMedianLast,
                     { minMonths: dial.trendMin, thresholdPct: dial.trendTh, clipMult: dial.trendClip,
                       maxBlocks: Math.max(4, Math.round((dial.trendLook * 13) / 12)),
                       excludeMonths: trendExclude })
       : { applied: false, reason: 'no listing history', perBlockPct: 0, gWeekly: 0, blocks: [], clipped: [] }
+    let trend = trendAuto
+    if (trendOv === 'off') {
+      trend = { ...trendAuto, applied: false, reason: 'switched off by hand' }
+    } else if (typeof trendOv === 'number') {
+      trend = { ...trendAuto, applied: trendOv > 0, perBlockPct: trendOv, gWeekly: trendOv / 100 / 4, reason: trendOv > 0 ? '' : 'set to 0 by hand' }
+    }
     // Every candidate surge window is checked against its own era's
     // listing-wide climb: the ~6 months (7 blocks) ending where that window
     // ends, same gates and spike-clip as step 4. Cached per window end.
@@ -253,13 +263,18 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     perVariation.sort((a, b) => b.pct - a.pct)
 
     if (perVariation.length > 0) {
-      const group = groupSurge(perVariation.map((v) => ({ name: v.part.name, pct: v.pct })), dial.poolFrac)
+      const inGroup = perVariation.filter((pv) => knockouts.indexOf(pv.part.id) < 0)
+      const groupBase = inGroup.length ? inGroup : perVariation
+      const group = groupSurge(groupBase.map((pv) => ({ name: pv.part.name, pct: pv.pct })), dial.poolFrac)
       const months = monthsToOrder(group.pct, dial.baseMonths)
       const poolNames = new Set(group.pool.map((x) => x.name))
 
       const mine = perVariation.find((v) => v.part.id === part.id) || null
       const ownPct = mine ? mine.sOwn.pct : 0
-      const effPct = Math.max(ownPct, group.pct)
+      const effAuto = Math.max(ownPct, group.pct)
+      const ovRaw = surgeOv[part.id]
+      const surgeOvPct = ovRaw !== undefined && ovRaw !== null && Number.isFinite(Number(ovRaw)) ? Number(ovRaw) : null
+      const effPct = surgeOvPct !== null ? surgeOvPct : effAuto
       const effWeeks = monthsToOrder(effPct, dial.baseMonths).weeks
 
       const selWm = wmBy[part.id]
@@ -369,6 +384,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       const staleWeeks = Math.max(0, Math.floor((todayMs - selEnd) / (7 * DAY)))
 
       calc = { perVariation, noData, group, months, poolNames, mine, ownPct, effPct, effWeeks,
+               effAuto, surgeOvPct, trendAuto, inGroupCount: groupBase.length, knockedCount: perVariation.length - inGroup.length,
                rate, trend, leadDays, leadWeeks, arrivalMs, coveredToMs, seasonRows, shopFlags,
                np, available, q, plain3mo, flagged, stepPcs, actualRecent, coverWeeksNow, staleWeeks, selEnd, stRow }
     }
@@ -617,7 +633,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 </table>
                 {c.noData.length > 0 && <p className="ap-sm muted">No usable history yet: {c.noData.map((p) => p.name).join(', ')}</p>}
                 <div className="ap-calc">
-                  {'Top quarter of ' + c.perVariation.length + '  =  top ' + c.group.k + '\n'}
+                  {'Pool: top ' + c.group.k + ' of ' + c.inGroupCount + (c.knockedCount > 0 ? '  (' + c.knockedCount + ' knocked out by hand)' : '') + '\n'}
                   {'(' + c.group.pool.map((x) => '+' + pctOf(x.pct) + '%').join(' + ') + ') / ' + c.group.k + '  =  +' + pctOf(c.group.pct) + '% surge protection for the whole group'}
                 </div>
                 <div className="ap-why">The top quarter rather than the average, so calm variations cannot hide the risk - and rather than the single worst, so one freak cannot set the number alone. What any variation on the listing has proved possible, all of them get protected against.</div>
@@ -699,6 +715,20 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                       {'Surge protection        ' + f2(c.mine.sOwn.excess * baseWeeks / c.mine.sOwn.winWeeks) + ' / ' + f2(baseWeeks / 4) + '  =  +' + pctOf(c.ownPct) + '%\n\n'}
                       {'This variation  +' + pctOf(c.ownPct) + '%   |   its group  +' + pctOf(c.group.pct) + '%   ->  the higher wins: +' + pctOf(c.effPct) + '%' + (c.stepPcs ? '   =  +' + f0(Math.max(0, c.stepPcs.surge)) + ' pcs on this order' : '')}
                     </div>
+                    <form action={saveCalcOverride} className="ap-saverow" style={{ marginTop: 8 }}>
+                      <input type="hidden" name="category" value={part.category || ''} />
+                      <input type="hidden" name="part" value={part.id} />
+                      <input type="hidden" name="kind" value="surge" />
+                      <span className="ap-sm">
+                        {c.surgeOvPct !== null
+                          ? 'Manual surge override in force: +' + pctOf(c.surgeOvPct) + '% (automatic would be +' + pctOf(c.effAuto) + '%). Press Set with the box empty to go back to automatic.'
+                          : 'Know something the data does not? Type a surge % for this variation and Set - it replaces the automatic number for its order only.'}
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap' }}>
+                        <input type="number" name="value" step="1" min="0" placeholder={pctOf(c.effPct)} style={{ width: 90 }} />
+                        <button className="button" type="submit" style={{ marginLeft: 8 }}>Set</button>
+                      </span>
+                    </form>
                     <div className="ap-why">A quiet variation is lifted to the group floor - calm history is not proof of safety, only proof its bad quarter has not come yet. The reverse fires only for a genuine outlier, and it changes this variation&apos;s quantity only - never the group schedule.</div>
                   </>
                 ) : (
@@ -744,6 +774,24 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     : 'Not applied: ' + c.trend.reason + '.'}
                   {' '}Looks back {dial.trendLook} months; needs {dial.trendMin}+ months and +{dial.trendTh}%/month to fire; all are dials.
                 </p>
+                <form action={saveCalcOverride} className="ap-saverow" style={{ marginTop: 8 }}>
+                  <input type="hidden" name="category" value={part.category || ''} />
+                  <input type="hidden" name="part" value={part.id} />
+                  <input type="hidden" name="kind" value="trend" />
+                  <span className="ap-sm">
+                    {trendOv === 'off'
+                      ? 'Trend is switched OFF by hand' + (c.trendAuto.applied ? ' - automatic would be +' + f1(c.trendAuto.perBlockPct) + '%/4wks.' : '.')
+                      : typeof trendOv === 'number'
+                        ? 'Trend set by hand to +' + f1(trendOv) + '%/4wks' + (c.trendAuto.applied ? ' - automatic would be +' + f1(c.trendAuto.perBlockPct) + '%/4wks.' : '.')
+                        : 'Trend is automatic. Take the wheel:'}
+                  </span>
+                  <span style={{ whiteSpace: 'nowrap' }}>
+                    <button className="button" name="mode" value="auto" type="submit">Auto</button>
+                    <button className="button" name="mode" value="off" type="submit" style={{ marginLeft: 6 }}>Off</button>
+                    <input type="number" name="value" step="0.5" min="0" placeholder="%/4wks" style={{ width: 90, marginLeft: 10 }} />
+                    <button className="button" name="mode" value="manual" type="submit" style={{ marginLeft: 6 }}>Set</button>
+                  </span>
+                </form>
               </div>
             </div>
 
