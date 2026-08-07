@@ -33,16 +33,22 @@ export function median(a) {
  */
 export function buildWeekMap(rows) {
   if (!rows || rows.length === 0) return null
+  // History STARTS at the first week with actual usage. A leading null/zero
+  // row (a stock-balance marker from before the part ever sold) must not
+  // fabricate months of fake dead history. Trailing null rows still extend
+  // the span - they prove the week was imported.
   let first = Infinity
   let ownLast = -Infinity
   for (const r of rows) {
     const t = dms(r.week)
-    if (t < first) first = t
+    if ((Number(r.qty) || 0) > 0 && t < first) first = t
     if (t > ownLast) ownLast = t
   }
+  if (!isFinite(first)) return null
   const map = new Map()
   for (const r of rows) {
     const i = Math.round((dms(r.week) - first) / (7 * DAY))
+    if (i < 0) continue
     map.set(i, (map.get(i) || 0) + (Number(r.qty) || 0))
   }
   return { first, map, ownLast }
