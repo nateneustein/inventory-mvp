@@ -3,11 +3,13 @@ import { requireUser } from '@/lib/require-user'
 import { createManualAdjustment, reportZeroStock, reportDamage, archivePart, createSupplier, setPartIgnoreAlerts } from '@/lib/actions'
 import {
   setPartReorderHorizon, setPartOrderMonths, updatePartDetails,
+  setPartAutoPin, refreshPredictionSnapshots,
   savePartSupplier, deletePartSupplier,
   savePartLink, deletePartLink,
   uploadPartFile, deletePartFile,
 } from '@/lib/part-detail-actions'
 import { date, num, supplierHint, today } from '@/lib/format'
+import { renderOrderNote, ORDER_NOTE_TOKENS } from '@/lib/prediction-snapshot'
 import { SearchSelect } from '@/components/search-select'
 import { StickySelect } from '@/components/sticky-select'
 import { ReorderWindowHistory } from '@/components/reorder-window-history'
@@ -279,9 +281,30 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           Lead times and safety days are kept below as notes for whoever places
           the order. Neither of them triggers anything.
         </p>
+
+        <div className="ap-auto-box">
+          <p className="muted small">
+            <strong>Auto from Advanced Prediction.</strong>{' '}
+            {details.snap_surge_pct == null
+              ? 'Not calculated yet — run a refresh.'
+              : 'Group surge ' + num(details.snap_surge_pct) + '% → warn when cover drops under ' + num(details.reorder_horizon_days) + ' days (lead ' + num(details.snap_lead_days) + ' days × (1 + surge)).'}
+            {details.snap_updated_at ? ' Last updated ' + date(details.snap_updated_at) + '.' : ''}
+            {' '}Refreshes on every weekly upload unless pinned.
+          </p>
+          <div className="ap-auto-actions">
+            <form action={setPartAutoPin}>
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="auto_prediction_pinned" value={details.auto_prediction_pinned ? '0' : '1'} />
+              <ActionButton busyLabel="Saving…" doneLabel="Saved">{details.auto_prediction_pinned ? '📌 Pinned — resume auto-updates' : 'Pin — stop auto-updates'}</ActionButton>
+            </form>
+            <form action={async () => { 'use server'; await refreshPredictionSnapshots() }}>
+              <ActionButton busyLabel="Refreshing…" doneLabel="Refreshed">Refresh now (all parts)</ActionButton>
+            </form>
+          </div>
+        </div>
       </div>
 
-      <ReorderWindowHistory partId={id} />
+      <div className="ap-hist-scroll"><ReorderWindowHistory partId={id} /></div>
 
       {/* The second lever, and it belongs next to the first one. The window
           above decides WHEN a part shouts; this decides how much to buy when it
@@ -297,7 +320,9 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         </p>
         <form className="stack" action={setPartOrderMonths}>
           <input type="hidden" name="id" value={id} />
-          <label>How many months of usage to order
+          <p className="muted small">Write it like an email template — these tokens fill in from the numbers above:</p>
+        <p className="ap-tokens">{ORDER_NOTE_TOKENS.join('   ')}</p>
+        <label>How many months of usage to order
             <textarea name="months_of_usage_to_order" rows={3}
               defaultValue={details.months_of_usage_to_order || ''} />
           </label>
@@ -306,9 +331,13 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           </label>
           <ActionButton busyLabel="Saving…" doneLabel="Saved">Save order amount</ActionButton>
         </form>
+        <div className="ap-note-preview">
+          <span className="muted small">Shown to the buyer right now (tokens filled in):</span>
+          <p>{renderOrderNote(details.months_of_usage_to_order, details)}</p>
+        </div>
       </div>
 
-      <OrderMonthsHistory partId={id} />
+      <div className="ap-hist-scroll"><OrderMonthsHistory partId={id} /></div>
 
       <div className="card">
         <h2>Edit part / ordering settings</h2>
