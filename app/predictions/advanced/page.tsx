@@ -73,7 +73,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
   // Dials resolve in three layers: built-in defaults first, then this group's
   // saved settings, then anything typed into the dial form for this one run.
-  const DEFAULTS = { base: 3, pool: 0.5, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0, gfloor: 2 }
+  const DEFAULTS = { base: 3, pool: 0.5, tmin: 4, tth: 2, tlook: 6, thoriz: 3, tclip: 1.5, sth: 1.3, npmin: 2, npbump: 25, flagx: 2.5, mfloor: 0, gfloor: 2, slook: 12 }
   let savedSettings = {}
   let savedAt = null
   if (part && part.category) {
@@ -113,6 +113,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     flagX: pick('flagx'),
     medFloor: pick0('mfloor'),
     groupFloor: pick0('gfloor'),
+    surgeLook: pick0('slook'),
     surgeOnWait: params.wait != null ? params.wait === '1' : Number(savedSettings.wait) === 1,
   }
   const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
@@ -243,9 +244,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       // Two numbers per variation: the GROUP-side one has the pieces floor
       // (a tiny variation's 1-to-25 jump cannot inflate everyone), the OWN
       // one is raw so the variation still fully protects itself in step 2.
-      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor, dial.groupFloor)
+      const surgeLbWeeks = dial.surgeLook > 0 ? Math.round((dial.surgeLook * 13) / 3) : 0
+      const s = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor, dial.groupFloor, surgeLbWeeks)
       if (!s) { noData.push(p); continue }
-      const sOwn = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor, 0) || s
+      const sOwn = surgeSearch(wm.first, wm.map, end, baseWeeks, localTrend, surgeExclude, dial.medFloor, 0, surgeLbWeeks) || s
       perVariation.push({ part: p, wm, end, s, sOwn, pct: s.pct })
     }
     perVariation.sort((a, b) => b.pct - a.pct)
@@ -455,6 +457,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <input type="number" name="mfloor" step="0.1" defaultValue={dial.medFloor} />
               <span className="ap-dial-help">Optional: the surge divider never falls below this x the variation&apos;s whole-life median block. 0 (default) = off - windows use their own median.</span>
             </label>
+            <label>Surge looks back (months)
+              <input type="number" name="slook" step="1" defaultValue={dial.surgeLook} />
+              <span className="ap-dial-help">The surge must have happened within this long to count - for the group AND the individual check. A yearly season always fits inside 12 months, so repeating spikes never fall out; only stale one-offs do. 0 = search all history.</span>
+            </label>
             <label>Group surge floor (pcs)
               <input type="number" name="gfloor" step="1" defaultValue={dial.groupFloor} />
               <span className="ap-dial-help">For the GROUP number only: spikes are measured against at least this many pieces per 4-week block, so a tiny variation jumping 1-to-25 cannot inflate the whole group. Each variation&apos;s own check (step 2) ignores this floor and keeps its raw number, so it still protects itself.</span>
@@ -511,6 +517,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="flagx" value={dial.flagX} />
           <input type="hidden" name="mfloor" value={dial.medFloor} />
           <input type="hidden" name="gfloor" value={dial.groupFloor} />
+          <input type="hidden" name="slook" value={dial.surgeLook} />
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
