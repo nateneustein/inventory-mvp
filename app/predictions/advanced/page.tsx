@@ -114,7 +114,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     medFloor: pick0('mfloor'),
     groupFloor: pick0('gfloor'),
     surgeLook: pick0('slook'),
-    surgeOnWait: params.wait != null ? params.wait === '1' : Number(savedSettings.wait) === 1,
+    surgeOnWait: params.waitset != null ? params.wait === '1' : savedSettings.wait == null ? true : Number(savedSettings.wait) === 1,
   }
   const baseWeeks = Math.round((dial.baseMonths * 13) / 3)
 
@@ -482,8 +482,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <span className="ap-dial-help">For the GROUP number only: spikes are measured against at least this many pieces per 4-week block, so a tiny variation jumping 1-to-25 cannot inflate the whole group. Each variation&apos;s own check (step 2) ignores this floor and keeps its raw number, so it still protects itself.</span>
             </label>
             <label className="ap-check">
-              <span><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</span>
-              <span className="ap-dial-help">Also protect the pieces that sell while the shipment is on the water, not only the shelf target at arrival. Off by default - the surge % already covers the target.</span>
+              <span><input type="hidden" name="waitset" value="1" /><input type="checkbox" name="wait" value="1" defaultChecked={dial.surgeOnWait} /> Surge % on the waiting weeks too</span>
+              <span className="ap-dial-help">Also protect the pieces that sell while the shipment is on the water, not only the shelf target at arrival. On by default - every order also pre-buys cover for a surge that strikes during the shipping wait, so you still land at the full shelf target. Untick to size the waiting weeks at the plain rate.</span>
             </label>
           </div>
           <div className="ap-months">
