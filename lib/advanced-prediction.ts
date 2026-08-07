@@ -86,9 +86,16 @@ export function chop(series, first, off, excludeMonths) {
  * history wins - an average would dilute a real surge, and a single fixed
  * chop could split one across a block boundary and hide it.
  */
-export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonths) {
+export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonths, medianFloorFrac) {
   const bw = baseWeeks || 13
   const series = weeklySeries(first, map, end)
+  // Dead-period floor: the divider (a window's median) may never fall below
+  // this fraction of the variation's WHOLE-LIFE median block - zeros included,
+  // counted from its first reported week. A spike in a dead stretch must not
+  // divide by almost-nothing and read as an absurd percentage forever.
+  const lifeBlocks = chop(series, first, 0, excludeMonths)
+  const lifeMed = lifeBlocks.length ? median(lifeBlocks.map(function (b) { return b.used })) : 0
+  const floorVal = (medianFloorFrac || 0) * lifeMed
   let best = null
   const cuts = []
   for (let off = 0; off < 4; off++) {
@@ -114,13 +121,15 @@ export function surgeSearch(first, map, end, baseWeeks, localTrend, excludeMonth
           const f = g > 0 ? 1 + g * ((winEnd - (b.starts + 14 * DAY)) / (7 * DAY)) : 1
           return { starts: b.starts, used: f > 0 ? b.used * f : b.used, lift: f }
         })
-        const med = median(seg.map((b) => b.used))
+        const medRaw = median(seg.map((b) => b.used))
+        const med = Math.max(medRaw, floorVal)
         if (med <= 0) continue
         const excess = seg.reduce((s, b) => s + Math.max(b.used - med, 0), 0) / med
         const winWeeks = seg.length * 4
         const score = (excess * bw) / winWeeks / (bw / 4)
         const cand = { score, pct: score * 100, off, wfrom: seg[0].starts,
-                       winWeeks, med, excess, seg, blocksInHistory: n,
+                       winWeeks, med, medRaw, lifeMed, floored: med > medRaw + 1e-9,
+                       excess, seg, blocksInHistory: n,
                        ltPct: g > 0 ? lt.perBlockPct : 0 }
         if (!cutBest || score > cutBest.score) cutBest = cand
         if (!best || score > best.score) best = cand
