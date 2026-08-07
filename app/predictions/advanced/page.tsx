@@ -204,7 +204,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     // ends, same gates and spike-clip as step 4. Cached per window end.
     const ltCache = {}
     const localTrend = listingWm ? function (fromMs, toMs) {
-      const ltEnd = Math.min(toMs, shopMedianLast)
+      // The era is the ~6 months ending where the window ends. A listing
+      // too young to have 6 months before that point gets the era extended
+      // forward to the newest data instead - the climb is still its own era's.
+      const ltEnd = Math.min(shopMedianLast, Math.max(toMs, listingWm.first + 28 * 7 * DAY))
       const key = String(ltEnd)
       if (!ltCache[key]) {
         ltCache[key] = trendSearch(listingWm.first, listingWm.map, ltEnd, {
