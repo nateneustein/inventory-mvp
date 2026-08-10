@@ -630,6 +630,18 @@ export async function postImportedOrdersToInventory(): Promise<void> {
   try { await refreshPredictionSnapshots() } catch (e) { console.error('snapshot refresh after post failed', e) }
 }
 
+export async function reportUnlistedSupply(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const name = String(formData.get('supply_name') || '').trim()
+  const note = String(formData.get('note') || '').trim() || null
+  if (!name) redirect('/parts?unlisted=need_name')
+  const { error } = await supabase.from('unlisted_supply_reports').insert({ supply_name: name, note, created_by: userId })
+  if (error) throw new Error(error.message)
+  revalidatePath('/parts')
+  revalidatePath('/reports')
+  redirect('/parts?unlisted=1')
+}
+
 export async function createSupplier(formData: FormData) {
   const { supabase, userId } = await currentUserId()
 
