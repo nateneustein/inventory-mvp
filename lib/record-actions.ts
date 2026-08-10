@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getPermissions, deniedUrl } from '@/lib/permissions'
 
 function value(formData: FormData, key: string) {
   const raw = formData.get(key)
@@ -38,6 +39,8 @@ function back(formData: FormData, fallback: string) {
 export async function deletePart(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canDeleteRecords) redirect(deniedUrl('/parts', 'delete a part'))
   const { error } = await supabase.from('parts').delete().eq('id', id)
   if (error) redirect(`/parts?error=${encodeURIComponent(error.message)}`)
   revalidatePath('/parts')
@@ -48,6 +51,8 @@ export async function deletePart(formData: FormData) {
 export async function deleteProduct(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canDeleteRecords) redirect(deniedUrl('/products', 'delete a product'))
   const { error } = await supabase.from('products').delete().eq('id', id)
   if (error) redirect(`/products?error=${encodeURIComponent(error.message)}`)
   revalidatePath('/products')
@@ -57,6 +62,8 @@ export async function deleteProduct(formData: FormData) {
 export async function deleteVariation(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canDeleteRecords) redirect(deniedUrl('/products', 'delete a variation'))
   const { error } = await supabase.from('product_variations').delete().eq('id', id)
   if (error) redirect(`/products?error=${encodeURIComponent(error.message)}`)
   revalidatePath('/products')
