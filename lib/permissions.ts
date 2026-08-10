@@ -78,6 +78,19 @@ export async function getPermissions(): Promise<Permissions> {
   return permissionsFor(await getCurrentRole())
 }
 
+/**
+ * Where to send someone whose change was refused.
+ *
+ * The database simply declines a forbidden write, which looks identical to a
+ * successful one from the outside. Redirecting here instead means the screen can
+ * say so. `what` finishes the sentence "your account is not allowed to ...".
+ */
+export function deniedUrl(path: string, what: string) {
+  const [base, hash] = path.split('#')
+  const joined = base + (base.includes('?') ? '&' : '?') + 'denied=' + encodeURIComponent(what)
+  return hash ? joined + '#' + hash : joined
+}
+
 /** Throw a clear message rather than letting the database reject it cryptically. */
 export function assertPermission(allowed: boolean, what: string) {
   if (!allowed) {
