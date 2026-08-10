@@ -310,34 +310,21 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           above decides WHEN a part shouts; this decides how much to buy when it
           does. Both are what get adjusted when stock goes wrong, so both carry
           a reason and a history rather than quietly changing. */}
-      <div className="card">
-        <div className="table-head">
-          <h2>How much should be ordered?</h2>
+              <div className="card">
+          <div className="table-head">
+            <h2>How much should be ordered?</h2>
+            <span className="badge info">{details.snap_order_months != null ? Number(details.snap_order_months).toFixed(1) + ' months' : 'not set'}</span>
+          </div>
+          <div className="ap-order-number">
+            <span className="ap-order-big">{details.snap_order_months != null ? Number(details.snap_order_months).toFixed(1) : '—'}</span>
+            <span className="ap-order-unit">months of usage</span>
+          </div>
+          <p className="muted small">
+            This is the app’s default order amount{details.snap_surge_pct != null ? ' — base 3 months grown by the group surge of ' + num(details.snap_surge_pct) + '%' : ''}, updated automatically on every weekly upload. You still have to check the Advanced Prediction page to see if you need to order more because of any risks like a trend or seasonal spike. Whenever the app changes this number the reason is saved in the history below. To freeze it, use the Pin button in the reorder section above.
+          </p>
         </div>
-        <p className="muted">
-          Written in plain words rather than a fixed quantity, because the right amount
-          depends on the usage the buyer is looking at when they place the order.
-        </p>
-        <form className="stack" action={setPartOrderMonths}>
-          <input type="hidden" name="id" value={id} />
-          <p className="muted small">Write it like an email template — these tokens fill in from the numbers above:</p>
-        <p className="ap-tokens">{ORDER_NOTE_TOKENS.join('   ')}</p>
-        <label>How many months of usage to order
-            <textarea name="months_of_usage_to_order" rows={3}
-              defaultValue={details.months_of_usage_to_order || ''} />
-          </label>
-          <label>Why are you changing it? (saved to the history below)
-            <input name="order_months_note" />
-          </label>
-          <ActionButton busyLabel="Saving…" doneLabel="Saved">Save order amount</ActionButton>
-        </form>
-        <div className="ap-note-preview">
-          <span className="muted small">Shown to the buyer right now (tokens filled in):</span>
-          <p>{renderOrderNote(details.months_of_usage_to_order, details)}</p>
-        </div>
-      </div>
 
-      <div className="ap-hist-scroll"><OrderMonthsHistory partId={id} /></div>
+<div className="ap-hist-scroll"><OrderMonthsHistory partId={id} /></div>
 
       <div className="card">
         <h2>Edit part / ordering settings</h2>
