@@ -41,9 +41,10 @@ export default async function ReportsPage() {
 
       <div className="card">
         <h2>Dead stock / slow stock</h2>
+        <p className="muted small">Parts sitting on more than <strong>365 days of cover</strong> (far more stock than they sell), or not used in a long time. These are candidates to stop reordering or run down.</p>
         <table>
-          <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Last used</th><th>Status</th></tr></thead>
-          <tbody>{(deadStock || []).map((r: any) => <tr key={r.part_id}><td>{r.name}</td><td>{r.sku}</td><td>{num(r.on_hand)}</td><td>{date(r.last_used_at)}</td><td>{r.dead_stock_status}</td></tr>)}</tbody>
+          <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Months of cover</th><th>Last used</th><th>Status</th></tr></thead>
+          <tbody>{(deadStock || []).map((r: any) => <tr key={r.part_id}><td>{r.name}</td><td>{r.sku}</td><td>{num(r.on_hand)}</td><td>{r.months_of_cover != null ? r.months_of_cover + ' mo' : '—'}</td><td>{date(r.last_used_at)}</td><td>{r.dead_stock_status}</td></tr>)}</tbody>
         </table>
       </div>
 
