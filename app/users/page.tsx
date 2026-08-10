@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { getPermissions, ROLE_LABELS } from '@/lib/permissions'
-import { updateUserRole, setUserActive } from '@/lib/record-actions'
+import { updateUserRole, setUserActive, setUserDisplayName } from '@/lib/record-actions'
 import { ZONE, date } from '@/lib/format'
+import { ActionButton } from '@/components/action-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -143,7 +144,19 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
               return (
                 <tr key={p.id}>
                   <td>{p.email}{isSelf && <span className="badge info" style={{ marginLeft: 8 }}>you</span>}</td>
-                  <td>{p.full_name || '—'}</td>
+                  <td>
+                    <details className="ap-name-edit">
+                      <summary>{p.full_name || <span className="muted">set a name</span>}</summary>
+                      <form className="stack card flat" action={setUserDisplayName}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <label>Display name
+                          <input name="full_name" defaultValue={p.full_name || ''} placeholder="e.g. Brendon" />
+                        </label>
+                        <span className="muted small">Shown wherever the app says who did something — reported by, received by, changed by. Leave blank to fall back to the email address.</span>
+                        <ActionButton busyLabel="Saving…" doneLabel="Saved">Save name</ActionButton>
+                      </form>
+                    </details>
+                  </td>
                   {/* A role is an identity, not a stock status — the red/amber/green
                       badges made "Admin" read like an alert. Neutral chip, real word. */}
                   <td><span className={`badge ${p.role === 'admin' ? 'info' : ''}`}>{ROLE_LABELS[p.role] || p.role}</span></td>
