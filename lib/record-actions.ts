@@ -410,6 +410,40 @@ export async function deleteDamageReport(formData: FormData) {
  * Role management. Admin only -- the database also refuses these writes to
  * anyone else, so this check is for a clear message rather than for safety.
  */
+/**
+ * The name shown wherever the app says who did something - reported by, received
+ * by, changed by. Stored on the profile; everything that displays a person already
+ * prefers this over the email address, so setting it here changes it everywhere.
+ *
+ * Separate from updateUserRole because that one deliberately refuses to touch your
+ * own row (nobody promotes themselves), and a person must be able to set their own
+ * display name. Anyone may set their own; only an admin may set someone else's.
+ */
+export async function setUserDisplayName(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const id = value(formData, 'id') || userId
+  const name = value(formData, 'full_name')
+  const goBack = back(formData, '/users')
+
+  if (id !== userId) {
+    const { data: me } = await supabase.from('profiles').select('role').eq('id', userId).single()
+    if (me?.role !== 'admin') {
+      redirect(`${goBack}?error=${encodeURIComponent('Only an admin can rename someone else.')}`)
+    }
+  }
+
+  const { error } = await supabase.from('profiles')
+    .update({ full_name: name || null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) redirect(`${goBack}?error=${encodeURIComponent(error.message)}`)
+  revalidatePath('/users')
+  revalidatePath('/zero')
+  revalidatePath('/reorder')
+  revalidatePath('/reports')
+  redirect(`${goBack}?notice=${encodeURIComponent(name ? 'Display name saved.' : 'Display name cleared.')}`)
+}
+
 export async function updateUserRole(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const id = value(formData, 'id')
