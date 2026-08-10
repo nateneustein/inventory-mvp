@@ -824,3 +824,9 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-note-preview p { margin: 4px 0 0; }
 .ap-hist-scroll { max-height: 320px; overflow: auto; border: 1px solid var(--border, #2a2a2a); border-radius: 8px; }
 .ap-hist-scroll > * { border: 0; }
+
+
+/* ---- How much should be ordered: app-owned number ---- */
+.ap-order-number { display: flex; align-items: baseline; gap: 10px; margin: 8px 0 4px; }
+.ap-order-big { font-size: 40px; font-weight: 700; line-height: 1.1; }
+.ap-order-unit { font-size: 15px; opacity: 0.7; }
