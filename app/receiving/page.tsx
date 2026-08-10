@@ -91,7 +91,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
             <h2>Missing units to follow up</h2>
             <span className="badge out">{missing.length}</span>
           </div>
-          <p className="muted small">Units marked missing when a shipment was checked in. They were <strong>not</strong> added to stock. If the rest of the shipment is still coming, receive them when they turn up — or mark them as won’t arrive to dismiss.</p>
+          <p className="muted small">Units marked missing when a shipment was checked in. They were <strong>not</strong> added to stock and are still <strong>outstanding</strong> on the order. When they turn up, hit <strong>Receive it</strong> to open the receiving form and enter what actually arrived (received / damaged / still missing). If they will never come, mark <strong>Won’t arrive</strong> to close the line.</p>
           <table>
             <thead><tr><th>Since</th><th>PO</th><th>Supplier</th><th>Part</th><th>Missing</th><th></th></tr></thead>
             <tbody>{missing.map((m: any) => (
@@ -102,11 +102,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
                 <td>{m.part_sku} · {m.part_name}</td>
                 <td>{num(m.quantity_missing)}</td>
                 <td className="ap-missing-actions">
-                  <form action={resolveMissingReceipt}>
-                    <input type="hidden" name="receiving_event_id" value={m.receiving_event_id} />
-                    <input type="hidden" name="resolution" value="received" />
-                    <ActionButton busyLabel="Receiving…" doneLabel="Received">Receive it</ActionButton>
-                  </form>
+                  <Link className="button small-btn" href={'/receiving?po=' + m.purchase_order_id}>Receive it</Link>
                   <form action={resolveMissingReceipt}>
                     <input type="hidden" name="receiving_event_id" value={m.receiving_event_id} />
                     <input type="hidden" name="resolution" value="wont_arrive" />
