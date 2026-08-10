@@ -1,6 +1,7 @@
 'use client'
 
-import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 /**
  * Says out loud that a change was refused.
@@ -16,16 +17,19 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
  */
 export function PermissionBanner() {
   const params = useSearchParams()
-  const router = useRouter()
-  const pathname = usePathname()
   const denied = params.get('denied')
-  if (!denied) return null
+  const [hidden, setHidden] = useState(false)
 
+  if (!denied || hidden) return null
+
+  /* Dismiss has to feel instant. Going through the router would re-run the
+     server component and take a beat, so the banner hides on the spot and the
+     address bar is tidied up separately - no navigation, no re-render. */
   const dismiss = () => {
-    const next = new URLSearchParams(params.toString())
-    next.delete('denied')
-    const qs = next.toString()
-    router.replace(qs ? pathname + '?' + qs : pathname)
+    setHidden(true)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('denied')
+    window.history.replaceState(null, '', url.pathname + (url.search || '') + url.hash)
   }
 
   return (
