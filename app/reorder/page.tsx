@@ -72,13 +72,13 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
     return (
       <div className={'shipment-card ' + (r.is_done ? 'ok' : (r.covered_by_incoming || r.awaiting_receipt) ? 'covered' : r.report_type === 'zero' ? 'out' : 'warning')}>
         <div className="shipment-card-head">
-          <Link className="link row-name" href={'/parts/' + r.part_id}>{r.part_name}</Link>
+          {r.part_id ? <Link className="link row-name" href={'/parts/' + r.part_id}>{r.part_name}</Link> : <span className="row-name">{r.part_name}</span>}
           <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>
             {r.report_type === 'zero' ? 'none left' : 'running low'}
           </span>
         </div>
 
-        <p className="muted small">{r.part_sku}{r.category && <> · {r.category}</>} · reported {date(r.created_at)}</p>
+        <p className="muted small">{r.part_sku}{r.category && <> · {r.category}</>} · reported {date(r.created_at)}{r.reporter_name && <> · by <strong>{r.reporter_name}</strong></>}</p>
 
         {(() => {
           const arrival = lastArrival.get(r.part_id)
