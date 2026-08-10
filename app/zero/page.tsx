@@ -81,10 +81,15 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td style={{ whiteSpace: 'normal' }}>{r.notes}</td>
         <td className="ap-reporter">{r.reporter_name}</td>
         <td className="actions-cell" data-confirm-label={r.part_name}>
+          {/* can_delete comes from the database, not from guesswork here: a manager
+              or admin any time, or the person who filed the report, on the same day.
+              Anyone else is not shown a button that would only refuse them. */}
+          {r.can_delete && (
           <form className="inline-form" action={deleteZeroStockReport}>
             <input type="hidden" name="id" value={r.id} />
             <ActionButton className="small-btn danger" busyLabel="…" doneLabel="Deleted">Delete</ActionButton>
           </form>
+          )}
         </td>
       </tr>
     )
