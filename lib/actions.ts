@@ -493,6 +493,8 @@ function conditionLogicFromForm(formData: FormData) {
 
 export async function createMappingRule(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canUploadOrders) redirect(deniedUrl('/mapping-rules', 'add a mapping rule'))
   const mapAction = value(formData, 'map_action') || 'map'
   const variationId = value(formData, 'variation_id') || null
   const conditions = conditionsFromForm(formData)
@@ -645,6 +647,8 @@ export async function reportUnlistedSupply(formData: FormData) {
 
 export async function createSupplier(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/suppliers', 'add a supplier'))
 
   const { error } = await supabase.from('suppliers').insert({
     name: value(formData, 'name'),
@@ -692,6 +696,8 @@ export async function createPart(formData: FormData) {
 
 export async function createProduct(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/products', 'add a product'))
   const { error } = await supabase.from('products').insert({
     name: value(formData, 'name'),
     sku: value(formData, 'sku') || null,
@@ -704,6 +710,8 @@ export async function createProduct(formData: FormData) {
 
 export async function createVariation(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/products', 'add a variation'))
   const { error } = await supabase.from('product_variations').insert({
     product_id: value(formData, 'product_id'),
     variation_name: value(formData, 'variation_name'),
@@ -718,6 +726,8 @@ export async function createVariation(formData: FormData) {
 
 export async function createBomItem(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/boms', 'change the master file'))
   const { error } = await supabase.from('bom_items').insert({
     variation_id: value(formData, 'variation_id'),
     part_id: value(formData, 'part_id'),
@@ -731,6 +741,8 @@ export async function createBomItem(formData: FormData) {
 
 export async function createPurchaseOrder(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canCreateShipments) redirect(deniedUrl('/shipments', 'create a shipment'))
 
   const { data: created, error } = await supabase.from('purchase_orders').insert({
     po_number: value(formData, 'po_number'),
@@ -773,6 +785,8 @@ export async function createPurchaseOrder(formData: FormData) {
 
 export async function addPurchaseOrderItem(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canCreateShipments) redirect(deniedUrl('/shipments', 'add a part to a shipment'))
 
   const { error } = await supabase.from('purchase_order_items').insert({
     purchase_order_id: value(formData, 'purchase_order_id'),
@@ -792,6 +806,8 @@ export async function addPurchaseOrderItem(formData: FormData) {
 
 export async function updatePurchaseOrderStatus(formData: FormData) {
   const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManagePurchasing) redirect(deniedUrl('/shipments', 'change a shipment status'))
   const { error } = await supabase
     .from('purchase_orders')
     .update({
@@ -1637,6 +1653,8 @@ export async function deleteImportedOrderRow(formData: FormData) {
 
 export async function updatePurchaseOrder(formData: FormData) {
   const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManagePurchasing) redirect(deniedUrl('/shipments', 'edit a shipment'))
   const id = value(formData, 'purchase_order_id') || value(formData, 'id')
   const { error } = await supabase.from('purchase_orders').update({
     po_number: value(formData, 'po_number'),
@@ -1657,6 +1675,8 @@ export async function updatePurchaseOrder(formData: FormData) {
 
 export async function deletePurchaseOrder(formData: FormData) {
   const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManagePurchasing) redirect(deniedUrl('/shipments', 'delete a shipment'))
   const id = value(formData, 'id')
   const { error } = await supabase.from('purchase_orders').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -1668,6 +1688,8 @@ export async function deletePurchaseOrder(formData: FormData) {
 
 export async function updatePurchaseOrderItem(formData: FormData) {
   const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManagePurchasing) redirect(deniedUrl('/shipments', 'edit a shipment line'))
   const id = value(formData, 'id')
   const poId = value(formData, 'purchase_order_id')
   const { error } = await supabase.from('purchase_order_items').update({
@@ -1685,6 +1707,8 @@ export async function updatePurchaseOrderItem(formData: FormData) {
 
 export async function deletePurchaseOrderItem(formData: FormData) {
   const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManagePurchasing) redirect(deniedUrl('/shipments', 'delete a shipment line'))
   const id = value(formData, 'id')
   const poId = value(formData, 'purchase_order_id')
   const { error } = await supabase.from('purchase_order_items').delete().eq('id', id)
