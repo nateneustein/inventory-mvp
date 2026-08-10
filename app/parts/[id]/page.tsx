@@ -141,6 +141,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
     .order('sort_order').order('created_at')
   const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null).order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(75)
   const { data: incoming } = await supabase.from('open_po_items').select('*').eq('part_id', id)
+  const { data: recentReceipts } = await supabase.from('receiving_events').select('created_at, quantity_received, quantity_damaged, quantity_missing, purchase_orders(po_number)').eq('part_id', id).order('created_at', { ascending: false }).limit(8)
   const { data: zeroReports } = await supabase.from('zero_stock_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
   const { data: damageReports } = await supabase.from('damage_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
   const { data: partFiles } = await supabase.from('part_files').select('*').eq('part_id', id).order('created_at', { ascending: false })
@@ -161,6 +162,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       <div className="page-head">
         <div>
           <h1>{part.name}</h1>
+          <p className="ap-track-tags">{details.tracked === false ? <span className="badge ap-untracked">Not tracked</span> : <span className="badge ap-tracked">Tracked</span>}</p>
           <p className="muted">Part card page for QR scanning. URL: <code>/parts/{id}</code></p>
           {part.ignore_alerts && (
             <p className="ignored-note">
@@ -233,10 +235,24 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="grid">
-        <div className="card kpi-card"><div className="muted">On hand</div><div className="kpi">{num(part.on_hand)}</div></div>
+        <div className="card kpi-card"><div className="muted">On hand</div><div className={'kpi' + (details.tracked === false ? ' ap-untracked-num' : '')}>{num(part.on_hand)}</div>{details.tracked === false ? <div className="ap-untracked-note">not tracked — don’t rely on this</div> : null}</div>
         <div className="card kpi-card"><div className="muted">Incoming</div><div className="kpi">{num(part.incoming_qty)}</div></div>
         <div className="card kpi-card"><div className="muted">Projected</div><div className="kpi">{num(part.projected_qty)}</div></div>
         <div className="card kpi-card"><div className="muted">Status</div><div className="kpi"><span className={'badge ' + (part.ignore_alerts ? 'ignored-alerts' : part.stock_status)}>{part.stock_status}</span></div></div>
+      </div>
+
+      <div className="card">
+        <div className="table-head"><h2>Shipments</h2></div>
+        <h3 className="ap-sub">On the way</h3>
+        {incoming && incoming.length ? (
+          <table><thead><tr><th>PO</th><th>Supplier</th><th>Qty coming</th><th>Expected</th><th>Tracking</th><th>Status</th></tr></thead>
+            <tbody>{incoming.map((s: any) => (<tr key={s.purchase_order_item_id}><td>{s.po_number}</td><td>{s.supplier_name || '—'}</td><td>{num(s.remaining_qty)}</td><td>{s.expected_date ? date(s.expected_date) : '—'}</td><td>{s.tracking_number || '—'}</td><td>{s.status}</td></tr>))}</tbody></table>
+        ) : <p className="muted">Nothing on the way right now.</p>}
+        <h3 className="ap-sub">Recently received</h3>
+        {recentReceipts && recentReceipts.length ? (
+          <table><thead><tr><th>Date</th><th>PO</th><th>Good received</th><th>Damaged</th><th>Missing</th></tr></thead>
+            <tbody>{recentReceipts.map((r: any, i: number) => (<tr key={i}><td>{date(r.created_at)}</td><td>{r.purchase_orders?.po_number || '—'}</td><td>{num(r.quantity_received)}</td><td>{r.quantity_damaged ? num(r.quantity_damaged) : '—'}</td><td>{r.quantity_missing ? num(r.quantity_missing) : '—'}</td></tr>))}</tbody></table>
+        ) : <p className="muted">No shipments received for this part yet.</p>}
       </div>
 
       <div className="card">
