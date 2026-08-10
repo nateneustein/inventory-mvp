@@ -171,6 +171,16 @@ export function renderSlack(
     }
 
     /* 7 - the count itself is wrong. Damage is reported separately. */
+    case 'missing_followup': {
+      const body: string[] = []
+      if (p.supplier) body.push(p.supplier)
+      body.push(lines(p.lines, (l: any) =>
+        l.part_name + ' - *' + money(l.missing) + ' missing*'))
+      body.push('These were marked missing about a week ago and have not been sorted out. If the rest of the shipment turned up, receive them; otherwise mark them as won’t arrive.')
+      body.push(link(appUrl, '/receiving', 'Open the receiving screen →'))
+      return { text: [head('🔎', 'Missing units still to sort out - ' + p.po_number), ...body].join('\n') }
+    }
+
     case 'wrong_quantity': {
       const body: string[] = []
       if (p.supplier) body.push(p.supplier)
