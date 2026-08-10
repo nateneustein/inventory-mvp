@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
 import { computeSnapshots, DEFAULT_ORDER_TEMPLATE } from '@/lib/prediction-snapshot'
+import { getPermissions, deniedUrl } from '@/lib/permissions'
 
 function value(formData: FormData, key: string) {
   const raw = formData.get(key)
@@ -68,6 +69,8 @@ function revalidatePart(id: string) {
 export async function setPartReorderHorizon(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/parts/' + id, 'change the reorder window'))
   const days = num(formData, 'reorder_horizon_days', 90)
   // Goes through an RPC so the change and the reason it was made land in the
   // history table in one transaction.
@@ -94,6 +97,8 @@ export async function setPartReorderHorizon(formData: FormData) {
 export async function setPartOrderMonths(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/parts/' + id, 'change how much to order'))
   const { error } = await supabase.rpc('set_part_order_months', {
     p_part_id: id,
     p_months: value(formData, 'months_of_usage_to_order') || null,
@@ -119,6 +124,8 @@ export async function setPartOrderMonths(formData: FormData) {
 export async function updatePartDetails(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/parts/' + id, 'edit part details'))
   const patch: Record<string, any> = {}
 
   const TEXT = [
@@ -416,6 +423,8 @@ export async function deletePartFile(formData: FormData) {
 export async function setPartAutoPin(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/parts/' + id, 'pin or unpin the automatic numbers'))
   const pinned = value(formData, 'auto_prediction_pinned') === '1'
   const { error } = await supabase.from('parts').update({ auto_prediction_pinned: pinned }).eq('id', id)
   if (error) throw new Error(error.message)
