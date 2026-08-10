@@ -43,5 +43,5 @@ export function TopbarTitle() {
     .filter(([href]) => pathname === href || pathname.startsWith(`${href}/`))
     .sort((a, b) => b[0].length - a[0].length)[0]
 
-  return <div className="topbar-title">{match ? match[1] : 'Inventory Control'}</div>
+  return <div className="topbar-title">{match ? match[1] : 'EO Inventory'}</div>
 }
