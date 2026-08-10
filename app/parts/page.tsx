@@ -12,7 +12,7 @@ function matches(row: any, q: string) {
   return hay.includes(q.toLowerCase())
 }
 
-export default async function PartsPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string, category?: string, alerts?: string, error?: string, notice?: string }> }) {
+export default async function PartsPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string, category?: string, alerts?: string, error?: string, notice?: string, unlisted?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const status = params.status || ''
