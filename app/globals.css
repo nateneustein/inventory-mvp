@@ -840,3 +840,8 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-untracked-note { font-size: 11px; color: #f59e0b; margin-top: 2px; }
 .ap-sub { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; margin: 14px 0 6px; }
 .ap-reporter { font-size: 12px; opacity: 0.75; }
+
+
+/* ---- Basic prediction: highlight products that need reordering ---- */
+.prediction-grid th.ap-reorder-col { box-shadow: inset 0 0 0 3px #b91c1c; background: rgba(185,28,28,0.14); }
+.badge.ap-reorder-badge { background: #7f1d1d; color: #fecaca; }
