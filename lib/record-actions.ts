@@ -304,15 +304,15 @@ export async function deleteZeroStockReport(formData: FormData) {
      to move it back. Anything else and a mis-tapped report leaves a number
      nobody can explain. Tracked parts never wrote a movement, so this is a
      no-op for them. */
-  const { error: undoError } = await supabase
-    .from('inventory_movements')
-    .delete()
-    .eq('source_type', 'zero_stock_report')
-    .eq('source_id', id)
-  if (undoError) redirect(`/zero?error=${encodeURIComponent(undoError.message)}`)
-
-  const { error } = await supabase.from('zero_stock_reports').delete().eq('id', id)
+  /* Both halves - putting the stock back and removing the report - happen
+     inside delete_stock_report so they can never come apart. That function is
+     also what decides who may do this: a manager or an admin at any time, or
+     the person who filed the report, on the same day they filed it. It answers
+     false when the answer is no, which is what turns into the banner below
+     instead of a silent nothing. */
+  const { data: removed, error } = await supabase.rpc('delete_stock_report', { p_id: id })
   if (error) redirect(`/zero?error=${encodeURIComponent(error.message)}`)
+  if (!removed) redirect(deniedUrl('/zero', 'delete this report. Only a manager, or the person who filed it on the same day, can remove one'))
   revalidatePath('/zero')
   revalidatePath('/reorder')
   revalidatePath('/reports')
