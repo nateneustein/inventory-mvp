@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
-import { receiveShipmentLines, undoReceivingEvent, editReceivingEvent } from '@/lib/shipment-actions'
+import { receiveShipmentLines, undoReceivingEvent, editReceivingEvent, resolveMissingReceipt } from '@/lib/shipment-actions'
 import { date, num, supplierHint, today } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
@@ -67,6 +67,8 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
     .order('created_at', { ascending: false })
     .limit(50)
 
+  const { data: missing } = await supabase.from('open_missing_followups').select('*').order('created_at', { ascending: true })
+
   const shown = (events || []).filter((e: any) =>
     rowMatches(q, e.purchase_orders?.po_number, e.parts?.sku, e.parts?.name, e.notes))
 
@@ -82,6 +84,39 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
 
       {params.error && <div className="card danger-soft"><strong>Nothing was received:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
+
+      {missing && missing.length > 0 && (
+        <div className="card table-card">
+          <div className="table-head">
+            <h2>Missing units to follow up</h2>
+            <span className="badge out">{missing.length}</span>
+          </div>
+          <p className="muted small">Units marked missing when a shipment was checked in. They were <strong>not</strong> added to stock. If the rest of the shipment is still coming, receive them when they turn up — or mark them as won’t arrive to dismiss.</p>
+          <table>
+            <thead><tr><th>Since</th><th>PO</th><th>Supplier</th><th>Part</th><th>Missing</th><th></th></tr></thead>
+            <tbody>{missing.map((m: any) => (
+              <tr key={m.receiving_event_id}>
+                <td>{date(m.created_at)}</td>
+                <td>{m.po_number}</td>
+                <td>{m.supplier_name || '—'}</td>
+                <td>{m.part_sku} · {m.part_name}</td>
+                <td>{num(m.quantity_missing)}</td>
+                <td className="ap-missing-actions">
+                  <form action={resolveMissingReceipt}>
+                    <input type="hidden" name="receiving_event_id" value={m.receiving_event_id} />
+                    <input type="hidden" name="resolution" value="received" />
+                    <ActionButton busyLabel="Receiving…" doneLabel="Received">Receive it</ActionButton>
+                  </form>
+                  <form action={resolveMissingReceipt}>
+                    <input type="hidden" name="receiving_event_id" value={m.receiving_event_id} />
+                    <input type="hidden" name="resolution" value="wont_arrive" />
+                    <ActionButton busyLabel="Dismissing…" doneLabel="Dismissed">Won’t arrive</ActionButton>
+                  </form>
+                </td>
+              </tr>))}</tbody>
+          </table>
+        </div>
+      )}
 
       {waiting.length > 0 && (
         <div className="card table-card">
