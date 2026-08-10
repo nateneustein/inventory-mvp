@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { reportZeroStock } from '@/lib/actions'
+import { reportZeroStock, reportUnlistedSupply } from '@/lib/actions'
 import { deleteZeroStockReport } from '@/lib/record-actions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
@@ -17,7 +17,7 @@ import { rowMatches } from '@/lib/search'
  * to-do list. Reports on untracked parts are a different animal entirely and
  * live on the reorder page.
  */
-export default async function ZeroPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+export default async function ZeroPage({ searchParams }: { searchParams?: Promise<{ q?: string; unlisted?: string }> }) {
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const { supabase } = await requireUser()
@@ -79,6 +79,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           )}
         </td>
         <td style={{ whiteSpace: 'normal' }}>{r.notes}</td>
+        <td className="ap-reporter">{r.reporter_name}</td>
         <td className="actions-cell" data-confirm-label={r.part_name}>
           <form className="inline-form" action={deleteZeroStockReport}>
             <input type="hidden" name="id" value={r.id} />
@@ -133,7 +134,18 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
             <button type="button" className="button secondary cancel-btn">Cancel</button>
           </div>
         </form>
+        <details className="add-panel ap-unlisted"><summary className="button secondary">Can’t find the part? Report an unlisted supply</summary>
+          <p className="muted small">Use this if the supply is not in the list at all. It files a report for the team to check — it does not create a part or change stock.</p>
+          <form className="stack" action={reportUnlistedSupply}>
+            <label>Supply name<input name="supply_name" required placeholder="e.g. 4x6 thank-you cards" /></label>
+            <label>What is going on?<textarea name="note" placeholder="Can’t find it in the app, at zero, running low, etc." /></label>
+            <ActionButton busyLabel="Filing…" doneLabel="Filed">File unlisted report</ActionButton>
+          </form>
+        </details>
       </div>
+
+      {params.unlisted === '1' && <div className="card success-soft"><strong>Thanks — your unlisted supply report was filed. The team will check on it.</strong></div>}
+      {params.unlisted === 'need_name' && <div className="card danger-soft"><strong>Please enter the supply name before filing the report.</strong></div>}
 
       <div className="card table-card">
         <div className="table-head">
@@ -144,7 +156,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           <span className="badge out">{zeros.length}</span>
         </div>
         <div className="wide-table"><table>
-          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>System said</th><th>Incoming</th><th>Notes</th><th className="actions-cell">Actions</th></tr></thead>
+          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>System said</th><th>Incoming</th><th>Notes</th><th>Reported by</th><th className="actions-cell">Actions</th></tr></thead>
           <tbody>
             {zeros.map((r: any) => <Row key={r.id} r={r} />)}
             {zeros.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing has been reported at zero.</div></td></tr>}
@@ -167,7 +179,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           </form>
         </div>
         <div className="wide-table"><table>
-          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>System said</th><th>Incoming</th><th>Notes</th><th className="actions-cell">Actions</th></tr></thead>
+          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>System said</th><th>Incoming</th><th>Notes</th><th>Reported by</th><th className="actions-cell">Actions</th></tr></thead>
           <tbody>
             {lows.map((r: any) => <Row key={r.id} r={r} />)}
             {lows.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing reported as running low.</div></td></tr>}
