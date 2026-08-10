@@ -109,8 +109,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
           <div className="main-shell">
             <header className="topbar">
+              {/* TopbarTitle now prints both lines: the section this page sits in,
+                  then the page name. The old fixed "Inventory Management MVP" line
+                  said the same thing on all 19 pages, which is no help to anyone. */}
               <div>
-                <div className="eyebrow">Inventory Management MVP</div>
                 <TopbarTitle />
               </div>
               {user ? (
