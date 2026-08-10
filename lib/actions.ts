@@ -1201,10 +1201,21 @@ export async function saveBomMatrix(formData: FormData) {
 export async function reportZeroStock(formData: FormData) {
   const { supabase, userId } = await currentUserId()
   const partId = value(formData, 'part_id')
-  const { data: stockRow } = await supabase.from('part_stock').select('on_hand').eq('part_id', partId).single()
+  // A supply nobody could find in the list: the reporter types the name instead
+  // of picking a part. It files the same report, just without a part behind it,
+  // and behaves like an untracked part - it goes to the reorder list.
+  const customName = value(formData, 'custom_part_name')
+  const unlisted = !partId && !!customName
+  if (!partId && !customName) redirect('/zero?error=' + encodeURIComponent('Pick a part, or type the name of a supply that is not listed.'))
+
+  const { data: stockRow } = unlisted
+    ? { data: null }
+    : await supabase.from('part_stock').select('on_hand').eq('part_id', partId).single()
   const systemQty = Number(stockRow?.on_hand || 0)
-  const { data: part } = await supabase.from('parts').select('tracked').eq('id', partId).single()
-  const tracked = part?.tracked !== false
+  const { data: part } = unlisted
+    ? { data: null }
+    : await supabase.from('parts').select('tracked').eq('id', partId).single()
+  const tracked = unlisted ? false : part?.tracked !== false
   const reportType = value(formData, 'report_type') === 'running_low' ? 'running_low' : 'zero'
 
   // On a TRACKED part this deliberately does NOT change stock. The count is
@@ -1212,7 +1223,8 @@ export async function reportZeroStock(formData: FormData) {
   // look -- sometimes there is stock the reporter did not find, and correcting
   // it here would hide that check instead of prompting it.
   const { data: created, error } = await supabase.from('zero_stock_reports').insert({
-    part_id: partId,
+    part_id: unlisted ? null : partId,
+    custom_part_name: unlisted ? customName : null,
     system_quantity_at_report: systemQty,
     warehouse_quantity_reported: num(formData, 'warehouse_quantity_reported', 0),
     // 'zero' means there are none left; 'running_low' means order more before
@@ -1231,7 +1243,7 @@ export async function reportZeroStock(formData: FormData) {
      forecast keeps quoting a number nobody has checked in months.
 
      Recorded against the report, so deleting the report puts the stock back. */
-  if (!tracked && created) {
+  if (!tracked && created && !unlisted) {
     /* None left means zero. Running low means whatever they counted on the shelf -
        a person standing in front of it beats any number the app was holding, and
        for an untracked part the app's number was only ever a guess. Left blank,
