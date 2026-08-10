@@ -217,6 +217,17 @@ export async function refreshAllShipmentTracking() {
  * supplier and closes out the ordered line, so the shipment can be marked
  * complete without ever counting units you cannot use.
  */
+export async function resolveMissingReceipt(formData: FormData) {
+  const { supabase } = await currentUser()
+  const eventId = value(formData, 'receiving_event_id')
+  const resolution = value(formData, 'resolution')
+  const { error } = await supabase.rpc('resolve_missing_receipt', { p_event_id: eventId, p_resolution: resolution })
+  if (error) redirect('/receiving?error=' + encodeURIComponent(error.message))
+  revalidatePath('/receiving')
+  revalidatePath('/parts')
+  redirect('/receiving?notice=' + encodeURIComponent(resolution === 'received' ? 'Missing units received into stock.' : 'Missing units marked as won’t arrive.'))
+}
+
 export async function receiveShipmentLines(formData: FormData) {
   const { supabase, userId } = await currentUser()
   const poId = value(formData, 'purchase_order_id')
