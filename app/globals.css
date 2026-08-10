@@ -854,3 +854,18 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 
 /* ---- Basic prediction: outline the cell the checker should read for each part ---- */
 .prediction-grid td.ap-check-cell { outline: 2px solid #2563eb; outline-offset: -2px; border-radius: 3px; }
+
+
+/* ---- Unlisted supply: kept behind a toggle so nobody types in it by habit ---- */
+.ap-custom-part > summary { list-style: none; cursor: pointer; display: inline-block;
+  font-size: 13px; color: var(--accent, #4a9); padding: 2px 0; }
+.ap-custom-part > summary::-webkit-details-marker { display: none; }
+.ap-custom-part > summary::marker { content: ''; }
+.ap-custom-part[open] > summary { margin-bottom: 8px; }
+
+/* ---- Editable display name on the users table ---- */
+.ap-name-edit > summary { list-style: none; cursor: pointer; }
+.ap-name-edit > summary::-webkit-details-marker { display: none; }
+.ap-name-edit > summary::marker { content: ''; }
+.ap-name-edit > summary:hover { text-decoration: underline; }
+.ap-name-edit[open] > summary { margin-bottom: 8px; }
