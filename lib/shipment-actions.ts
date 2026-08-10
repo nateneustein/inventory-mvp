@@ -38,6 +38,26 @@ function revalidateShipments(id?: string) {
  * the only information that exists. It belongs in the same timeline as the
  * carrier events, not in a notes field nobody reads.
  */
+/**
+ * The tracking number on its own.
+ *
+ * Separate from the full edit form because the floor is allowed to add a tracking
+ * number to a shipment they cannot otherwise touch. The database pins every other
+ * column for anyone under manager, so this stays honest even if the form is faked.
+ */
+export async function setShipmentTracking(formData: FormData) {
+  const { supabase } = await currentUser()
+  const id = value(formData, 'id')
+  const tracking = value(formData, 'tracking_number')
+  const { error } = await supabase.from('purchase_orders')
+    .update({ tracking_number: tracking || null })
+    .eq('id', id)
+  if (error) redirect('/shipments/' + id + '?error=' + encodeURIComponent(error.message))
+  revalidatePath('/shipments')
+  revalidatePath('/shipments/' + id)
+  redirect('/shipments/' + id + '?notice=' + encodeURIComponent('Tracking number saved.'))
+}
+
 export async function addShipmentUpdate(formData: FormData) {
   const { supabase, userId } = await currentUser()
   const id = value(formData, 'purchase_order_id')
