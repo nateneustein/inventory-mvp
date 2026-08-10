@@ -862,6 +862,10 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-custom-part > summary::-webkit-details-marker { display: none; }
 .ap-custom-part > summary::marker { content: ''; }
 .ap-custom-part[open] > summary { margin-bottom: 8px; }
+/* The form styles set display on labels/inputs, which beats the browser's own
+   "hide a closed details" rule - so collapse it explicitly. */
+.ap-custom-part:not([open]) > *:not(summary) { display: none !important; }
+.ap-name-edit:not([open]) > *:not(summary) { display: none !important; }
 
 /* ---- Editable display name on the users table ---- */
 .ap-name-edit > summary { list-style: none; cursor: pointer; }
