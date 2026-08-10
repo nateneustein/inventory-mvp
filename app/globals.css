@@ -850,3 +850,7 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 /* ---- Missing units follow-up buttons ---- */
 .ap-missing-actions { display: flex; gap: 8px; }
 .ap-missing-actions form { margin: 0; }
+
+
+/* ---- Basic prediction: outline the cell the checker should read for each part ---- */
+.prediction-grid td.ap-check-cell { outline: 2px solid #2563eb; outline-offset: -2px; border-radius: 3px; }
