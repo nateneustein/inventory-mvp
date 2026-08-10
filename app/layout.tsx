@@ -9,8 +9,9 @@ import { PermissionBanner } from '@/components/permission-banner'
 import { Suspense } from 'react'
 
 export const metadata = {
-  title: 'Inventory Control Center',
-  description: 'Internal inventory and order data management system'
+  title: 'EO Inventory Management',
+  description: 'Engraving One - stock, ordering and prediction',
+  icons: { icon: '/icon.svg' }
 }
 
 // 'needs' names the permission a link requires. Anything without one is
@@ -32,10 +33,11 @@ const navGroups = [
       ['Shipments / Purchases', '/shipments', 'canViewShipments'],
       ['Receiving', '/receiving'],
       ['Adjustments / Switches', '/adjustments', 'canAdjustStock'],
-      ['Damage / Scrap', '/damage'],
-      ['Replacement Orders', '/replacements'],
       ['Report Zero / Running Low', '/zero'],
-      ['Counts', '/counts', 'canRecordCycleCount'],
+      /* Hidden from the menu on purpose, not deleted: nobody is reporting damage
+         or replacements right now, and counting happens on the Adjustments page.
+         The pages and all their records still exist at /damage, /replacements and
+         /counts - put a line back here to bring one into the menu again. */
       ['Reorder List', '/reorder'],
     ]
   },
@@ -53,7 +55,6 @@ const navGroups = [
     links: [
       ['Basic Prediction', '/predictions/basic'],
       ['Advanced Prediction', '/predictions/advanced'],
-      ['Slack Alerts', '/slack', 'canManageIntegrations'],
       ['Suppliers', '/suppliers', 'canManageMasterData'],
     ]
   },
@@ -61,6 +62,7 @@ const navGroups = [
     title: 'Admin',
     links: [
       ['Users and roles', '/users', 'canManageUsers'],
+      ['Slack Alerts', '/slack', 'canManageIntegrations'],
     ]
   }
 ]
@@ -81,10 +83,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {user && (
             <aside className="sidebar">
               <Link className="brand-card" href="/dashboard">
-                <span className="brand-icon">IC</span>
+                <img className="brand-icon" src="/icon.svg" alt="" width={34} height={34} />
                 <span>
-                  <b>Inventory Control</b>
-                  <small>Blueview internal app</small>
+                  <b>EO Inventory</b>
+                  <small>Engraving One</small>
                 </span>
               </Link>
 
