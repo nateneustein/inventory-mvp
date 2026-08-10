@@ -27,7 +27,7 @@ const navGroups = [
     title: 'Inventory',
     links: [
       ['Parts / Supplies', '/parts'],
-      ['Shipments / Purchases', '/shipments', 'canManagePurchasing'],
+      ['Shipments / Purchases', '/shipments', 'canViewShipments'],
       ['Receiving', '/receiving'],
       ['Adjustments / Switches', '/adjustments', 'canAdjustStock'],
       ['Damage / Scrap', '/damage'],
