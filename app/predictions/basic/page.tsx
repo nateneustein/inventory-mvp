@@ -57,6 +57,11 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
   // the picture as of the END of the previous week, so the sheet only moves
   // once a week, after Saturday closes.
   const { data: rows, error } = await supabase.rpc('part_prediction_as_of', { p_as_of: asOf })
+  // Which products need reordering right now - the SAME trigger the dashboard and
+  // Slack use (cover has dropped below the warn window, which follows the advanced
+  // prediction). Highlighted on the sheet so it is obvious at a glance.
+  const { data: statusRows } = await supabase.from('inventory_status').select('part_id, days_of_cover, reorder_horizon_days, ignore_alerts')
+  const reorderNow = new Set((statusRows || []).filter((r: any) => !r.ignore_alerts && r.days_of_cover != null && r.reorder_horizon_days != null && Number(r.days_of_cover) < Number(r.reorder_horizon_days)).map((r: any) => r.part_id))
 
   const all = (rows || []) as any[]
   all.sort((a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || String(a.name).localeCompare(String(b.name)))
@@ -189,7 +194,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
           </div>
         </div>
         <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} prediction-grid`}><table>
-          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : (p.stock_status === 'reorder_now' ? 'ap-reorder-col' : undefined)}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts ? <><br /><span className="badge ignored-alerts">alerts off</span></> : (p.stock_status === 'reorder_now' ? <><br /><span className="badge ap-reorder-badge">Reorder now</span></> : null)}</th>)}</tr></thead>
+          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : (reorderNow.has(p.part_id) ? 'ap-reorder-col' : undefined)}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts ? <><br /><span className="badge ignored-alerts">alerts off</span></> : (reorderNow.has(p.part_id) ? <><br /><span className="badge ap-reorder-badge">Reorder now</span></> : null)}</th>)}</tr></thead>
           <tbody>
             {usagePeriods.map((period) => {
               const from = shiftDays(anchorLabel, -(period.days - 1))
