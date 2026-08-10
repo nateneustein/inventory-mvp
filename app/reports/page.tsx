@@ -4,7 +4,6 @@ import { date, num } from '@/lib/format'
 export default async function ReportsPage() {
   const { supabase } = await requireUser()
   const { data: zeroReports } = await supabase.from('v_zero_stock_reports').select('*').order('created_at', { ascending: false }).limit(100)
-  const { data: unlisted } = await supabase.from('v_unlisted_supply_reports').select('*').order('created_at', { ascending: false }).limit(100)
   const { data: deadStock } = await supabase.from('dead_stock_candidates').select('*').neq('dead_stock_status', 'active').order('dead_stock_status')
   const { data: overdue } = await supabase.from('overdue_open_po_items').select('*')
   const { data: switches } = await supabase.from('inventory_switches').select('*, to_part:parts!inventory_switches_to_part_id_fkey(name, sku), from_part:parts!inventory_switches_from_part_id_fkey(name, sku)').eq('change_type', 'forced_due_to_stockout').order('created_at', { ascending: false }).limit(100)
@@ -19,7 +18,6 @@ export default async function ReportsPage() {
         <div className="card"><div className="muted">Dead stock candidates</div><div className="kpi">{deadStock?.length || 0}</div></div>
         <div className="card"><div className="muted">Overdue shipment items</div><div className="kpi">{overdue?.length || 0}</div></div>
         <div className="card"><div className="muted">Forced switches</div><div className="kpi">{switches?.length || 0}</div></div>
-        <div className="card"><div className="muted">Unlisted supply reports</div><div className="kpi">{unlisted?.length || 0}</div></div>
       </div>
 
       <div className="card">
@@ -27,15 +25,6 @@ export default async function ReportsPage() {
         <table>
           <thead><tr><th>Date</th><th>Part</th><th>Type</th><th>System qty then</th><th>Reported by</th><th>Notes</th></tr></thead>
           <tbody>{(zeroReports || []).map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td>{r.part_sku} · {r.part_name}</td><td>{r.report_type}</td><td>{num(r.system_quantity_at_report)}</td><td className="ap-reporter">{r.reporter_name}</td><td>{r.notes}</td></tr>)}</tbody>
-        </table>
-      </div>
-
-      <div className="card">
-        <h2>Unlisted supply reports</h2>
-        <p className="muted small">Filed from the Parts page when someone can’t find a supply. These do not change stock — they are just flags to check.</p>
-        <table>
-          <thead><tr><th>Date</th><th>Supply</th><th>What’s going on</th><th>Reported by</th></tr></thead>
-          <tbody>{(unlisted || []).map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td>{r.supply_name}</td><td>{r.note}</td><td className="ap-reporter">{r.reporter_name}</td></tr>)}</tbody>
         </table>
       </div>
 
