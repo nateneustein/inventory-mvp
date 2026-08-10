@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { createPart, archivePart, setPartIgnoreAlerts } from '@/lib/actions'
+import { createPart, archivePart, setPartIgnoreAlerts, reportUnlistedSupply } from '@/lib/actions'
 import { deletePart } from '@/lib/record-actions'
 import { num, supplierHint } from '@/lib/format'
 import { CoverCell } from '@/components/cover-cell'
@@ -37,6 +37,18 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
       </div>
       {params.error && <div className="card danger-soft"><strong>Part change failed:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
+      {params.unlisted === '1' && <div className="card success-soft"><strong>Thanks — your unlisted supply report was filed. The team will check on it.</strong></div>}
+      {params.unlisted === 'need_name' && <div className="card danger-soft"><strong>Please enter the supply name before filing the report.</strong></div>}
+
+      <details className="card">
+        <summary><strong>Can’t find a part? Report an unlisted supply</strong></summary>
+        <p className="muted small">If a supply isn’t listed here, put its name and what’s going on. It is filed as a report for the team to check — it does not create a part or change any stock.</p>
+        <form className="stack" action={reportUnlistedSupply}>
+          <label>Supply name<input name="supply_name" required placeholder="e.g. 4x6 thank-you cards" /></label>
+          <label>What’s going on?<textarea name="note" rows={2} placeholder="Can’t find it in the app, running low, etc." /></label>
+          <ActionButton busyLabel="Filing…" doneLabel="Filed">File report</ActionButton>
+        </form>
+      </details>
 
       <div className="card">
         <form className="filter-bar" action="/parts">
