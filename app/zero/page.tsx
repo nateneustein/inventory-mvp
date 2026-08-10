@@ -118,10 +118,18 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         </p>
         <form className="stack" action={reportZeroStock}>
           <label>Part<SearchSelect name="part_id" placeholder="Type a part name or SKU" options={partOptions} /></label>
-          <label>Can’t find it in the list? Type the supply name instead
-            <input name="custom_part_name" placeholder="e.g. 4x6 thank-you cards" />
-          </label>
-          <p className="muted small">Use one or the other. A typed name files the same report against a supply that is not in the parts list, and goes to the reorder list for someone to buy.</p>
+          {/* Tucked behind a toggle on purpose: if this box is always on screen
+              people type into it by habit and we get duplicate "parts" that already
+              exist. It is only for a supply that genuinely is not in the list.
+              NOTE: deliberately NOT class "add-panel" - that class carries a CSS
+              rule that hides the whole card while it is closed. */}
+          <details className="ap-custom-part">
+            <summary>+ Can’t find it in the list?</summary>
+            <label>Type the supply name instead
+              <input name="custom_part_name" placeholder="e.g. 4x6 thank-you cards" />
+            </label>
+            <p className="muted small">Only for a supply that is not in the parts list at all. Leave the part box above empty. It files the same report and goes to the reorder list for someone to buy.</p>
+          </details>
           <div className="form-row">
             <label>What is the situation?
               <select name="report_type" defaultValue="zero">
