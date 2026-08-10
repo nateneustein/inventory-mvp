@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto'
 import { CONDITION_FIELDS, CONDITION_TYPES, conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
 import { today } from '@/lib/format'
 import { refreshPredictionSnapshots } from '@/lib/part-detail-actions'
+import { getPermissions, deniedUrl } from '@/lib/permissions'
 
 type CsvRow = Record<string, string>
 
@@ -662,6 +663,8 @@ export async function createSupplier(formData: FormData) {
 
 export async function createPart(formData: FormData) {
   const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/parts', 'add a new part'))
   const supplierId = value(formData, 'supplier_id') || null
 
   const { error } = await supabase.from('parts').insert({
@@ -1386,6 +1389,10 @@ export async function archivePart(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
   const active = value(formData, 'active') === 'true'
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) {
+    redirect(deniedUrl('/parts/' + id, active ? 'restore a part' : 'archive a part'))
+  }
   const { error } = await supabase.from('parts').update({ active, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/parts')
@@ -1405,6 +1412,8 @@ export async function setPartIgnoreAlerts(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
   const ignore = value(formData, 'ignore_alerts') === 'true'
+  const perms = await getPermissions()
+  if (!perms.canManageMasterData) redirect(deniedUrl('/parts/' + id, 'turn alerts on or off for a part'))
   const { error } = await supabase
     .from('parts')
     .update({ ignore_alerts: ignore, updated_at: new Date().toISOString() })
