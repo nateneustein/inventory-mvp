@@ -22,7 +22,9 @@ const MANAGER_PATHS = [
   '/boms',
   '/products',
   '/suppliers',
-  '/shipments',
+  // '/shipments' is deliberately NOT here: the floor has to see what is on the
+  // water, book one in and log a tracking number. The page hides the sensitive
+  // controls and the database refuses them, so the screen itself is safe to open.
   '/purchase-orders',
 ]
 
