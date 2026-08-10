@@ -189,7 +189,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
           </div>
         </div>
         <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} prediction-grid`}><table>
-          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : undefined}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts && <><br /><span className="badge ignored-alerts">alerts off</span></>}</th>)}</tr></thead>
+          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : (p.stock_status === 'reorder_now' ? 'ap-reorder-col' : undefined)}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts ? <><br /><span className="badge ignored-alerts">alerts off</span></> : (p.stock_status === 'reorder_now' ? <><br /><span className="badge ap-reorder-badge">Reorder now</span></> : null)}</th>)}</tr></thead>
           <tbody>
             {usagePeriods.map((period) => {
               const from = shiftDays(anchorLabel, -(period.days - 1))
