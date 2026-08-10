@@ -5,6 +5,8 @@ import { getPermissions } from '@/lib/permissions'
 import { NavLink } from '@/components/nav-link'
 import { TopbarTitle } from '@/components/topbar-title'
 import { FormGuard } from '@/components/form-guard'
+import { PermissionBanner } from '@/components/permission-banner'
+import { Suspense } from 'react'
 
 export const metadata = {
   title: 'Inventory Control Center',
@@ -120,7 +122,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link className="button" href="/login">Sign in</Link>
               )}
             </header>
-            <main className="container">{children}</main>
+            <main className="container">
+              {/* Reads ?denied= so a refused change is stated rather than silent. */}
+              <Suspense fallback={null}><PermissionBanner /></Suspense>
+              {children}
+            </main>
           </div>
         </div>
       </body>
