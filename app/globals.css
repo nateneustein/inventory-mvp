@@ -885,3 +885,28 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .denied-banner strong { display: block; margin-bottom: 4px; }
 .denied-banner p { margin: 0; font-size: 13px; opacity: 0.85; }
 .denied-banner button { flex: none; }
+
+
+/* =====================================================================
+   PAGE HEADER - the standard every page top follows
+   ---------------------------------------------------------------------
+   Left: the h1, then any badges, then small grey metadata.
+   Right: the buttons, always in the same order of weight, so the main
+   action of a page is always in the same corner of the screen:
+       [ghost: leaving the page]  [secondary: changes a setting]  [solid: the main job]
+   Task buttons that open a form belong in .quick-actions BELOW the
+   header, never mixed into the header row.
+   ===================================================================== */
+.page-head-actions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center; justify-content: flex-end;
+}
+.head-tags {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center; margin: 6px 0 0;
+}
+.head-meta {
+  color: var(--muted); font-size: 12px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.head-meta code { font-size: 11px; }
