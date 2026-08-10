@@ -51,6 +51,13 @@ export function permissionsFor(role: Role) {
     canRecordSwitch: isManagerUp,
     canAdjustStock: isManagerUp,
 
+    // Shipments. The floor has to see what is on the water, book a new shipment,
+    // put its parts on it, and log a tracking number or an update. Rewriting an
+    // existing shipment - money, quantities, suppliers, status - is not floor work.
+    canViewShipments: signedIn,
+    canCreateShipments: signedIn,
+    canLogShipmentProgress: signedIn,
+
     // Master data and purchasing.
     canManageMasterData: isManagerUp,
     canManagePurchasing: isManagerUp,
