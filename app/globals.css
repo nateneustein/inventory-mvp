@@ -873,3 +873,15 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-name-edit > summary::marker { content: ''; }
 .ap-name-edit > summary:hover { text-decoration: underline; }
 .ap-name-edit[open] > summary { margin-bottom: 8px; }
+
+
+/* ---- "That was refused" banner. Loud on purpose: a silent no-op reads as a save. ---- */
+.denied-banner {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  margin: 0 0 16px; padding: 14px 16px;
+  border: 1px solid #b91c1c; border-left: 5px solid #b91c1c; border-radius: 8px;
+  background: rgba(185, 28, 28, 0.12);
+}
+.denied-banner strong { display: block; margin-bottom: 4px; }
+.denied-banner p { margin: 0; font-size: 13px; opacity: 0.85; }
+.denied-banner button { flex: none; }
