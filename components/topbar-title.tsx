@@ -37,11 +37,53 @@ const TITLES: Array<[string, string]> = [
   ['/login', 'Sign in'],
 ]
 
-export function TopbarTitle() {
-  const pathname = usePathname() || '/'
-  const match = TITLES
+/**
+ * The line above the page name. It used to read "Inventory Management MVP" on
+ * every page, which told nobody anything. It now names the part of the app you
+ * are standing in, so the two lines together read as a trail:
+ * INVENTORY / Parts / Supplies.
+ */
+const SECTIONS: Array<[string, string]> = [
+  ['/dashboard', 'Control'],
+  ['/uploads', 'Control'],
+  ['/imported-orders', 'Control'],
+  ['/reports', 'Control'],
+  ['/parts', 'Inventory'],
+  ['/shipments', 'Inventory'],
+  ['/purchase-orders', 'Inventory'],
+  ['/receiving', 'Inventory'],
+  ['/adjustments', 'Inventory'],
+  ['/damage', 'Inventory'],
+  ['/replacements', 'Inventory'],
+  ['/zero', 'Inventory'],
+  ['/counts', 'Inventory'],
+  ['/reorder', 'Inventory'],
+  ['/scanner', 'Inventory'],
+  ['/products', 'Products'],
+  ['/boms', 'Products'],
+  ['/mapping-rules', 'Products'],
+  ['/usage', 'Products'],
+  ['/predictions', 'Planning'],
+  ['/suppliers', 'Planning'],
+  ['/users', 'Admin'],
+  ['/slack', 'Admin'],
+]
+
+function longest(list: Array<[string, string]>, pathname: string) {
+  return list
     .filter(([href]) => pathname === href || pathname.startsWith(`${href}/`))
     .sort((a, b) => b[0].length - a[0].length)[0]
+}
 
-  return <div className="topbar-title">{match ? match[1] : 'EO Inventory'}</div>
+export function TopbarTitle() {
+  const pathname = usePathname() || '/'
+  const match = longest(TITLES, pathname)
+  const section = longest(SECTIONS, pathname)
+
+  return (
+    <>
+      <div className="eyebrow">{section ? section[1] : 'EO Inventory Management'}</div>
+      <div className="topbar-title">{match ? match[1] : 'EO Inventory'}</div>
+    </>
+  )
 }
