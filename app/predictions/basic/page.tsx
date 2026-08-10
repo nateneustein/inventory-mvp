@@ -57,11 +57,11 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
   // the picture as of the END of the previous week, so the sheet only moves
   // once a week, after Saturday closes.
   const { data: rows, error } = await supabase.rpc('part_prediction_as_of', { p_as_of: asOf })
-  // Which products need reordering right now - the SAME trigger the dashboard and
-  // Slack use (cover has dropped below the warn window, which follows the advanced
-  // prediction). Highlighted on the sheet so it is obvious at a glance.
-  const { data: statusRows } = await supabase.from('inventory_status').select('part_id, days_of_cover, reorder_horizon_days, ignore_alerts')
-  const reorderNow = new Set((statusRows || []).filter((r: any) => !r.ignore_alerts && r.days_of_cover != null && r.reorder_horizon_days != null && Number(r.days_of_cover) < Number(r.reorder_horizon_days)).map((r: any) => r.part_id))
+  // Each part's own reorder horizon (lead + buffer, in days), used to point the
+  // checker at the one projection cell that decides a reorder for that part.
+  const { data: statusRows } = await supabase.from('inventory_status').select('part_id, reorder_horizon_days')
+  const horizonByPart: Record<string, number> = {}
+  for (const r of (statusRows || [])) { if (r.reorder_horizon_days != null) horizonByPart[r.part_id] = Number(r.reorder_horizon_days) }
 
   const all = (rows || []) as any[]
   all.sort((a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || String(a.name).localeCompare(String(b.name)))
@@ -72,6 +72,18 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
   const anchorLabel = anchorIso || asOf
 
   const parts = all.filter((p: any) => (!q || match(p, q)) && (!statusFilter || p.stock_status === statusFilter))
+
+  // For each part, the ONE projection cell the person should eyeball: the stock
+  // projected out to that part's own reorder horizon. Outlined on every part.
+  const checkPeriodByPart: Record<string, string> = {}
+  for (const p of parts) {
+    const hd = horizonByPart[p.part_id]
+    if (hd == null) continue
+    const hw = hd / 7
+    let best = projectionPeriods[0]; let bestD = Infinity
+    for (const pp of projectionPeriods) { const d = Math.abs(pp.weeks - hw); if (d < bestD) { bestD = d; best = pp } }
+    checkPeriodByPart[p.part_id] = best.label
+  }
 
   /* The sheet above counts a container the day it is ordered, which is right for
      the ordering decision but hides a real problem: the weeks BEFORE it lands.
@@ -194,7 +206,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
           </div>
         </div>
         <div className={`wide-table sheet-scroll sheet-sticky-head sheet-zoom-${zoom} prediction-grid`}><table>
-          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : (reorderNow.has(p.part_id) ? 'ap-reorder-col' : undefined)}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts ? <><br /><span className="badge ignored-alerts">alerts off</span></> : (reorderNow.has(p.part_id) ? <><br /><span className="badge ap-reorder-badge">Reorder now</span></> : null)}</th>)}</tr></thead>
+          <thead><tr><th className="sticky-col prediction-label-col">Period / prediction</th><th>From</th><th>To</th><th>Weeks</th>{parts.map((p: any) => <th key={p.part_id} className={p.ignore_alerts ? 'ignored-col' : undefined}>{p.name}<br /><span className="muted small">{p.sku}</span>{p.ignore_alerts && <><br /><span className="badge ignored-alerts">alerts off</span></>}</th>)}</tr></thead>
           <tbody>
             {usagePeriods.map((period) => {
               const from = shiftDays(anchorLabel, -(period.days - 1))
@@ -218,7 +230,7 @@ export default async function BasicPredictionPage({ searchParams }: { searchPara
                   const tone = p.ignore_alerts
                     ? (projected < 0 || projected <= Number(p.reorder_point || 0) ? 'cell-ignored' : '')
                     : (projected < 0 ? 'cell-danger' : projected <= Number(p.reorder_point || 0) ? 'cell-warning' : '')
-                  return <td key={p.part_id} className={tone}>{num(projected)}</td>
+                  return <td key={p.part_id} className={[tone, checkPeriodByPart[p.part_id] === projection.label ? 'ap-check-cell' : ''].filter(Boolean).join(' ') || undefined}>{num(projected)}</td>
                 })}</tr>),
                 <tr key={`${period.days}-blank`} className="spacer-row"><td colSpan={parts.length + 4}></td></tr>
               ]
