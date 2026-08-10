@@ -30,6 +30,11 @@ const HORIZON_PRESETS = [
   { days: 122, label: '4 months' },
 ]
 
+/* Nobody is reporting damage at the moment, so the button is off. The form,
+   the reasons and the Damage / Scrap page all still exist and still work -
+   flip this to true to put the button back on the part page. */
+const SHOW_DAMAGE_REPORTING = false
+
 const DAMAGE_REASONS = [
   ['supplier_damaged', 'Supplier damaged'],
   ['production_damaged', 'Production damaged'],
@@ -162,23 +167,25 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       <div className="page-head">
         <div>
           <h1>{part.name}</h1>
-          <p className="ap-track-tags">{details.tracked === false ? <span className="badge ap-untracked">Not tracked</span> : <span className="badge ap-tracked">Tracked</span>}</p>
-          <p className="muted">Part card page for QR scanning. URL: <code>/parts/{id}</code></p>
+          <div className="head-tags">
+            {details.tracked === false ? <span className="badge ap-untracked">Not tracked</span> : <span className="badge ap-tracked">Tracked</span>}
+            {part.ignore_alerts && <span className="badge ignored-alerts">Alerts off</span>}
+            <span className="head-meta">QR link <code>/parts/{id}</code></span>
+          </div>
           {part.ignore_alerts && (
             <p className="ignored-note">
-              <span className="badge ignored-alerts">alerts off</span>
               This part never counts as out of stock or reorder now. It still appears in the
               prediction sheet and usage, marked in orange.
             </p>
           )}
         </div>
-        <div className="action-row">
-          <Link className="button secondary" href="/parts">Back</Link>
+        <div className="page-head-actions">
+          <Link className="button ghost" href="/parts">Back</Link>
           <form className="inline-form" action={setPartIgnoreAlerts}>
             <input type="hidden" name="id" value={id} />
             <input type="hidden" name="ignore_alerts" value={part.ignore_alerts ? 'false' : 'true'} />
             <ActionButton className="button secondary" confirm={part.ignore_alerts ? 'Alert on ' + part.name + ' again?' : 'Stop alerts for ' + part.name + '?'} busyLabel="…" doneLabel="Saved">
-              {part.ignore_alerts ? 'Alerts are OFF — turn them ON' : 'Alerts are ON — turn them OFF'}
+              {part.ignore_alerts ? 'Turn alerts on' : 'Turn alerts off'}
             </ActionButton>
           </form>
           <Link className="button" href={'/predictions/advanced?part_id=' + id}>Calculate reorder</Link>
@@ -205,6 +212,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
           </form>
         </details>
 
+        {SHOW_DAMAGE_REPORTING && (
         <details className="quick-action">
           <summary className="button">Report damage</summary>
           <form className="stack card flat" action={reportDamage} data-confirm-label={part.name}>
@@ -220,6 +228,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <div className="action-row"><ActionButton confirm={'Write off damaged stock on ' + part.name + '?'} busyLabel="Reporting…" doneLabel="Reported">Report damage</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </details>
+        )}
 
         <details className="quick-action">
           <summary className="button">Adjust stock</summary>
