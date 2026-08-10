@@ -136,12 +136,17 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
               </form>
             </details>
           )}
+          {/* can_delete is decided by the database: a manager or admin any time, or
+              the person who filed the report, on the same day. No button for anyone
+              else, since it could only refuse them. */}
+          {r.can_delete && (
           <div data-confirm-label={r.part_name}>
             <form className="inline-form" action={deleteZeroStockReport}>
               <input type="hidden" name="id" value={r.id} />
               <ActionButton className="small-btn danger" busyLabel="…" doneLabel="Deleted">Delete</ActionButton>
             </form>
           </div>
+          )}
         </div>
       </div>
     )
