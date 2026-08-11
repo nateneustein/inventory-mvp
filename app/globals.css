@@ -1023,3 +1023,13 @@ td:has(.row-menu[open]) { z-index: 60; }
 .row-menu-list button:hover { background: var(--card-sunken); border-color: var(--border); }
 .row-menu-list .danger, .row-menu-list button.danger { color: #b42318; }
 .row-menu-list .danger:hover, .row-menu-list button.danger:hover { background: #fdf3f2; border-color: #f4c9c4; }
+
+
+/* --- 7. Signed out: no sidebar, so no column reserved for one ---------
+   The shell is a two column grid. With nobody signed in the sidebar is not
+   rendered at all, which left the whole sign-in page crushed into a 236px
+   strip in the corner. */
+.app-shell:not(:has(.sidebar)) { grid-template-columns: 1fr; }
+.app-shell:not(:has(.sidebar)) .container > .card {
+  margin: 48px auto 0; width: 100%; max-width: 420px;
+}
