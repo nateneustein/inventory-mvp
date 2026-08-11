@@ -61,12 +61,10 @@ export default async function DashboardPage() {
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
-          <p className="muted">Inventory health, incoming shipments, mapping problems, and warehouse alerts.</p>
+          <p className="page-sub">Inventory health, incoming shipments, mapping problems, and warehouse alerts.</p>
         </div>
-        <div className="action-row">
-          <Link className="button" href="/uploads">Upload order CSV</Link>
-          <Link className="button secondary" href="/zero">Report zero</Link>
-        </div>
+        {/* Both of these were a third copy of a sidebar link. Every card below
+            already carries its own way in, so the header stays a heading. */}
       </div>
 
       <div className="grid kpis">
