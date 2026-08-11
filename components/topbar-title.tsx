@@ -80,10 +80,14 @@ export function TopbarTitle() {
   const match = longest(TITLES, pathname)
   const section = longest(SECTIONS, pathname)
 
+  /* One quiet line, not two loud ones. The page prints its own big heading a
+     few centimetres below this, so repeating the page name here in heavy type
+     just said the same thing twice. This is a trail: where you are, small. */
   return (
-    <>
-      <div className="eyebrow">{section ? section[1] : 'EO Inventory Management'}</div>
-      <div className="topbar-title">{match ? match[1] : 'EO Inventory'}</div>
-    </>
+    <nav className="topbar-crumb" aria-label="Breadcrumb">
+      <span>{section ? section[1] : 'EO Inventory Management'}</span>
+      {match && <span className="topbar-crumb-sep" aria-hidden="true">/</span>}
+      {match && <span className="topbar-crumb-here">{match[1]}</span>}
+    </nav>
   )
 }
