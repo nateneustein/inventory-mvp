@@ -63,7 +63,7 @@ async function handle(request: NextRequest) {
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
-    'https://' + (request.headers.get('host') || 'inventory-mvp-six.vercel.app')
+    'https://' + (request.headers.get('host') || 'eo-inventory.vercel.app')
 
   let sent = 0
   const failures: string[] = []
