@@ -117,9 +117,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
               {user ? (
                 <div className="topbar-actions">
+                  {/* Upload CSV and Add / view parts used to live here, on all 19
+                      pages, duplicating two sidebar links - and "Add / view parts"
+                      showed even while you were standing on the parts page. The
+                      sidebar is where you go to a page; this bar is only for who
+                      you are signed in as. */}
                   <span className="badge info" title={user.email || ''}>{perms.label}</span>
-                  {perms.canUploadOrders && <Link className="button secondary" href="/uploads">Upload CSV</Link>}
-                  <Link className="button" href="/parts">{perms.canManageMasterData ? 'Add / view parts' : 'View parts'}</Link>
                   <Link className="button ghost" href="/auth/signout">Sign out</Link>
                 </div>
               ) : (
