@@ -910,3 +910,100 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
   display: inline-flex; align-items: center; gap: 5px;
 }
 .head-meta code { font-size: 11px; }
+
+
+/* =====================================================================
+   HOUSE RULES - one standard, applied to every page at once
+   ---------------------------------------------------------------------
+   Everything below is written against the shared classes (.page-head,
+   .card, .table-card, .button) rather than against any single page, so a
+   page gets the standard simply by using the normal markup. If one page
+   ends up looking different from its neighbours, the fix belongs in this
+   block, not in that page's file.
+   ===================================================================== */
+
+/* --- 1. The trail in the top bar ------------------------------------
+   One quiet line. The page prints its own heading below, so this never
+   repeats it in heavy type. */
+.topbar-crumb {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+  font-size: 12.5px; font-weight: 500; color: var(--muted);
+}
+.topbar-crumb-sep { color: var(--border-strong); }
+.topbar-crumb-here {
+  color: var(--ink-2); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* --- 2. Every page opens the same way -------------------------------
+   Title, one sentence under it, buttons on the right. Nothing else. */
+.page-head { margin-bottom: 18px; }
+.page-head > div:first-child { min-width: 0; }
+/* The sentence under a title: one size, one colour, and never wider than
+   about 90 characters - past that the eye loses the line and reads it twice. */
+.page-sub,
+.page-head > div > p.muted { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); max-width: 90ch; }
+/* Header buttons sit on the right on every page, whether that page wrote
+   .page-head-actions or the older .action-row. */
+.page-head > .action-row,
+.page-head-actions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center; justify-content: flex-end;
+}
+
+/* --- 3. Buttons are all one height ----------------------------------
+   Solid, secondary and ghost carry different borders, which used to leave
+   them a pixel or two out of line whenever they sat in the same row. */
+button, .button { min-height: 32px; }
+.small-btn, .button.small-btn { min-height: 26px; }
+
+/* --- 4. Card headings all the same size ----------------------------- */
+.card > h2:first-child { margin: 0 0 10px; }
+.table-head h2 { margin: 0; }
+.card > p.muted:first-of-type { margin-top: 0; }
+
+/* --- 5. Rhythm: one gap between blocks, everywhere ------------------- */
+.card + .card,
+.card + .table-card,
+.table-card + .card,
+.table-card + .table-card { margin-top: 12px; }
+
+/* --- 6. The three-dot menu on a table row ---------------------------
+   A parts row used to carry five buttons. Open stays out; everything else
+   waits behind the dots, so 91 rows show 91 buttons instead of 455. */
+.row-menu { position: relative; display: inline-block; text-align: left; }
+.row-menu > summary {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; min-height: 26px; padding: 0 7px;
+  font-size: 15px; line-height: 1; letter-spacing: 1px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card-bg); color: var(--ink-2);
+}
+.row-menu > summary::-webkit-details-marker { display: none; }
+.row-menu > summary::marker { content: ''; }
+.row-menu > summary:hover { border-color: var(--border-strong); color: var(--ink); }
+.row-menu[open] > summary { border-color: var(--border-strong); color: var(--ink); }
+/* Closed has to mean closed. Form styles set display on labels and buttons,
+   which beats the browser's own "hide a closed details" rule, so say it here. */
+.row-menu:not([open]) > *:not(summary) { display: none !important; }
+.row-menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 40;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  min-width: 178px; padding: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  box-shadow: 0 12px 28px rgba(16, 20, 28, .18);
+  white-space: nowrap;
+}
+.row-menu-list > form { display: block; margin: 0; }
+.row-menu-list .button,
+.row-menu-list button {
+  width: 100%; justify-content: flex-start;
+  box-shadow: none; font-size: 12.5px;
+}
+/* A table scrolls sideways and a card clips its corners, which would slice
+   the open menu in half. While a menu is open, and only then, they stop
+   clipping. */
+.table-card:has(.row-menu[open]) { overflow: visible; }
+.wide-table:has(.row-menu[open]) { overflow: visible; }
