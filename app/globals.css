@@ -1007,3 +1007,19 @@ button, .button { min-height: 32px; }
    clipping. */
 .table-card:has(.row-menu[open]) { overflow: visible; }
 .wide-table:has(.row-menu[open]) { overflow: visible; }
+/* The actions column is pinned to the right edge, which means every row's
+   action cell paints its own white block. Without this the open menu was
+   sliced off wherever the row below it painted over the top. */
+td:has(.row-menu[open]) { z-index: 60; }
+
+/* Inside the menu everything reads as a list, not as four competing buttons:
+   same height, same weight, left aligned, and only Remove carries colour. */
+.row-menu-list .button,
+.row-menu-list button {
+  background: transparent; border-color: transparent; color: var(--ink);
+  min-height: 28px; padding: 4px 8px; font-weight: 500;
+}
+.row-menu-list .button:hover,
+.row-menu-list button:hover { background: var(--card-sunken); border-color: var(--border); }
+.row-menu-list .danger, .row-menu-list button.danger { color: #b42318; }
+.row-menu-list .danger:hover, .row-menu-list button.danger:hover { background: #fdf3f2; border-color: #f4c9c4; }
