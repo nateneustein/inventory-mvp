@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { requireUser } from '@/lib/require-user'
+import { requirePageAccess } from '@/lib/permissions'
 import { date, num, today } from '@/lib/format'
 import {
   dms, isoOf, buildWeekMap, surgeSearch, groupSurge, monthsToOrder,
@@ -61,6 +62,9 @@ async function fetchAll(build) {
 }
 
 export default async function AdvancedPredictionPage({ searchParams }) {
+  /* Closed to the floor. Checked here, on the server, on every render. */
+  await requirePageAccess('canViewPredictions', '/predictions/advanced')
+
   const params = searchParams ? await searchParams : {}
   const { supabase } = await requireUser()
 
