@@ -38,6 +38,9 @@ const { data: receives } = await supabase.from('receiving_events').select('*, pa
         </div>
       )}
       <ShipmentTimeline po={po} />
+      {/* The whole supplier card. Not drawn for anyone the database would not
+          answer about suppliers anyway. */}
+      {perms.canSeeSuppliers && (
       <div className="card">
 <div className="table-head"><h2>Suppliers on this shipment</h2><span className="badge info">{1 + (alsoFrom || []).length}</span></div>
 <p className="muted small">The main supplier is the one on the shipment itself, set in the edit form below. Add the others here when a container is packed at more than one factory.</p>
@@ -68,6 +71,7 @@ const { data: receives } = await supabase.from('receiving_events').select('*, pa
 </form>}
 </details>
 </div>
+      )}
 <div className="grid two">
         {!perms.canManagePurchasing && (
           <div className="card">
