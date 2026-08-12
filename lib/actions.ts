@@ -296,6 +296,12 @@ function importedFieldValue(row: any, field: string) {
   if (field === 'item_name') return clean(row.item_name)
   if (field === 'variation') return clean(row.variation_text)
   if (field === 'customization') return clean(row.customization_text)
+  /* Everything the buyer picked from a dropdown on an Amazon custom listing,
+     as "Label: choice | Label: choice". Read off the order's own file, because
+     a custom listing sells every variation under one sku. Nothing here is tied
+     to one listing - whatever a new listing calls its dropdowns is what you
+     write a rule against. */
+  if (field === 'custom_options') return clean(row.custom_options_text)
   return ''
 }
 
@@ -555,7 +561,7 @@ export async function applyMappingRulesToUnmappedRows() {
   for (;;) {
     const { data: rows, error: rowsError } = await supabase
       .from('imported_order_rows')
-      .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text, mapping_status')
+      .select('id, platform, account_name, platform_sku, item_name, variation_text, customization_text, custom_options_text, mapping_status')
       .in('mapping_status', ['unmapped', 'needs_review'])
       .order('id')
       .range(pageStart, pageStart + PAGE_SIZE - 1)
