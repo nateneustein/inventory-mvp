@@ -20,10 +20,10 @@ const navGroups = [
   {
     title: 'Control',
     links: [
-      ['Dashboard', '/dashboard'],
+      ['Dashboard', '/dashboard', 'canViewDashboard'],
       ['Uploads / Connections', '/uploads', 'canUploadOrders'],
       ['Imported Orders', '/imported-orders', 'canUploadOrders'],
-      ['Reports', '/reports'],
+      ['Reports', '/reports', 'canViewReports'],
     ]
   },
   {
@@ -47,14 +47,14 @@ const navGroups = [
       ['Finished Products', '/products', 'canManageMasterData'],
       ['BOM / Master File', '/boms', 'canManageMasterData'],
       ['Mapping Rules', '/mapping-rules', 'canUploadOrders'],
-      ['Usage & History', '/usage'],
+      ['Usage & History', '/usage', 'canViewUsageHistory'],
     ]
   },
   {
     title: 'Planning',
     links: [
-      ['Basic Prediction', '/predictions/basic'],
-      ['Advanced Prediction', '/predictions/advanced'],
+      ['Basic Prediction', '/predictions/basic', 'canViewPredictions'],
+      ['Advanced Prediction', '/predictions/advanced', 'canViewPredictions'],
       ['Suppliers', '/suppliers', 'canManageMasterData'],
     ]
   },
@@ -82,7 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="app-shell">
           {user && (
             <aside className="sidebar">
-              <Link className="brand-card" href="/dashboard">
+              <Link className="brand-card" href={perms.canViewDashboard ? '/dashboard' : '/parts'}>
                 <img className="brand-icon" src="/icon.svg" alt="" width={34} height={34} />
                 <span>
                   <b>EO Inventory</b>
