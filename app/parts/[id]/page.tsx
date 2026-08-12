@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getPermissions } from '@/lib/permissions'
 import { requireUser } from '@/lib/require-user'
 import { createManualAdjustment, reportZeroStock, reportDamage, archivePart, createSupplier, setPartIgnoreAlerts } from '@/lib/actions'
 import {
@@ -130,6 +131,11 @@ function SupplierRow({
 }
 
 export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  /* The floor gets stock and shipments. Everything else on this page -
+     the reorder window, the prediction, suppliers, files, history - belongs
+     to whoever plans the ordering, so it is not rendered at all for them. */
+  const perms = await getPermissions()
+
   const { id } = await params
   const { supabase } = await requireUser()
 
@@ -181,6 +187,8 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         </div>
         <div className="page-head-actions">
           <Link className="button ghost" href="/parts">Back</Link>
+          {perms.canViewPartPlanning && (
+          <>
           <form className="inline-form" action={setPartIgnoreAlerts}>
             <input type="hidden" name="id" value={id} />
             <input type="hidden" name="ignore_alerts" value={part.ignore_alerts ? 'false' : 'true'} />
@@ -189,6 +197,8 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             </ActionButton>
           </form>
           <Link className="button" href={'/predictions/advanced?part_id=' + id}>Calculate reorder</Link>
+          </>
+          )}
         </div>
       </div>
 
@@ -254,8 +264,8 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <div className="table-head"><h2>Shipments</h2></div>
         <h3 className="ap-sub">On the way</h3>
         {incoming && incoming.length ? (
-          <table><thead><tr><th>PO</th><th>Supplier</th><th>Qty coming</th><th>Expected</th><th>Tracking</th><th>Status</th></tr></thead>
-            <tbody>{incoming.map((s: any) => (<tr key={s.purchase_order_item_id}><td>{s.po_number}</td><td>{s.supplier_name || '—'}</td><td>{num(s.remaining_qty)}</td><td>{s.expected_date ? date(s.expected_date) : '—'}</td><td>{s.tracking_number || '—'}</td><td>{s.status}</td></tr>))}</tbody></table>
+          <table><thead><tr><th>PO</th>{perms.canSeeSuppliers && <th>Supplier</th>}<th>Qty coming</th><th>Expected</th><th>Tracking</th><th>Status</th></tr></thead>
+            <tbody>{incoming.map((s: any) => (<tr key={s.purchase_order_item_id}><td>{s.po_number}</td>{perms.canSeeSuppliers && <td>{s.supplier_name || '—'}</td>}<td>{num(s.remaining_qty)}</td><td>{s.expected_date ? date(s.expected_date) : '—'}</td><td>{s.tracking_number || '—'}</td><td>{s.status}</td></tr>))}</tbody></table>
         ) : <p className="muted">Nothing on the way right now.</p>}
         <h3 className="ap-sub">Recently received</h3>
         {recentReceipts && recentReceipts.length ? (
@@ -264,6 +274,9 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         ) : <p className="muted">No shipments received for this part yet.</p>}
       </div>
 
+      {/* Planning half of the page. Not rendered at all for the floor. */}
+      {perms.canViewPartPlanning && (
+      <>
       <div className="card">
         <div className="table-head">
           <h2>When should this part be reordered?</h2>
@@ -567,6 +580,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <div className="table-head"><h2>Recent movements</h2></div>
         <div className="wide-table"><table><thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(movements || []).map((m: any) => <tr key={m.id}><td>{date(m.created_at)}</td><td>{m.movement_type}</td><td>{num(m.quantity)}</td><td>{m.reason}</td><td>{m.notes}</td></tr>)}{(movements || []).length === 0 && <tr><td colSpan={5}><div className="empty-state">No movement history yet.</div></td></tr>}</tbody></table></div>
       </div>
+      )}
     </>
   )
 }
