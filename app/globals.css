@@ -1049,7 +1049,16 @@ td:has(.row-menu[open]) { z-index: 60; }
    the only sensible place for it once the panel is 400px tall.
    ------------------------------------------------------------------- */
 .ap-dialcard { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.ap-dialcard > form { margin: 0; }
+/* Both forms are flex containers, which matters more than it looks. Left as a
+   plain block, the form holding the dials control wraps it in a LINE box - the
+   summary is an inline-level box, so it sits on a text baseline with the
+   line's descender space underneath. That made the form 44px tall around a
+   32px control and pushed the control 12px down the card, which is why the two
+   buttons were the same size and still did not line up. As a flex item there
+   is no line box and no baseline, so the form is exactly as tall as what is
+   inside it. */
+.ap-dialcard > form { margin: 0; display: flex; align-items: center; }
+.ap-dialcard > form > details { flex: 1 1 auto; min-width: 0; }
 .ap-dialcard > form:first-of-type:has(details[open]) { flex: 1 1 100%; }
 .ap-dialcard .ap-saverow {
   display: flex; align-items: center; gap: 10px;
