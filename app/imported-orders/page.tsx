@@ -5,6 +5,7 @@ import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { VOID_REASONS } from '@/lib/void-reasons'
 import { ActionButton } from '@/components/action-button'
+import { fetchAmazonCustomizations } from '@/lib/customization-actions'
 
 function dedupeBadge(row:any) {
   if (row.voided_at) return <span className="badge voided">voided</span>
@@ -24,6 +25,27 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
     .from('unposted_order_rows')
     .select('platform, account_name, rows_waiting, units_waiting, oldest_date')
   const totalWaiting = (waiting || []).reduce((sum:number, w:any) => sum + Number(w.rows_waiting || 0), 0)
+
+  /* Amazon custom lines whose choices have not been read yet. A custom listing
+     sells every variation under one sku, so until the order's own file is read
+     these lines cannot be mapped to a part - they are not "unmapped because you
+     forgot a rule", they are "unmapped because nothing yet knows what was
+     bought", and that difference is worth showing. */
+  const { count: customPending } = await supabase
+    .from('imported_order_rows')
+    .select('id', { count: 'exact', head: true })
+    .eq('platform', 'amazon')
+    .like('customization_text', 'http%')
+    .is('custom_options', null)
+  const { count: customRead } = await supabase
+    .from('imported_order_rows')
+    .select('id', { count: 'exact', head: true })
+    .eq('custom_fetch_status', 'ok')
+  const { count: customFailed } = await supabase
+    .from('imported_order_rows')
+    .select('id', { count: 'exact', head: true })
+    .eq('custom_fetch_status', 'failed')
+    .is('custom_options', null)
 
   let query = supabase.from('imported_order_rows').select('*, mapped:product_variations!imported_order_rows_mapped_variation_id_fkey(internal_sku, variation_name), demand:product_variations!imported_order_rows_demand_variation_id_fkey(internal_sku, variation_name)').order('created_at', { ascending: false }).limit(500)
   if (params.platform) query = query.eq('platform', params.platform)
@@ -53,6 +75,38 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
     <>
       <div className="page-head"><div><h1>Imported Orders</h1><p className="muted">Raw order rows from Etsy, Amazon, TikTok, and Shopify before they become inventory demand/usage.</p></div><Link className="button" href="/uploads">Upload CSV</Link></div>
       <div className="card alert"><strong>Duplicate protection:</strong> The system dedupes by marketplace order line, not only by order number. Same order with multiple real items still counts each item; overlapping spreadsheet uploads get marked duplicate and ignored for inventory.</div>
+
+      {(customPending || customRead || customFailed) ? (
+      <div className={customPending ? 'card danger-soft' : 'card'}>
+        <h2>Amazon custom orders</h2>
+        <p className="muted">
+          An Amazon custom listing sells every variation under one SKU and one ASIN, so the order
+          report cannot say which one was bought - two orders for completely different products look
+          identical in it. What the buyer actually picked lives in the file behind that order&apos;s
+          customized-url. Reading it fills in a <b>Custom options</b> field you can then write ordinary
+          mapping rules against, for any custom listing, not just the ones you have today.
+        </p>
+        <p className="muted small">
+          Only the dropdown choices are kept. The same file carries the buyer&apos;s names, message,
+          date and location; those are read past and never stored.
+        </p>
+        <div className="action-row" style={{ marginTop: 10 }}>
+          <span className="badge ok">{num(customRead || 0)} read</span>
+          {(customPending || 0) > 0 && <span className="badge warn">{num(customPending || 0)} still to read</span>}
+          {(customFailed || 0) > 0 && <span className="badge out">{num(customFailed || 0)} could not be read</span>}
+        </div>
+        {(customPending || 0) > 0 && (
+          <form action={fetchAmazonCustomizations} style={{ marginTop: 10 }}>
+            <ActionButton busyLabel="Reading…" doneLabel="Read">Read the next 25</ActionButton>
+            <span className="muted small" style={{ marginLeft: 10 }}>
+              Done 25 at a time on purpose: fifty downloads inside one request is how an upload times
+              out halfway and leaves you guessing what landed. Press it again to carry on - anything
+              that failed stays listed and is tried again.
+            </span>
+          </form>
+        )}
+      </div>
+      ) : null}
 
       <div className={totalWaiting > 0 ? 'card danger-soft' : 'card success-soft'}>
         <h2>{totalWaiting > 0 ? `${totalWaiting} mapped order line(s) have not consumed stock yet` : 'All mapped order lines have consumed stock'}</h2>
@@ -86,7 +140,13 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
           <tbody>
             {rows.map((r:any) => (
               <tr key={r.id} className={r.voided_at ? 'voided-row' : r.dedupe_status === 'duplicate' ? 'muted-row' : ''}>
-                <td>{r.platform}</td><td>{r.account_name}</td><td>{dedupeBadge(r)}<br/><span className="small muted">{r.external_line_key_source}</span></td><td><Link className="link" href={`/imported-orders/${r.id}`}>{r.platform_order_id}</Link></td><td><span className="small muted">{r.external_line_key}</span></td><td>{date(r.order_date_parsed || r.order_date)}</td><td>{date(r.week_start)}</td><td>{r.platform_sku}</td><td>{num(r.quantity)}</td><td>{r.item_name}</td><td>{r.variation_text}</td><td>{r.customization_text}</td><td>{r.order_status}</td><td><span className={`badge ${r.mapping_status}`}>{r.mapping_status}</span><br/><span className="small muted">{r.mapped?.internal_sku}</span></td>
+                <td>{r.platform}</td><td>{r.account_name}</td><td>{dedupeBadge(r)}<br/><span className="small muted">{r.external_line_key_source}</span></td><td><Link className="link" href={`/imported-orders/${r.id}`}>{r.platform_order_id}</Link></td><td><span className="small muted">{r.external_line_key}</span></td><td>{date(r.order_date_parsed || r.order_date)}</td><td>{date(r.week_start)}</td><td>{r.platform_sku}</td><td>{num(r.quantity)}</td><td>{r.item_name}</td><td>{r.variation_text}</td><td>{r.custom_options_text
+                  ? r.custom_options_text
+                  : r.custom_fetch_status === 'failed'
+                    ? <span className="muted small" title={r.custom_fetch_error || ''}>could not be read</span>
+                    : String(r.customization_text || '').startsWith('http')
+                      ? <span className="muted small">not read yet</span>
+                      : r.customization_text}</td><td>{r.order_status}</td><td><span className={`badge ${r.mapping_status}`}>{r.mapping_status}</span><br/><span className="small muted">{r.mapped?.internal_sku}</span></td>
                 <td><details><summary className="button small-btn secondary">Edit</summary><form className="stack card flat" action={updateImportedOrderRow}><input type="hidden" name="id" value={r.id}/><label>Mapping status<select name="mapping_status" defaultValue={r.mapping_status}><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label><label>Actual variation<SearchSelect name="mapped_variation_id" defaultValue={r.mapped_variation_id || ''} placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.variation_name || ''} · ${v.products?.name || ''}`, hint: v.internal_sku }))} /></label><label>Demand variation<SearchSelect name="demand_variation_id" defaultValue={r.demand_variation_id || ''} placeholder="Same as actual" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.variation_name || ''} · ${v.products?.name || ''}`, hint: v.internal_sku }))} /></label><div className="action-row"><ActionButton busyLabel="Saving…" doneLabel="Saved">Save mapping</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div></form>{r.voided_at ? (<form className="stack card flat" action={unvoidImportedOrderRow}><input type="hidden" name="id" value={r.id}/><p className="small muted">Voided{r.void_reason ? ` — ${r.void_reason}` : ''}. It is not counting as a sale.</p><div className="action-row"><ActionButton className="small-btn secondary" confirm="Put this line back in play?" busyLabel="…" doneLabel="Restored">Un-void this line</ActionButton></div></form>) : (<form className="stack card flat" action={voidImportedOrderRow}><input type="hidden" name="id" value={r.id}/><p className="small muted">Void keeps the line but stops it counting, and puts back any parts it used.</p><label>Void reason<select name="void_reason" defaultValue="Replacement sent">{VOID_REASONS.map((v) => <option key={v} value={v}>{v}</option>)}</select></label><label>Note (optional)<input name="void_note" placeholder="Broken in transit, resent" /></label><div className="action-row"><ActionButton className="danger small-btn" confirm="Confirm: void this line?" busyLabel="Voiding…" doneLabel="Voided">Void this line</ActionButton></div></form>)}<form action={deleteImportedOrderRow}><input type="hidden" name="id" value={r.id}/><div className="action-row"><ActionButton className="danger small-btn" confirm="Permanently delete this source row?" busyLabel="Deleting…" doneLabel="Deleted">Delete row</ActionButton></div></form></details></td>
               </tr>
             ))}
