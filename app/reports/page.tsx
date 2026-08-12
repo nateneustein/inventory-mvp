@@ -1,7 +1,11 @@
 import { requireUser } from '@/lib/require-user'
+import { requirePageAccess } from '@/lib/permissions'
 import { date, num } from '@/lib/format'
 
 export default async function ReportsPage() {
+  /* Closed to the floor. Checked here, on the server, on every render. */
+  await requirePageAccess('canViewReports', '/reports')
+
   const { supabase } = await requireUser()
   const { data: zeroReports } = await supabase.from('v_zero_stock_reports').select('*').order('created_at', { ascending: false }).limit(100)
   const { data: deadStock } = await supabase.from('dead_stock_candidates').select('*').neq('dead_stock_status', 'active').order('dead_stock_status')
