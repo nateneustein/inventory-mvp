@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic'
 const ROLE_NOTES: Record<string, string> = {
   admin: 'Everything, including managing these users.',
   manager: 'Everything except managing users.',
-  production_associate: 'Receiving, damage reports and reporting zero stock. Can fix their own entries on the same day.',
+  shipping_lead: 'Everything a production associate can do, and one thing more: they can see who the supplier is on shipments and receiving.',
+  production_associate: 'Receiving and reporting zero stock, and they can fix their own entries on the same day. Never sees suppliers, the dashboard, reports, usage or the prediction pages.',
 }
 
 /* Table names are how the database thinks; these are how a person thinks. */
@@ -175,6 +176,7 @@ export default async function UsersPage({ searchParams }: { searchParams?: Promi
                           <label>Role
                             <select name="role" defaultValue={p.role}>
                               <option value="production_associate">Production Associate</option>
+                    <option value="shipping_lead">Shipping Lead</option>
                               <option value="manager">Manager</option>
                               <option value="admin">Admin</option>
                             </select>
