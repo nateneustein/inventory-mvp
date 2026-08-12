@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export type Role = 'admin' | 'manager' | 'shipping_lead' | 'production_associate' | 'none'
@@ -94,8 +95,35 @@ export function permissionsFor(role: Role) {
 
 export type Permissions = ReturnType<typeof permissionsFor>
 
+/**
+ * Where a person lands when they open the app.
+ *
+ * The dashboard is a manager's screen now, so sending everyone there would drop
+ * half the team on a locked door. One place decides this, so sign-in, the logo
+ * in the corner and the front door all agree.
+ */
+export function homePathFor(role: Role) {
+  return role === 'admin' || role === 'manager' ? '/dashboard' : '/parts'
+}
+
 export async function getPermissions(): Promise<Permissions> {
   return permissionsFor(await getCurrentRole())
+}
+
+/**
+ * A page a role may not open at all.
+ *
+ * The middleware already turns these requests away at the door, but it is
+ * written to fail open on purpose, so that a database hiccup cannot lock the
+ * whole team out of the app. This runs inside the page itself, on the server,
+ * every single time it renders. So the page is genuinely closed - not hidden.
+ */
+export async function requirePageAccess(flag: keyof Permissions, path: string) {
+  const perms = await getPermissions()
+  if (!perms[flag]) {
+    redirect('/no-access?from=' + encodeURIComponent(path) + '&role=' + encodeURIComponent(perms.role))
+  }
+  return perms
 }
 
 /**
