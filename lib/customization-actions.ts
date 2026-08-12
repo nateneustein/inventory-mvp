@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getPermissions, deniedUrl } from '@/lib/permissions'
+import { conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
 
 /**
  * Reading the choices off an Amazon custom order.
@@ -121,44 +122,67 @@ export async function readCustomizationZip(bytes: ArrayBuffer) {
 /* ------------------------------------------------------------------ *
  * Which lines actually need their file opened.
  *
- * Downloading a file for every custom order would be work nobody asked for.
- * The mapping rules already say which listings need the choice to be known -
- * a rule is only written against Custom options when the sku on its own is not
- * enough. So the rules decide the work: if no rule cares about a sku, its
- * orders are left alone.
+ * The rules already say this, and they say it in full - not just by sku.
+ * A rule like
  *
- * If a rule uses Custom options but names no sku, it could apply to anything,
- * so nothing can be safely skipped and everything is read. That is the honest
- * answer rather than a guess.
+ *     Item name contains "Star Map for Anniversary Light"
+ *     AND Custom options contains "U Shaped Base"
+ *
+ * is really two halves. The first half can be checked against the order report
+ * on its own, and it is exactly the list of lines whose file is worth opening.
+ * The second half is the part that needs the file. So: take every active rule
+ * that asks about Custom options, throw away that one condition, and whatever
+ * is left is the test for "does this line need downloading".
+ *
+ * Nothing here knows about star maps, item names or skus in particular. It
+ * evaluates whatever conditions the rule happens to carry.
  * ------------------------------------------------------------------ */
-async function skusTheRulesCareAbout(supabase: any) {
-  const { data: rules } = await supabase
-    .from('product_mapping_rules')
-    .select('match_field, match_type, match_value, conditions, active')
-    .eq('active', true)
 
-  const skus = new Set<string>()
-  let everything = false
-
-  for (const rule of rules || []) {
-    const conds = Array.isArray(rule.conditions) && rule.conditions.length
-      ? rule.conditions
-      : [{ field: rule.match_field, type: rule.match_type, value: rule.match_value }]
-    if (!conds.some((c: any) => c && c.field === 'custom_options')) continue
-
-    const skuConds = conds.filter((c: any) => c && c.field === 'sku' && String(c.value || '').trim())
-    if (!skuConds.length) { everything = true; continue }
-    for (const c of skuConds) skus.add(String(c.value).trim().toLowerCase())
-  }
-  return { skus, everything }
+/** The same fields the mapping matcher reads, minus the one that needs the file. */
+function fieldValue(row: any, field: string) {
+  if (field === 'sku') return String(row.platform_sku || '')
+  if (field === 'item_name') return String(row.item_name || '')
+  if (field === 'variation') return String(row.variation_text || '')
+  if (field === 'customization') return String(row.customization_text || '')
+  return ''
 }
 
-function rowIsWanted(row: any, skus: Set<string>, everything: boolean) {
-  if (everything) return true
-  const sku = String(row.platform_sku || '').toLowerCase()
-  if (!sku) return false
-  for (const want of skus) {
-    if (sku === want || sku.includes(want) || want.includes(sku)) return true
+/** Must stay in step with the matcher in lib/actions.ts - same three types. */
+function conditionHits(condition: RuleCondition, row: any) {
+  const haystack = fieldValue(row, condition.field).toLowerCase()
+  const needle = String(condition.value || '').trim().toLowerCase()
+  if (!needle) return false
+  if (condition.type === 'equals') return haystack === needle
+  if (condition.type === 'starts_with') return haystack.startsWith(needle)
+  return haystack.includes(needle)
+}
+
+type Narrowed = { others: RuleCondition[], anyLogic: boolean }
+
+async function rulesThatNeedTheFile(supabase: any): Promise<Narrowed[]> {
+  const { data } = await supabase
+    .from('product_mapping_rules')
+    .select('match_field, match_type, match_value, conditions, condition_logic, active')
+    .eq('active', true)
+
+  const out: Narrowed[] = []
+  for (const rule of data || []) {
+    const conds = conditionsOf(rule)
+    if (!conds.some((c) => c.field === 'custom_options')) continue
+    out.push({
+      others: conds.filter((c) => c.field !== 'custom_options'),
+      // "Any of these" means the Custom options condition could carry the rule
+      // by itself, so the other conditions cannot rule a line out.
+      anyLogic: String(rule.condition_logic || 'and').toLowerCase() === 'or',
+    })
+  }
+  return out
+}
+
+function rowNeedsFile(row: any, rules: Narrowed[]) {
+  for (const rule of rules) {
+    if (rule.anyLogic || rule.others.length === 0) return true
+    if (rule.others.every((c) => conditionHits(c, row))) return true
   }
   return false
 }
@@ -167,7 +191,7 @@ function rowIsWanted(row: any, skus: Set<string>, everything: boolean) {
 async function pendingRows(supabase: any, limit: number) {
   const { data } = await supabase
     .from('imported_order_rows')
-    .select('id, platform_order_id, platform_sku, customization_text')
+    .select('id, platform_order_id, platform_sku, item_name, variation_text, customization_text')
     .eq('platform', 'amazon')
     .like('customization_text', 'http%')
     .is('custom_options', null)
@@ -179,15 +203,9 @@ async function pendingRows(supabase: any, limit: number) {
 /** What the page shows above the button. */
 export async function customizationStatus() {
   const supabase = await createClient()
-  const { skus, everything } = await skusTheRulesCareAbout(supabase)
+  const rules = await rulesThatNeedTheFile(supabase)
   const rows = await pendingRows(supabase, MAX_ROWS)
-
-  const wanted = rows.filter((r: any) => rowIsWanted(r, skus, everything))
-  const bySku: Record<string, number> = {}
-  for (const r of rows) {
-    const k = String(r.platform_sku || 'no sku')
-    bySku[k] = (bySku[k] || 0) + 1
-  }
+  const wanted = rows.filter((r: any) => rowNeedsFile(r, rules))
 
   const { count: read } = await supabase
     .from('imported_order_rows')
@@ -205,33 +223,32 @@ export async function customizationStatus() {
     skipped: rows.length - wanted.length,
     read: read || 0,
     failed: failed || 0,
-    bySku,
-    rulesNarrow: !everything && skus.size > 0,
+    ruleCount: rules.length,
   }
 }
 
 /* ------------------------------------------------------------------ *
  * Reading the files.
  *
- * Two things decide how much one press gets through: how many downloads run at
- * once, and how long the whole press is allowed to take.
- *
  * The files are small - about 85KB each - and the time is nearly all waiting on
- * Amazon rather than working, so running eight at a time turns a minute of
- * queueing into a few seconds. Eight is deliberate: enough to make the waiting
- * overlap, few enough that Amazon is never hit hard enough to notice.
- *
- * The stop condition is a clock, not a count. A press keeps going until either
- * nothing is left or the budget is nearly spent, so a normal week finishes in
- * one press. A count would be too small on a light week and time out on a heavy
- * one; a clock is right on both.
+ * Amazon rather than working, so eight run at once. The stop condition is a
+ * clock, not a count, so a normal week finishes in one press.
  * ------------------------------------------------------------------ */
 const CONCURRENCY = 8
 const TIME_BUDGET_MS = 45000
 const MAX_ROWS = 1000
 
-async function readInto(supabase: any, rows: any[]) {
+export async function fetchAmazonCustomizations() {
+  const perms = await getPermissions()
+  if (!perms.canUploadOrders) {
+    redirect(deniedUrl('/imported-orders', 'read the Amazon customization files'))
+  }
+  const supabase = await createClient()
   const startedAt = Date.now()
+
+  const rules = await rulesThatNeedTheFile(supabase)
+  const rows = (await pendingRows(supabase, MAX_ROWS)).filter((r: any) => rowNeedsFile(r, rules))
+
   let done = 0
   let failed = 0
   let stoppedEarly = false
@@ -279,57 +296,10 @@ async function readInto(supabase: any, rows: any[]) {
     if (Date.now() - startedAt > TIME_BUDGET_MS) { stoppedEarly = true; break }
     await Promise.all(rows.slice(i, i + CONCURRENCY).map(readOne))
   }
-  return { done, failed, stoppedEarly }
-}
 
-function finish(done: number, failed: number, stoppedEarly: boolean, extra?: string) {
   revalidatePath('/imported-orders')
   const parts = [done + ' order(s) read']
   if (failed) parts.push(failed + ' could not be read')
   if (stoppedEarly) parts.push('stopped on time - press again to carry on')
-  if (extra) parts.push(extra)
   redirect('/imported-orders?notice=' + encodeURIComponent(parts.join(', ')))
-}
-
-/** The everyday button: only the lines a mapping rule actually needs. */
-export async function fetchAmazonCustomizations() {
-  const perms = await getPermissions()
-  if (!perms.canUploadOrders) {
-    redirect(deniedUrl('/imported-orders', 'read the Amazon customization files'))
-  }
-  const supabase = await createClient()
-  const { skus, everything } = await skusTheRulesCareAbout(supabase)
-  const rows = (await pendingRows(supabase, MAX_ROWS)).filter((r: any) => rowIsWanted(r, skus, everything))
-
-  const { done, failed, stoppedEarly } = await readInto(supabase, rows)
-  finish(done, failed, stoppedEarly)
-}
-
-/**
- * The chicken-and-egg button.
- *
- * You cannot write a rule against Custom options until you know what a listing
- * calls its dropdowns, and nothing narrows to that listing until the rule
- * exists. This reads exactly ONE order per sku so the wording appears on screen,
- * then you write the rule and the button above does the rest.
- */
-export async function fetchOneSampleEachSku() {
-  const perms = await getPermissions()
-  if (!perms.canUploadOrders) {
-    redirect(deniedUrl('/imported-orders', 'read the Amazon customization files'))
-  }
-  const supabase = await createClient()
-  const rows = await pendingRows(supabase, MAX_ROWS)
-
-  const oneEach: any[] = []
-  const seen = new Set<string>()
-  for (const row of rows) {
-    const sku = String(row.platform_sku || '')
-    if (seen.has(sku)) continue
-    seen.add(sku)
-    oneEach.push(row)
-  }
-
-  const { done, failed, stoppedEarly } = await readInto(supabase, oneEach)
-  finish(done, failed, stoppedEarly, 'one sample per SKU')
 }
