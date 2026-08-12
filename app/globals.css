@@ -1058,3 +1058,11 @@ td:has(.row-menu[open]) { z-index: 60; }
 /* The explanation follows the button and takes whatever room is left, so it
    wraps rather than shoving the button to the far edge of the card. */
 .ap-dialcard .ap-saverow .ap-sm { flex: 1 1 240px; }
+/* The dials control is a <summary>, which is laid out as inline-block, while
+   the save control is a real <button> laid out as inline-flex. Same padding,
+   same font, two different boxes - which is why one sat a couple of pixels
+   shorter than the other with its label riding high. Inside this card the
+   summary is laid out exactly like the button, so the two are one shape. */
+.ap-dialcard .ap-dials > summary.ap-dials-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+}
