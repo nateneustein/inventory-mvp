@@ -1030,6 +1030,9 @@ td:has(.row-menu[open]) { z-index: 60; }
    rendered at all, which left the whole sign-in page crushed into a 236px
    strip in the corner. */
 .app-shell:not(:has(.sidebar)) { grid-template-columns: 1fr; }
-.app-shell:not(:has(.sidebar)) .container > .card {
+/* Only when the page is a single card, which is what sign-in is. The
+   no-access screen also renders signed-out and has two cards; centring those
+   in a narrow column made it look broken. */
+.app-shell:not(:has(.sidebar)) .container > .card:only-of-type {
   margin: 48px auto 0; width: 100%; max-width: 420px;
 }
