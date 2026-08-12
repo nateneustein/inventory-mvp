@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 
-export type Role = 'admin' | 'manager' | 'production_associate' | 'none'
+export type Role = 'admin' | 'manager' | 'shipping_lead' | 'production_associate' | 'none'
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   manager: 'Manager',
+  shipping_lead: 'Shipping Lead',
   production_associate: 'Production Associate',
   none: 'No access',
 }
@@ -33,6 +34,9 @@ export function permissionsFor(role: Role) {
   const isAdmin = role === 'admin'
   const isManagerUp = role === 'admin' || role === 'manager'
   const signedIn = role !== 'none'
+  /* A shipping lead is a production associate in every respect but one: they
+     are trusted with who we buy from. Nothing else changes, on purpose. */
+  const canSeeSuppliers = isManagerUp || role === 'shipping_lead'
 
   return {
     role,
@@ -57,6 +61,22 @@ export function permissionsFor(role: Role) {
     canViewShipments: signedIn,
     canCreateShipments: signedIn,
     canLogShipmentProgress: signedIn,
+
+    // Who we buy from - names, contacts, phone numbers, prices per supplier.
+    // The database refuses this data outright to anyone without it, so this
+    // flag only decides whether the page bothers to draw the column.
+    canSeeSuppliers,
+
+    // Screens the floor has no use for. Each of these pages also checks this
+    // for itself on the server before it renders anything.
+    canViewDashboard: isManagerUp,
+    canViewReports: isManagerUp,
+    canViewUsageHistory: isManagerUp,
+    canViewPredictions: isManagerUp,
+
+    // The planning half of a part page - reorder window, prediction, suppliers,
+    // files, history. The floor sees stock and shipments and stops there.
+    canViewPartPlanning: isManagerUp,
 
     // Master data and purchasing.
     canManageMasterData: isManagerUp,
