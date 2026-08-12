@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto'
 import { CONDITION_FIELDS, CONDITION_TYPES, conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
 import { today } from '@/lib/format'
 import { refreshPredictionSnapshots } from '@/lib/part-detail-actions'
-import { getPermissions, deniedUrl } from '@/lib/permissions'
+import { getPermissions, deniedUrl, getCurrentRole, homePathFor } from '@/lib/permissions'
 
 type CsvRow = Record<string, string>
 
@@ -344,7 +344,9 @@ export async function signIn(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) redirect(`/login?error=${encodeURIComponent(error.message)}`)
-  redirect('/dashboard')
+  /* Not everyone is allowed on the dashboard any more, so ask where this
+     person belongs rather than sending them all to the same locked door. */
+  redirect(homePathFor(await getCurrentRole()))
 }
 
 export async function signOut() {
