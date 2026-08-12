@@ -42,6 +42,8 @@ export async function saveAdvancedPredictionSettings(formData) {
     if (Number.isFinite(n) && (n > 0 || ((k === 'mfloor' || k === 'gfloor' || k === 'slook') && n >= 0))) settings[k] = n
   }
   settings.wait = formData.get('wait') === '1' ? 1 : 0
+  // Whether the new-listing bump is actually added, rather than only suggested.
+  settings.npa = formData.get('npa') === '1' ? 1 : 0
   for (const mk of ['sx', 'tx', 'rx']) {
     const raw = formData.get(mk)
     if (raw !== null) {
