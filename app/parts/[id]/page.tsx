@@ -580,6 +580,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         <div className="table-head"><h2>Recent movements</h2></div>
         <div className="wide-table"><table><thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(movements || []).map((m: any) => <tr key={m.id}><td>{date(m.created_at)}</td><td>{m.movement_type}</td><td>{num(m.quantity)}</td><td>{m.reason}</td><td>{m.notes}</td></tr>)}{(movements || []).length === 0 && <tr><td colSpan={5}><div className="empty-state">No movement history yet.</div></td></tr>}</tbody></table></div>
       </div>
+      </>
       )}
     </>
   )
