@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { requirePageAccess } from '@/lib/permissions'
 import { requireUser } from '@/lib/require-user'
 import { acknowledgeNotification } from '@/lib/actions'
 import { num, date } from '@/lib/format'
@@ -10,6 +11,9 @@ function statusBadge(status: string) {
 }
 
 export default async function DashboardPage() {
+  /* Closed to the floor. Checked here, on the server, on every render. */
+  await requirePageAccess('canViewDashboard', '/dashboard')
+
   const { supabase } = await requireUser()
 
   const { data: statusRows } = await supabase.from('inventory_status').select('*').order('stock_status', { ascending: false }).limit(300)
