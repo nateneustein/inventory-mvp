@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { requirePageAccess } from '@/lib/permissions'
 import { requireUser } from '@/lib/require-user'
 import { date, num, today } from '@/lib/format'
 
@@ -45,6 +46,9 @@ function predictionHref(params: any, zoom: string) {
 }
 
 export default async function BasicPredictionPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string, zoom?: string, as_of?: string }> }) {
+  /* Closed to the floor. Checked here, on the server, on every render. */
+  await requirePageAccess('canViewPredictions', '/predictions/basic')
+
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const statusFilter = params.status || ''
