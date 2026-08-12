@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getPermissions, deniedUrl } from '@/lib/permissions'
 import { conditionsOf, type RuleCondition } from '@/lib/rule-conditions'
+import { applyMappingRulesToUnmappedRows } from '@/lib/actions'
 
 /**
  * Reading the choices off an Amazon custom order.
@@ -296,6 +297,14 @@ export async function fetchAmazonCustomizations() {
     if (Date.now() - startedAt > TIME_BUDGET_MS) { stoppedEarly = true; break }
     await Promise.all(rows.slice(i, i + CONCURRENCY).map(readOne))
   }
+
+  /* The choices only matter because a rule is waiting on them. Mapping ran at
+     upload time, before these lines had any options to match, so running it
+     again here is what finishes the job - otherwise the page would read
+     "13 read" and the same 13 lines would still sit there unmapped, which is
+     exactly the half-done state this button exists to avoid. It is safe to run
+     repeatedly: a line can only ever consume stock once. */
+  if (done > 0) await applyMappingRulesToUnmappedRows()
 
   revalidatePath('/imported-orders')
   const parts = [done + ' order(s) read']
