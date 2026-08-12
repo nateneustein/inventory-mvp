@@ -457,7 +457,7 @@ export async function updateUserRole(formData: FormData) {
   const role = value(formData, 'role')
   const goBack = back(formData, '/users')
 
-  if (!['admin', 'manager', 'production_associate'].includes(role)) {
+  if (!['admin', 'manager', 'shipping_lead', 'production_associate'].includes(role)) {
     redirect(`${goBack}?error=${encodeURIComponent('That is not a valid role.')}`)
   }
   if (id === userId) {
