@@ -5,7 +5,7 @@ import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { VOID_REASONS } from '@/lib/void-reasons'
 import { ActionButton } from '@/components/action-button'
-import { fetchAmazonCustomizations, fetchOneSampleEachSku, customizationStatus } from '@/lib/customization-actions'
+import { fetchAmazonCustomizations, customizationStatus } from '@/lib/customization-actions'
 
 /* Reading the customization files means waiting on Amazon, eight downloads at a
    time, so this page is allowed longer than the default before it is cut off.
@@ -70,45 +70,39 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
       <div className={cx.wanted ? 'card danger-soft' : 'card'}>
         <h2>Amazon custom orders</h2>
         <p className="muted">
-          An Amazon custom listing sells every variation under one SKU and one ASIN, so the order
-          report cannot say which one was bought - two orders for completely different products look
-          identical in it. What the buyer picked lives in the file behind that order&apos;s
-          customized-url. Reading it fills in a <b>Custom options</b> field you can then write ordinary
-          mapping rules against, for any custom listing, not only the ones you sell today.
+          An Amazon custom listing sells every variation under one SKU, so the order report cannot say
+          which one was bought. What the buyer picked lives in the file behind that order&apos;s
+          customized-url. <b>Your mapping rules decide the work:</b> any rule that asks about
+          <b> Custom options</b> has a first half - item name, SKU, whatever you wrote - and that
+          first half is exactly the list of orders worth opening. Those get downloaded, their choices
+          are saved, and then the rule matches the rest of the way on its own.
         </p>
         <p className="muted small">
-          Only the dropdown choices are kept. The same file carries the buyer&apos;s names, message,
-          date and location; those are read past and never stored.
+          Only the dropdown choices are kept. The same file also carries the buyer&apos;s names,
+          message, date and location; those are read past and never stored.
         </p>
         <div className="action-row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
           <span className="badge ok">{num(cx.read)} read</span>
-          {cx.wanted > 0 && <span className="badge warn">{num(cx.wanted)} a rule needs</span>}
-          {cx.skipped > 0 && <span className="badge">{num(cx.skipped)} skipped - no rule asks for them</span>}
+          {cx.wanted > 0 && <span className="badge warn">{num(cx.wanted)} your rules need</span>}
+          {cx.skipped > 0 && <span className="badge">{num(cx.skipped)} no rule asks about</span>}
           {cx.failed > 0 && <span className="badge out">{num(cx.failed)} could not be read</span>}
         </div>
-        {cx.pending > 0 && (
-          <div className="action-row" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
-            {cx.wanted > 0 && (
-              <form action={fetchAmazonCustomizations}>
-                <ActionButton busyLabel="Reading…" doneLabel="Read">Read the {num(cx.wanted)} a rule needs</ActionButton>
-              </form>
-            )}
-            <form action={fetchOneSampleEachSku}>
-              <ActionButton className="button secondary" busyLabel="Reading…" doneLabel="Read">Read one of each SKU</ActionButton>
-            </form>
-          </div>
+        {cx.wanted > 0 && (
+          <form action={fetchAmazonCustomizations} style={{ marginTop: 10 }}>
+            <ActionButton busyLabel="Reading…" doneLabel="Read">Read these {num(cx.wanted)} orders</ActionButton>
+          </form>
         )}
-        {cx.pending > 0 && (
+        {cx.pending > 0 && cx.wanted === 0 && (
           <p className="muted small" style={{ marginTop: 8 }}>
-            {cx.rulesNarrow
-              ? 'Only lines a mapping rule actually asks about are downloaded - the rules decide the work, so nothing is fetched for a listing whose SKU already tells you everything.'
-              : 'No mapping rule mentions Custom options yet, so nothing can safely be skipped. Use "Read one of each SKU" to see what a listing calls its dropdowns, write the rule, and after that only the lines that rule needs are downloaded.'}
-            {' '}Each file is about 85KB and comes from Amazon, not from this app&apos;s storage; all that is kept here is the short list of choices. Eight run at once, so a normal week finishes in one press, and nothing is ever downloaded twice.
+            {cx.ruleCount === 0
+              ? 'No mapping rule asks about Custom options yet, so none of these need opening. Write a rule - the usual condition on item name or SKU, plus one on Custom options - and the orders it covers appear here.'
+              : 'Your Custom options rules do not cover any of the orders still waiting, so there is nothing to download. If that is wrong, check the first half of the rule against the item name on those lines.'}
           </p>
         )}
-        {Object.keys(cx.bySku || {}).length > 0 && (
-          <p className="muted small" style={{ marginTop: 6 }}>
-            Waiting by SKU: {Object.keys(cx.bySku).sort().map((k) => k + ' (' + cx.bySku[k] + ')').join(', ')}
+        {cx.wanted > 0 && (
+          <p className="muted small" style={{ marginTop: 8 }}>
+            Each file is about 85KB and comes from Amazon, not from this app&apos;s storage. Eight run at
+            once, so a normal week finishes in one press, and nothing is ever downloaded twice.
           </p>
         )}
       </div>
