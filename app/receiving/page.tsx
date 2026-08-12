@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/require-user'
 import { receivePurchaseOrderItem } from '@/lib/actions'
 import { receiveShipmentLines, undoReceivingEvent, editReceivingEvent, resolveMissingReceipt } from '@/lib/shipment-actions'
 import { date, num, supplierHint, today } from '@/lib/format'
+import { getPermissions } from '@/lib/permissions'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
 import { rowMatches } from '@/lib/search'
@@ -14,6 +15,11 @@ import { rowMatches } from '@/lib/search'
 const FINISHED = ['received', 'closed', 'cancelled']
 
 export default async function ReceivingPage({ searchParams }: { searchParams?: Promise<{ q?: string, po?: string, error?: string, notice?: string }> }) {
+  /* Who we buy from is not part of receiving a box. The database already
+     hands these fields back empty to anyone without the clearance; this keeps
+     the empty column and the empty line off the screen too. */
+  const perms = await getPermissions()
+
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const poId = params.po || ''
@@ -93,12 +99,12 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
           </div>
           <p className="muted small">Units marked missing when a shipment was checked in. They were <strong>not</strong> added to stock and are still <strong>outstanding</strong> on the order. When they turn up, hit <strong>Receive it</strong> to open the receiving form and enter what actually arrived (received / damaged / still missing). If they will never come, mark <strong>Won’t arrive</strong> to close the line.</p>
           <table>
-            <thead><tr><th>Since</th><th>PO</th><th>Supplier</th><th>Part</th><th>Missing</th><th></th></tr></thead>
+            <thead><tr><th>Since</th><th>PO</th>{perms.canSeeSuppliers && <th>Supplier</th>}<th>Part</th><th>Missing</th><th></th></tr></thead>
             <tbody>{missing.map((m: any) => (
               <tr key={m.receiving_event_id}>
                 <td>{date(m.created_at)}</td>
                 <td>{m.po_number}</td>
-                <td>{m.supplier_name || '—'}</td>
+                {perms.canSeeSuppliers && <td>{m.supplier_name || '—'}</td>}
                 <td>{m.part_sku} · {m.part_name}</td>
                 <td>{num(m.quantity_missing)}</td>
                 <td className="ap-missing-actions">
@@ -134,12 +140,14 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
                   </span>
                 </div>
 
+                {perms.canSeeSuppliers && (
                 <p className="muted small">
                   {(po.supplier_names || []).length > 1
                     ? (po.supplier_names || []).join(' + ')
                     : po.supplier_name}
                   {po.supplier_contact && <> · {po.supplier_contact}</>}
                 </p>
+                )}
 
                 <p className="shipment-headline">
                   {po.tracking_last_event
@@ -188,7 +196,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
               name="po"
               defaultValue={poId}
               required
-              placeholder="Type a shipment, supplier or contact name"
+              placeholder="Type a shipment number"
               options={shipments.map((po: any) => ({
                 value: po.id,
                 label: po.po_number,
@@ -207,8 +215,8 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
             <div>
               <h2>{chosen.po_number}</h2>
               <p className="muted small">
-                {chosen.supplier_name}
-                {chosen.supplier_contact && <> · {chosen.supplier_contact}</>}
+                    {perms.canSeeSuppliers && <>{chosen.supplier_name}</>}
+                    {perms.canSeeSuppliers && chosen.supplier_contact && <> · {chosen.supplier_contact}</>}
                 {chosen.expected_date && <> · expected {date(chosen.expected_date)}</>}
               </p>
             </div>
@@ -274,7 +282,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
               <SearchSelect
                 name="purchase_order_item_id"
                 required
-                placeholder="Type a PO number, supplier or part"
+                placeholder="Type a PO number or part"
                 options={(openItems || []).map((i: any) => ({
                   value: i.purchase_order_item_id,
                   label: i.part_name,
