@@ -240,6 +240,9 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
         </details>
         )}
 
+        {/* Correcting a stock number is a manager job, so the floor is not shown a
+            button the database would only refuse. */}
+        {perms.canAdjustStock && (
         <details className="quick-action">
           <summary className="button">Adjust stock</summary>
           <form className="stack card flat" action={createManualAdjustment} data-confirm-label={part.name}>
@@ -251,6 +254,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
             <div className="action-row"><ActionButton confirm={'Adjust the stock on ' + part.name + '?'} busyLabel="Saving…" doneLabel="Adjusted">Save adjustment</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div>
           </form>
         </details>
+        )}
       </div>
 
       <div className="grid">
