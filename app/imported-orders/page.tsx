@@ -7,6 +7,11 @@ import { VOID_REASONS } from '@/lib/void-reasons'
 import { ActionButton } from '@/components/action-button'
 import { fetchAmazonCustomizations } from '@/lib/customization-actions'
 
+/* Reading the customization files means waiting on Amazon, eight downloads at a
+   time, so this page is allowed longer than the default before it is cut off.
+   Without it a press would die at ten seconds with the work half done. */
+export const maxDuration = 60
+
 function dedupeBadge(row:any) {
   if (row.voided_at) return <span className="badge voided">voided</span>
   if (row.dedupe_status === 'duplicate') return <span className="badge ignored">duplicate</span>
@@ -97,11 +102,13 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
         </div>
         {(customPending || 0) > 0 && (
           <form action={fetchAmazonCustomizations} style={{ marginTop: 10 }}>
-            <ActionButton busyLabel="Reading…" doneLabel="Read">Read the next 25</ActionButton>
+            <ActionButton busyLabel="Reading…" doneLabel="Read">Read the {num(customPending || 0)} waiting</ActionButton>
             <span className="muted small" style={{ marginLeft: 10 }}>
-              Done 25 at a time on purpose: fifty downloads inside one request is how an upload times
-              out halfway and leaves you guessing what landed. Press it again to carry on - anything
-              that failed stays listed and is tried again.
+              Eight downloads run at once, so a normal week finishes in one press. Each file is about
+              85KB and comes from Amazon, not from this app&apos;s own storage - all that is kept here
+              is the short list of choices. If a week is ever big enough to run out of time it stops
+              cleanly and says so; press again to carry on. Anything that failed stays listed and is
+              tried again, and nothing is ever downloaded twice.
             </span>
           </form>
         )}
