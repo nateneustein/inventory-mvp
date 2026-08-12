@@ -119,6 +119,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
     groupFloor: pick0('gfloor'),
     surgeLook: pick0('slook'),
     surgeOnWait: params.waitset != null ? params.wait === '1' : savedSettings.wait == null ? true : Number(savedSettings.wait) === 1,
+    /* The new-listing bump is a SUGGESTION by default. It used to be added to
+       every order silently, which meant a young listing quietly ordered more
+       than the page appeared to say. Now the page shows what it would add and
+       waits to be told. */
+    npApply: params.npaset != null ? params.npa === '1' : savedSettings.npa == null ? false : Number(savedSettings.npa) === 1,
   }
   // Trend horizon: left blank, it follows each part's own order window -
   // base cover months plus the shipping wait. A 90-day lead gives 3 + 3 = 6
@@ -355,7 +360,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       const q = rate ? quantity({
         available, ratePerWeek: rate.perWeek, leadWeeks, coverWeeks: effWeeks,
         gWeekly: trend.applied ? trend.gWeekly : 0, weekFactor,
-        newBumpPct: np.bumpPct, surgeOnWait: dial.surgeOnWait, waitSurgePct: effPct,
+        newBumpPct: dial.npApply ? np.bumpPct : 0, surgeOnWait: dial.surgeOnWait, waitSurgePct: effPct,
         trendCapWeeks: Math.round((horizMonths * 13) / 3),
         orderMultiple: Number(part.order_multiple || 0),
       }) : null
@@ -438,6 +443,15 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           </label>
           <button className="button" type="submit">Calculate</button>
         </div>
+      </form>
+
+      {/* The dials and the save button belong together, and neither means
+          anything until a part is chosen - so the whole card only appears
+          once there is something to tune. */}
+      {part && (
+      <div className="card">
+      <form method="get">
+        <input type="hidden" name="part" value={part.id} />
         <details className="ap-dials">
           <summary className="button ap-dials-btn">Adjust the dials</summary>
           <p className="small" style={{ margin: '10px 0 2px' }}>
@@ -483,6 +497,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             <label>New product bump (%)
               <input type="number" name="npbump" step="5" defaultValue={dial.npBump} />
               <span className="ap-dial-help">The extra % added on top for new products, covering what the short history cannot show yet.</span>
+            </label>
+            <label className="ap-check">
+              <span><input type="hidden" name="npaset" value="1" /><input type="checkbox" name="npa" value="1" defaultChecked={dial.npApply} /> Apply the new-listing bump</span>
+              <span className="ap-dial-help">Off by default. Left off, a young listing is only flagged in step 6 with the percentage and the pieces it would add, and you decide. Tick it (or press Apply in step 6) to actually put those pieces into this order.</span>
             </label>
             <label>Big-order flag (x plain)
               <input type="number" name="flagx" step="0.5" defaultValue={dial.flagX} />
@@ -534,9 +552,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           </div>
         </details>
       </form>
-
-      {part && (
-        <form action={saveAdvancedPredictionSettings} className="card ap-saverow">
+        <form action={saveAdvancedPredictionSettings} className="ap-saverow">
           <input type="hidden" name="category" value={part.category || ''} />
           <input type="hidden" name="part" value={part.id} />
           <input type="hidden" name="base" value={dial.baseMonths} />
@@ -554,6 +570,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="gfloor" value={dial.groupFloor} />
           <input type="hidden" name="slook" value={dial.surgeLook} />
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
+          <input type="hidden" name="npa" value={dial.npApply ? '1' : '0'} />
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
           <input type="hidden" name="rx" value={rateExclude.join(',')} />
@@ -564,6 +581,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           </span>
           <button className="button" type="submit">Save these dials for this group</button>
         </form>
+      </div>
       )}
 
       {!part && (
@@ -922,9 +940,24 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             {/* ---------------- STEP 6: new product ---------------- */}
             <div className="ap-step">
               <div className="ap-step-h"><span className="ap-n">6</span><strong>New-product check</strong>
-                <span className={'ap-out' + (c.np.isNew ? '' : ' off')}>{c.np.isNew ? '+' + c.np.bumpPct + '% extra  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.newProd)) : '0') + ' pcs' : 'passes - no extra'}</span></div>
+                <span className={'ap-out' + (c.np.isNew ? (dial.npApply ? '' : ' warn') : ' off')}>
+                  {!c.np.isNew
+                    ? 'passes - no extra'
+                    : dial.npApply
+                      ? 'applied  ·  +' + c.np.bumpPct + '%  ·  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.newProd)) : '0') + ' pcs'
+                      : 'suggested  ·  +' + c.np.bumpPct + '%  ·  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.newProd)) : '0') + ' pcs  ·  NOT in the order'}
+                </span></div>
               <div className="ap-step-b">
-                <p className="small" style={{ margin: 0 }}>This listing&apos;s data starts {f1(c.np.ageMonths)} months ago; under {dial.npMin} months everything gets an extra +{dial.npBump}% because a few weeks of history can hide almost anything.</p>
+                {c.np.isNew ? (
+                  <p className="small" style={{ margin: 0 }}>
+                    This listing&apos;s data starts {f1(c.np.ageMonths)} months ago, which is under the {dial.npMin} month mark - a few weeks of history can hide almost anything, so a young listing usually deserves a bigger first order.
+                    {dial.npApply
+                      ? ' Those +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.newProd)) : '0') + ' pieces ARE in the order below.'
+                      : ' This is only a suggestion - those pieces are NOT in the order below. To take it, open Adjust the dials, tick "Apply the new-listing bump", set the percentage you want, and press Calculate with these dials.'}
+                  </p>
+                ) : (
+                  <p className="small" style={{ margin: 0 }}>This listing&apos;s data starts {f1(c.np.ageMonths)} months ago, past the {dial.npMin} month mark, so there is enough history to trust its own rate. Nothing suggested here.</p>
+                )}
               </div>
             </div>
 
