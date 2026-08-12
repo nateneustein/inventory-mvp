@@ -14,6 +14,13 @@ import { NextResponse, type NextRequest } from 'next/server'
  */
 
 const MANAGER_PATHS = [
+  // Screens the floor was asked not to have. These are also checked inside the
+  // pages themselves, because this file is allowed to fail open (see above) and
+  // "hidden" is not the same as "closed".
+  '/dashboard',
+  '/reports',
+  '/usage',
+  '/predictions',
   '/counts',
   '/adjustments',
   '/uploads',
