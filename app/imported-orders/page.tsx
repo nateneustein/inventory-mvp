@@ -12,6 +12,14 @@ import { fetchAmazonCustomizations, customizationStatus } from '@/lib/customizat
    Without it a press would die at ten seconds with the work half done. */
 export const maxDuration = 60
 
+/* Kept in step with is_void_order_status() in the database - the one that stops
+   these lines consuming stock. A cancelled line needs no mapping rule, so
+   showing it as "unmapped" made a non-event look like unfinished work. */
+const VOID_ORDER_STATUSES = [
+  'cancelled', 'canceled', 'refunded', 'partially_refunded', 'voided', 'void',
+  'returned', 'return', 'chargeback', 'failed', 'expired', 'unpaid', 'pending',
+]
+
 function dedupeBadge(row:any) {
   if (row.voided_at) return <span className="badge voided">voided</span>
   if (row.dedupe_status === 'duplicate') return <span className="badge ignored">duplicate</span>
@@ -146,7 +154,9 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
                     ? <span className="muted small" title={r.custom_fetch_error || ''}>could not be read</span>
                     : String(r.customization_text || '').startsWith('http')
                       ? <span className="muted small">not read yet</span>
-                      : r.customization_text}</td><td>{r.order_status}</td><td><span className={`badge ${r.mapping_status}`}>{r.mapping_status}</span><br/><span className="small muted">{r.mapped?.internal_sku}</span></td>
+                      : r.customization_text}</td><td>{r.order_status}</td><td>{VOID_ORDER_STATUSES.includes(String(r.order_status || '').trim().toLowerCase()) || Number(r.quantity || 0) <= 0
+                  ? <span className="badge" title="Cancelled, refunded or returned. It never consumes stock, and it does not need a mapping rule.">did not happen</span>
+                  : <span className={`badge ${r.mapping_status}`}>{r.mapping_status}</span>}<br/><span className="small muted">{r.mapped?.internal_sku}</span></td>
                 <td><details><summary className="button small-btn secondary">Edit</summary><form className="stack card flat" action={updateImportedOrderRow}><input type="hidden" name="id" value={r.id}/><label>Mapping status<select name="mapping_status" defaultValue={r.mapping_status}><option value="unmapped">Unmapped</option><option value="mapped">Mapped</option><option value="needs_review">Needs review</option><option value="ignored">Ignored</option></select></label><label>Actual variation<SearchSelect name="mapped_variation_id" defaultValue={r.mapped_variation_id || ''} placeholder="Type a product or variation" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.variation_name || ''} · ${v.products?.name || ''}`, hint: v.internal_sku }))} /></label><label>Demand variation<SearchSelect name="demand_variation_id" defaultValue={r.demand_variation_id || ''} placeholder="Same as actual" options={(variations || []).map((v: any) => ({ value: v.id, label: `${v.variation_name || ''} · ${v.products?.name || ''}`, hint: v.internal_sku }))} /></label><div className="action-row"><ActionButton busyLabel="Saving…" doneLabel="Saved">Save mapping</ActionButton><button type="button" className="button secondary cancel-btn">Cancel</button></div></form>{r.voided_at ? (<form className="stack card flat" action={unvoidImportedOrderRow}><input type="hidden" name="id" value={r.id}/><p className="small muted">Voided{r.void_reason ? ` — ${r.void_reason}` : ''}. It is not counting as a sale.</p><div className="action-row"><ActionButton className="small-btn secondary" confirm="Put this line back in play?" busyLabel="…" doneLabel="Restored">Un-void this line</ActionButton></div></form>) : (<form className="stack card flat" action={voidImportedOrderRow}><input type="hidden" name="id" value={r.id}/><p className="small muted">Void keeps the line but stops it counting, and puts back any parts it used.</p><label>Void reason<select name="void_reason" defaultValue="Replacement sent">{VOID_REASONS.map((v) => <option key={v} value={v}>{v}</option>)}</select></label><label>Note (optional)<input name="void_note" placeholder="Broken in transit, resent" /></label><div className="action-row"><ActionButton className="danger small-btn" confirm="Confirm: void this line?" busyLabel="Voiding…" doneLabel="Voided">Void this line</ActionButton></div></form>)}<form action={deleteImportedOrderRow}><input type="hidden" name="id" value={r.id}/><div className="action-row"><ActionButton className="danger small-btn" confirm="Permanently delete this source row?" busyLabel="Deleting…" doneLabel="Deleted">Delete row</ActionButton></div></form></details></td>
               </tr>
             ))}
