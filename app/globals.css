@@ -1039,3 +1039,22 @@ td:has(.row-menu[open]) { z-index: 60; }
 .app-shell:not(:has(.sidebar)) .container > .card:only-of-type {
   margin: 48px auto 0; width: 100%; max-width: 420px;
 }
+
+
+/* ── The dials card ───────────────────────────────────────────────────
+   Two separate forms - one re-runs the page, one saves the group's
+   baseline - that have to read as one row of controls. Closed, the
+   details element is only its button, so both sit side by side. Open, the
+   panel claims the full width and the save row drops beneath it, which is
+   the only sensible place for it once the panel is 400px tall.
+   ------------------------------------------------------------------- */
+.ap-dialcard { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ap-dialcard > form { margin: 0; }
+.ap-dialcard > form:first-of-type:has(details[open]) { flex: 1 1 100%; }
+.ap-dialcard .ap-saverow {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1 1 auto; margin: 0;
+}
+/* The explanation follows the button and takes whatever room is left, so it
+   wraps rather than shoving the button to the far edge of the card. */
+.ap-dialcard .ap-saverow .ap-sm { flex: 1 1 240px; }
