@@ -14,6 +14,10 @@ export const CONDITION_FIELDS: Array<[string, string]> = [
   ['item_name', 'Item name'],
   ['variation', 'Variation'],
   ['customization', 'Customization'],
+  /* Amazon custom listings only: everything the buyer picked from a dropdown,
+     read off the order's own customization file, as "Label: choice". Works for
+     any custom listing - a new one is matchable the day it goes live. */
+  ['custom_options', 'Custom options (Amazon)'],
 ]
 
 export const CONDITION_TYPES: Array<[string, string]> = [
