@@ -778,6 +778,9 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-n { width: 23px; height: 23px; border-radius: 50%; background: var(--ink, #14161a); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .ap-out { margin-left: auto; font-size: 12.5px; font-weight: 700; background: var(--accent-soft); color: var(--accent-strong); padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .ap-out.off { background: #eceef1; color: var(--muted); }
+/* A suggestion that has NOT been added to the order. Amber, because it is
+   neither a finished calculation nor a non-event - it is waiting on a person. */
+.ap-out.warn { background: #fdf3e3; color: #8a5a12; }
 .ap-step-b { padding: 13px 16px; }
 .ap-step-b table { font-size: 13px; }
 .ap-pool td { background: var(--accent-soft); }
