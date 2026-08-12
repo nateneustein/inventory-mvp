@@ -5,7 +5,7 @@ import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { VOID_REASONS } from '@/lib/void-reasons'
 import { ActionButton } from '@/components/action-button'
-import { fetchAmazonCustomizations } from '@/lib/customization-actions'
+import { fetchAmazonCustomizations, fetchOneSampleEachSku, customizationStatus } from '@/lib/customization-actions'
 
 /* Reading the customization files means waiting on Amazon, eight downloads at a
    time, so this page is allowed longer than the default before it is cut off.
@@ -33,24 +33,9 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
 
   /* Amazon custom lines whose choices have not been read yet. A custom listing
      sells every variation under one sku, so until the order's own file is read
-     these lines cannot be mapped to a part - they are not "unmapped because you
-     forgot a rule", they are "unmapped because nothing yet knows what was
-     bought", and that difference is worth showing. */
-  const { count: customPending } = await supabase
-    .from('imported_order_rows')
-    .select('id', { count: 'exact', head: true })
-    .eq('platform', 'amazon')
-    .like('customization_text', 'http%')
-    .is('custom_options', null)
-  const { count: customRead } = await supabase
-    .from('imported_order_rows')
-    .select('id', { count: 'exact', head: true })
-    .eq('custom_fetch_status', 'ok')
-  const { count: customFailed } = await supabase
-    .from('imported_order_rows')
-    .select('id', { count: 'exact', head: true })
-    .eq('custom_fetch_status', 'failed')
-    .is('custom_options', null)
+     these lines cannot be mapped - they are not "unmapped because you forgot a
+     rule", they are "unmapped because nothing yet knows what was bought". */
+  const cx = await customizationStatus()
 
   let query = supabase.from('imported_order_rows').select('*, mapped:product_variations!imported_order_rows_mapped_variation_id_fkey(internal_sku, variation_name), demand:product_variations!imported_order_rows_demand_variation_id_fkey(internal_sku, variation_name)').order('created_at', { ascending: false }).limit(500)
   if (params.platform) query = query.eq('platform', params.platform)
@@ -81,36 +66,50 @@ export default async function ImportedOrdersPage({ searchParams }: { searchParam
       <div className="page-head"><div><h1>Imported Orders</h1><p className="muted">Raw order rows from Etsy, Amazon, TikTok, and Shopify before they become inventory demand/usage.</p></div><Link className="button" href="/uploads">Upload CSV</Link></div>
       <div className="card alert"><strong>Duplicate protection:</strong> The system dedupes by marketplace order line, not only by order number. Same order with multiple real items still counts each item; overlapping spreadsheet uploads get marked duplicate and ignored for inventory.</div>
 
-      {(customPending || customRead || customFailed) ? (
-      <div className={customPending ? 'card danger-soft' : 'card'}>
+      {(cx.pending || cx.read || cx.failed) ? (
+      <div className={cx.wanted ? 'card danger-soft' : 'card'}>
         <h2>Amazon custom orders</h2>
         <p className="muted">
           An Amazon custom listing sells every variation under one SKU and one ASIN, so the order
           report cannot say which one was bought - two orders for completely different products look
-          identical in it. What the buyer actually picked lives in the file behind that order&apos;s
+          identical in it. What the buyer picked lives in the file behind that order&apos;s
           customized-url. Reading it fills in a <b>Custom options</b> field you can then write ordinary
-          mapping rules against, for any custom listing, not just the ones you have today.
+          mapping rules against, for any custom listing, not only the ones you sell today.
         </p>
         <p className="muted small">
           Only the dropdown choices are kept. The same file carries the buyer&apos;s names, message,
           date and location; those are read past and never stored.
         </p>
-        <div className="action-row" style={{ marginTop: 10 }}>
-          <span className="badge ok">{num(customRead || 0)} read</span>
-          {(customPending || 0) > 0 && <span className="badge warn">{num(customPending || 0)} still to read</span>}
-          {(customFailed || 0) > 0 && <span className="badge out">{num(customFailed || 0)} could not be read</span>}
+        <div className="action-row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+          <span className="badge ok">{num(cx.read)} read</span>
+          {cx.wanted > 0 && <span className="badge warn">{num(cx.wanted)} a rule needs</span>}
+          {cx.skipped > 0 && <span className="badge">{num(cx.skipped)} skipped - no rule asks for them</span>}
+          {cx.failed > 0 && <span className="badge out">{num(cx.failed)} could not be read</span>}
         </div>
-        {(customPending || 0) > 0 && (
-          <form action={fetchAmazonCustomizations} style={{ marginTop: 10 }}>
-            <ActionButton busyLabel="Reading…" doneLabel="Read">Read the {num(customPending || 0)} waiting</ActionButton>
-            <span className="muted small" style={{ marginLeft: 10 }}>
-              Eight downloads run at once, so a normal week finishes in one press. Each file is about
-              85KB and comes from Amazon, not from this app&apos;s own storage - all that is kept here
-              is the short list of choices. If a week is ever big enough to run out of time it stops
-              cleanly and says so; press again to carry on. Anything that failed stays listed and is
-              tried again, and nothing is ever downloaded twice.
-            </span>
-          </form>
+        {cx.pending > 0 && (
+          <div className="action-row" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
+            {cx.wanted > 0 && (
+              <form action={fetchAmazonCustomizations}>
+                <ActionButton busyLabel="Reading…" doneLabel="Read">Read the {num(cx.wanted)} a rule needs</ActionButton>
+              </form>
+            )}
+            <form action={fetchOneSampleEachSku}>
+              <ActionButton className="button secondary" busyLabel="Reading…" doneLabel="Read">Read one of each SKU</ActionButton>
+            </form>
+          </div>
+        )}
+        {cx.pending > 0 && (
+          <p className="muted small" style={{ marginTop: 8 }}>
+            {cx.rulesNarrow
+              ? 'Only lines a mapping rule actually asks about are downloaded - the rules decide the work, so nothing is fetched for a listing whose SKU already tells you everything.'
+              : 'No mapping rule mentions Custom options yet, so nothing can safely be skipped. Use "Read one of each SKU" to see what a listing calls its dropdowns, write the rule, and after that only the lines that rule needs are downloaded.'}
+            {' '}Each file is about 85KB and comes from Amazon, not from this app&apos;s storage; all that is kept here is the short list of choices. Eight run at once, so a normal week finishes in one press, and nothing is ever downloaded twice.
+          </p>
+        )}
+        {Object.keys(cx.bySku || {}).length > 0 && (
+          <p className="muted small" style={{ marginTop: 6 }}>
+            Waiting by SKU: {Object.keys(cx.bySku).sort().map((k) => k + ' (' + cx.bySku[k] + ')').join(', ')}
+          </p>
         )}
       </div>
       ) : null}
