@@ -188,17 +188,34 @@ function rowNeedsFile(row: any, rules: Narrowed[]) {
   return false
 }
 
+/**
+ * An order that was cancelled, refunded, returned or never paid for.
+ *
+ * Kept in step with is_void_order_status() in the database, which is what stops
+ * these lines ever consuming stock. Repeated here because there is no point
+ * downloading a file to find out what somebody chose on an order that did not
+ * happen.
+ */
+const VOID_STATUSES = [
+  'cancelled', 'canceled', 'refunded', 'partially_refunded', 'voided', 'void',
+  'returned', 'return', 'chargeback', 'failed', 'expired', 'unpaid', 'pending',
+]
+function isVoidStatus(status: any) {
+  return VOID_STATUSES.includes(String(status || '').trim().toLowerCase())
+}
+
 /** Every custom line that has not been read yet, newest first. */
 async function pendingRows(supabase: any, limit: number) {
   const { data } = await supabase
     .from('imported_order_rows')
-    .select('id, platform_order_id, platform_sku, item_name, variation_text, customization_text')
+    .select('id, platform_order_id, platform_sku, item_name, variation_text, customization_text, order_status, quantity, voided_at')
     .eq('platform', 'amazon')
     .like('customization_text', 'http%')
     .is('custom_options', null)
     .order('created_at', { ascending: false })
     .limit(limit)
-  return data || []
+  return (data || []).filter((r: any) =>
+    !r.voided_at && Number(r.quantity || 0) > 0 && !isVoidStatus(r.order_status))
 }
 
 /** What the page shows above the button. */
