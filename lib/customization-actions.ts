@@ -173,7 +173,7 @@ async function rulesThatNeedTheFile(supabase: any): Promise<Narrowed[]> {
       others: conds.filter((c) => c.field !== 'custom_options'),
       // "Any of these" means the Custom options condition could carry the rule
       // by itself, so the other conditions cannot rule a line out.
-      anyLogic: String(rule.condition_logic || 'and').toLowerCase() === 'or',
+      anyLogic: ['or', 'any'].includes(String(rule.condition_logic || 'all').toLowerCase()),
     })
   }
   return out
