@@ -203,9 +203,14 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       .select('part_id, on_hand, incoming_qty').in('part_id', ids)
     for (const r of st || []) stockByPart[r.part_id] = r
 
+    /* Every report on this group, not only the ones still open. A report that
+       was dealt with is still evidence about this part - it says the shelf and
+       these numbers disagreed once, and hiding it the moment somebody ticked it
+       off made the section look calmer than the history actually was. A deleted
+       report is gone from the table entirely, so it cannot show up here. */
     const { data: reps } = await supabase.from('zero_stock_reports')
-      .select('id, part_id, report_type, created_at').is('resolved_at', null)
-      .in('part_id', ids).order('created_at', { ascending: false }).limit(20)
+      .select('id, part_id, report_type, created_at, resolved_at')
+      .in('part_id', ids).order('created_at', { ascending: false }).limit(50)
     openReports = reps || []
 
     monthlyAll = await fetchAll(() => supabase.from('part_usage_monthly')
@@ -449,7 +454,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           anything until a part is chosen - so the whole card only appears
           once there is something to tune. */}
       {part && (
-      <div className="card">
+      <div className="card ap-dialcard">
       <form method="get">
         <input type="hidden" name="part" value={part.id} />
         <details className="ap-dials">
@@ -574,12 +579,12 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
           <input type="hidden" name="rx" value={rateExclude.join(',')} />
+          <button className="button" type="submit">Save these dials for this group</button>
           <span className="ap-sm muted">
             {savedAt
               ? 'Saved dials are in use for this group (saved ' + date(String(savedAt).slice(0, 10)) + '). Saving again overwrites them with the dials applied above.'
               : 'No saved dials for this group yet - the dials applied above come from the defaults (or this run). Save to make them the group baseline.'}
           </span>
-          <button className="button" type="submit">Save these dials for this group</button>
         </form>
       </div>
       )}
@@ -624,12 +629,12 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             )}
 
             <div className="card">
-              <strong style={{ fontSize: 14 }}>Open reports on this group</strong>
+              <strong style={{ fontSize: 14 }}>Reports on this group</strong>
               {openReports.length === 0
-                ? <div className="ap-ok">None right now. A zero or running-low report on any {part.category} part would show here - it means the shelf disagrees with these numbers.</div>
+                ? <div className="ap-ok">None on record. A zero or running-low report on any {part.category} part would show here - it means the shelf disagreed with these numbers.</div>
                 : <ul className="ap-replist">{openReports.map((r) => {
                     const p = parts.find((x) => x.id === r.part_id)
-                    return <li key={r.id}><span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>{r.report_type === 'zero' ? 'at zero' : 'running low'}</span> {p ? p.name : r.part_id} - {date(r.created_at)}</li>
+                    return <li key={r.id}><span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>{r.report_type === 'zero' ? 'at zero' : 'running low'}</span> {p ? p.name : r.part_id} - {date(r.created_at)}{r.resolved_at ? <span className="badge ok" style={{ marginLeft: 6 }}>sorted out {date(r.resolved_at)}</span> : <span className="badge warning" style={{ marginLeft: 6 }}>still open</span>}</li>
                   })}</ul>}
             </div>
 
