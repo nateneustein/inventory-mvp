@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { requirePageAccess } from '@/lib/permissions'
 import { requireUser } from '@/lib/require-user'
 import { getPermissions } from '@/lib/permissions'
 import { createManualUnitsSold } from '@/lib/actions'
@@ -23,6 +24,9 @@ function usageHref(params: any, zoom: string) {
 }
 
 export default async function UsagePage({ searchParams }: { searchParams?: Promise<{ q?: string, zoom?: string, error?: string, notice?: string }> }) {
+  /* Closed to the floor. Checked here, on the server, on every render. */
+  await requirePageAccess('canViewUsageHistory', '/usage')
+
   const params = searchParams ? await searchParams : {}
   const q = (params.q || '').toLowerCase()
   const zoom = zoomValue(params.zoom)
