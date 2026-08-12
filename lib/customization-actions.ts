@@ -121,13 +121,22 @@ export async function readCustomizationZip(bytes: ArrayBuffer) {
 /* ------------------------------------------------------------------ *
  * The action the page calls.
  *
- * Deliberately done in batches rather than during the CSV upload itself: a
- * weekly file can hold fifty custom lines, and fifty downloads inside one
- * upload request is how an upload times out halfway and leaves you guessing
- * what landed. Press it again to carry on; anything that failed stays listed
- * and is retried, so it can never quietly skip a line.
+ * Two things decide how much one press gets through: how many downloads run at
+ * once, and how long the whole press is allowed to take.
+ *
+ * The files are small - about 85KB each - and the time is nearly all waiting on
+ * Amazon rather than working, so running eight at a time turns a minute of
+ * queueing into a few seconds. Eight is deliberate: enough to make the waiting
+ * overlap, few enough that Amazon is never hit hard enough to start refusing.
+ *
+ * The stop condition is a clock, not a count. A press keeps going until either
+ * nothing is left or the budget below is nearly spent, so a normal weekly file
+ * finishes in one press. A count would either be too small on a light week or
+ * time out on a heavy one; a clock is right on both.
  * ------------------------------------------------------------------ */
-const BATCH = 25
+const CONCURRENCY = 8
+const TIME_BUDGET_MS = 45000
+const MAX_ROWS = 1000
 
 export async function fetchAmazonCustomizations() {
   const perms = await getPermissions()
@@ -135,6 +144,7 @@ export async function fetchAmazonCustomizations() {
     redirect(deniedUrl('/imported-orders', 'read the Amazon customization files'))
   }
   const supabase = await createClient()
+  const startedAt = Date.now()
 
   const { data: rows, error } = await supabase
     .from('imported_order_rows')
@@ -143,14 +153,16 @@ export async function fetchAmazonCustomizations() {
     .like('customization_text', 'http%')
     .is('custom_options', null)
     .order('created_at', { ascending: false })
-    .limit(BATCH)
+    .limit(MAX_ROWS)
 
   if (error) redirect('/imported-orders?error=' + encodeURIComponent(error.message))
 
+  const queue = rows || []
   let done = 0
   let failed = 0
+  let stoppedEarly = false
 
-  for (const row of rows || []) {
+  async function readOne(row: any) {
     try {
       const res = await fetch(row.customization_text, { cache: 'no-store' })
       if (!res.ok) throw new Error('Amazon answered ' + res.status + ' for that link.')
@@ -189,7 +201,14 @@ export async function fetchAmazonCustomizations() {
     }
   }
 
+  for (let i = 0; i < queue.length; i += CONCURRENCY) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) { stoppedEarly = true; break }
+    await Promise.all(queue.slice(i, i + CONCURRENCY).map(readOne))
+  }
+
   revalidatePath('/imported-orders')
-  const note = done + ' read' + (failed ? ', ' + failed + ' could not be read' : '')
-  redirect('/imported-orders?notice=' + encodeURIComponent(note))
+  const parts = [done + ' order(s) read']
+  if (failed) parts.push(failed + ' could not be read')
+  if (stoppedEarly) parts.push('stopped on time - press again to carry on')
+  redirect('/imported-orders?notice=' + encodeURIComponent(parts.join(', ')))
 }
