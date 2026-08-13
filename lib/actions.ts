@@ -1650,13 +1650,64 @@ export async function unvoidImportedOrderRow(formData: FormData) {
   )}`)
 }
 
+/**
+ * Deleting an order line now undoes what that line did.
+ *
+ * It used to delete the line and leave its stock movements behind: the
+ * deduction stayed on the shelf number, the record explaining it disappeared,
+ * and re-uploading the same spreadsheet deducted the whole thing a second time
+ * because the line's duplicate key had gone with it. A delete that leaves the
+ * consequences behind is not a delete.
+ *
+ * The movements and the line are removed together inside one database call, so
+ * it can never half-happen, and the screen says how much stock went back.
+ */
 export async function deleteImportedOrderRow(formData: FormData) {
   const { supabase } = await currentUserId()
   const id = value(formData, 'id')
-  const { error } = await supabase.from('imported_order_rows').delete().eq('id', id)
+  const { data, error } = await supabase.rpc('delete_imported_order_rows', { p_ids: [id] })
   if (error) throw new Error(error.message)
+  const result = Array.isArray(data) ? data[0] : data
+  const moves = Number(result?.movements_reversed || 0)
+  const parts = Number(result?.parts_restored || 0)
   revalidatePath('/imported-orders')
-  redirect('/imported-orders')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+  revalidatePath('/usage')
+  redirect('/imported-orders?notice=' + encodeURIComponent(
+    moves > 0
+      ? 'Line deleted. ' + moves + ' stock movement(s) reversed across ' + parts + ' part(s) - that stock is back.'
+      : 'Line deleted. It had not consumed any stock, so nothing needed putting back.'
+  ))
+}
+
+/**
+ * Deleting a whole upload - the spreadsheet, not one line of it.
+ *
+ * Same promise as above, applied to every line the upload brought in: each
+ * line's stock movements are reversed and the lines go with them, so the
+ * inventory is left exactly as it was before the file was uploaded.
+ */
+export async function deleteUploadBatch(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canUploadOrders) redirect(deniedUrl('/uploads', 'delete an upload'))
+  const batchId = value(formData, 'batch_id')
+  const { data, error } = await supabase.rpc('delete_upload_batch', { p_batch: batchId })
+  if (error) throw new Error(error.message)
+  const result = Array.isArray(data) ? data[0] : data
+  const rows = Number(result?.rows_deleted || 0)
+  const moves = Number(result?.movements_reversed || 0)
+  const parts = Number(result?.parts_restored || 0)
+  revalidatePath('/uploads')
+  revalidatePath('/imported-orders')
+  revalidatePath('/parts')
+  revalidatePath('/dashboard')
+  revalidatePath('/usage')
+  redirect('/uploads?notice=' + encodeURIComponent(
+    'Spreadsheet deleted: ' + rows + ' order line(s) removed and ' + moves +
+    ' stock movement(s) reversed across ' + parts + ' part(s). Inventory is back to where it was before this upload.'
+  ))
 }
 
 export async function updatePurchaseOrder(formData: FormData) {
