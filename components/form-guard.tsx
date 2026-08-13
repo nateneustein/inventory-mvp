@@ -134,6 +134,30 @@ export function FormGuard() {
       else { event.preventDefault(); event.stopImmediatePropagation() }
     }
 
+    // ---------------------------------------------------------- the Enter key
+    // The browser's own habit is that Enter in a text box submits the form
+    // that box sits in. That is how a manual usage entry got saved that
+    // nobody meant to save: no click, no confirmation, and no sign on screen
+    // that anything had happened. Saving is a deliberate press of the save
+    // button now, everywhere in the app.
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Enter' || event.defaultPrevented) return
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const el = event.target as HTMLElement | null
+      if (!el || !el.closest) return
+      const form = el.closest('form') as HTMLFormElement | null
+      // Search and filter bars only reload a list and lose nothing, so Enter
+      // there keeps working - that is what everybody expects it to do.
+      if (!form || !holdsWork(form)) return
+      // A textarea needs Enter for new lines. A button or a link that has
+      // focus is already a deliberate press, so it goes through.
+      const tag = el.tagName
+      if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A') return
+      if (el instanceof HTMLInputElement
+        && ['submit', 'button', 'reset', 'checkbox', 'radio', 'file'].includes(el.type)) return
+      event.preventDefault()
+    }
+
     function onSubmit(event: Event) {
       const form = event.target as HTMLFormElement
       if (!(form instanceof HTMLFormElement)) return
@@ -212,6 +236,7 @@ export function FormGuard() {
     }
 
     document.addEventListener('submit', onSubmit, true)
+    document.addEventListener('keydown', onKeyDown, true)
     document.addEventListener('click', onCancel, true)
     document.addEventListener('input', onEdit, true)
     document.addEventListener('change', onEdit, true)
@@ -220,6 +245,7 @@ export function FormGuard() {
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => {
       document.removeEventListener('submit', onSubmit, true)
+      document.removeEventListener('keydown', onKeyDown, true)
       document.removeEventListener('click', onCancel, true)
       document.removeEventListener('input', onEdit, true)
       document.removeEventListener('change', onEdit, true)
