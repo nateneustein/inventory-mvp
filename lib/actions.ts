@@ -1692,9 +1692,11 @@ export async function deleteUploadBatch(formData: FormData) {
   const { supabase } = await currentUserId()
   const perms = await getPermissions()
   if (!perms.canUploadOrders) redirect(deniedUrl('/uploads', 'delete an upload'))
-  const batchId = value(formData, 'batch_id')
+  const batchId = value(formData, 'id') || value(formData, 'batch_id')
   const { data, error } = await supabase.rpc('delete_upload_batch', { p_batch: batchId })
   if (error) throw new Error(error.message)
+  // the upload record itself, now that everything it brought in is undone
+  await supabase.from('upload_batches').delete().eq('id', batchId)
   const result = Array.isArray(data) ? data[0] : data
   const rows = Number(result?.rows_deleted || 0)
   const moves = Number(result?.movements_reversed || 0)
@@ -1787,16 +1789,7 @@ export async function acknowledgeNotification(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
-export async function deleteUploadBatch(formData: FormData) {
-  const { supabase } = await currentUserId()
-  const id = value(formData, 'id')
-  await supabase.from('imported_order_rows').delete().eq('upload_batch_id', id)
-  const { error } = await supabase.from('upload_batches').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/uploads')
-  revalidatePath('/imported-orders')
-  redirect('/uploads')
-}
+
 
 /**
  * Mark a warehouse reorder request as handled.
