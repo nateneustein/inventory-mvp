@@ -185,10 +185,11 @@ export function SearchSelect({
       return
     }
     if (e.key === 'Enter') {
-      if (open && filtered[active]) {
-        e.preventDefault()   // choose the option, do not submit the form yet
-        commit(filtered[active])
-      }
+      /* Enter never reaches the form. It used to be swallowed only on the
+         press that picked an option; the press after that, once the menu had
+         closed again, fell straight through and saved the whole entry. */
+      e.preventDefault()
+      if (open && filtered[active]) commit(filtered[active])
       return
     }
     if (e.key === 'Escape') {
