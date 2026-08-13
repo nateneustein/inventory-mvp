@@ -46,7 +46,15 @@ export default async function DashboardPage() {
   const trackedIds = new Set((partFlags || []).filter((p: any) => p.tracked !== false).map((p: any) => p.id))
   const trackedAlerting = alerting.filter((r: any) => trackedIds.has(r.part_id))
   const forecastOut = trackedAlerting.filter((r: any) => r.stock_status === 'out').length
-  const forecastLow = trackedAlerting.filter((r: any) => r.stock_status === 'reorder_now' || r.stock_status === 'getting_low').length
+  // This number is a to-do list, so it only counts what somebody has to order
+  // TODAY, judged on the steady three month pace. An early warning is not a job
+  // yet, and a part that only looks urgent because of one busy week usually
+  // settles by itself - counting either of those meant the number could never
+  // reach zero, so nobody ever finished it. Both still appear in the list below.
+  const forecastLow = trackedAlerting.filter((r: any) =>
+    r.days_of_cover_3mo_rate !== null &&
+    r.days_of_cover_3mo_rate !== undefined &&
+    Number(r.days_of_cover_3mo_rate) <= Number(r.reorder_horizon_days)).length
 
   const openReports = (reportRows || []).filter((r: any) => !r.is_done)
   const covered = (r: any) => r.covered_by_incoming || r.awaiting_receipt
@@ -76,7 +84,7 @@ export default async function DashboardPage() {
           <div className="muted">Forecast says we run out - tracked parts</div>
           <div className="kpi-twin">
             <div className="kpi-stat"><div className={tone(forecastOut, 'bad')}>{forecastOut}</div><div className="kpi-c">out of stock</div></div>
-            <div className="kpi-stat"><div className={tone(forecastLow, 'todo')}>{forecastLow}</div><div className="kpi-c">running low</div></div>
+            <div className="kpi-stat"><div className={tone(forecastLow, 'todo')}>{forecastLow}</div><div className="kpi-c">to order now</div></div>
           </div>
         </Link>
         <Link className="card kpi-card" href="/zero">
