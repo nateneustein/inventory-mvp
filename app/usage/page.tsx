@@ -76,7 +76,7 @@ export default async function UsagePage({ searchParams }: { searchParams?: Promi
 <div className="form-row"><label>Date<input name="sale_date" type="date" defaultValue={today()} required /></label></div>
           <div className="form-row"><label>Reason<select name="reason" defaultValue="bulk_order_manual_entry"><option value="bulk_order_manual_entry">Bulk order/manual split</option><option value="missing_from_platform_upload">Missing from platform upload</option><option value="correction">Correction</option><option value="other">Other</option></select></label><label>Order/reference<input name="order_reference" placeholder="Optional order number" /></label></div>
           <label>Notes<textarea name="notes" /></label>
-          <div className="action-row"><button type="submit">Add manual sold units</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
+          <div className="action-row"><button type="submit" data-confirm={'Add manual sold units' + String.fromCharCode(10,10) + 'This takes parts out of stock through the BOM for every line above.' + String.fromCharCode(10,10) + 'Continue?'}>Add manual sold units</button><button type="button" className="button secondary cancel-btn">Cancel</button></div>
         </form>
       </div>
       )}
