@@ -125,7 +125,12 @@ function externalLineKeyFor(platform: string, row: CsvRow, normalized: any) {
   }
 }
 
-async function loadExistingLineKeys(supabase: any, platform: string, accountName: string, keys: string[]) {
+/* A marketplace order line is the same sale whichever shop account it was
+   filed under, so this looks across the WHOLE platform, not just the account
+   the file was uploaded as. Uploading the same Etsy export twice under two
+   different account names now still lands as a duplicate. Different platforms
+   stay separate - order numbers are not unique between marketplaces. */
+async function loadExistingLineKeys(supabase: any, platform: string, _accountName: string, keys: string[]) {
   const existing = new Map<string, string>()
   const uniqueKeys = Array.from(new Set(keys.filter(Boolean)))
   for (let i = 0; i < uniqueKeys.length; i += 500) {
@@ -134,7 +139,6 @@ async function loadExistingLineKeys(supabase: any, platform: string, accountName
       .from('imported_order_rows')
       .select('id, external_line_key')
       .eq('platform', platform)
-      .eq('account_name', accountName)
       .in('external_line_key', chunk)
     if (error) throw new Error(error.message)
     for (const row of data || []) {
