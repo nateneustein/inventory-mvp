@@ -2,6 +2,7 @@
 import { requireUser } from '@/lib/require-user'
 import { requirePageAccess } from '@/lib/permissions'
 import { date, num, today } from '@/lib/format'
+import { SearchSelect } from '@/components/search-select'
 import {
   dms, isoOf, buildWeekMap, surgeSearch, groupSurge, monthsToOrder,
   cleanRate, trendSearch, buildMonthly, seasonCheck, coveredCalendarMonths,
@@ -169,7 +170,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
   let stockByPart = {}
   let openReports = []
   let monthlyAll = []
-  const todayIso = today()
+  /* Run the page as of any past date. Everything below reads todayIso, so
+     setting it back re-runs every step on the data that existed then. Blank
+     means today. */
+  const asOfParam = typeof params.as_of === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.as_of) ? params.as_of : ''
+  const todayIso = asOfParam || today()
   const todayMs = dms(todayIso)
 
   if (part) {
@@ -435,16 +440,16 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       <form method="get" className="card">
         <div className="form-row" style={{ alignItems: 'end', flexWrap: 'wrap', gap: 12 }}>
           <label>Part
-            <select name="part" defaultValue={selId} className="ap-select">
-              <option value="">Choose a part...</option>
-              {Object.keys(byCategory).sort().map((cat) => (
-                <optgroup key={cat} label={cat}>
-                  {byCategory[cat].map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <SearchSelect
+              name="part"
+              defaultValue={selId || ''}
+              placeholder="Type a part name or SKU"
+              options={Object.keys(byCategory).sort().flatMap((cat) =>
+                byCategory[cat].map((p) => ({ value: p.id, label: p.name, hint: cat })))}
+            />
+          </label>
+          <label>As of
+            <input type="date" name="as_of" defaultValue={asOfParam} max={today()} />
           </label>
           <button className="button" type="submit">Calculate</button>
         </div>
@@ -457,6 +462,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
       <div className="card ap-dialcard">
       <form method="get">
         <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
         <details className="ap-dials">
           <summary className="button ap-dials-btn">Adjust the dials</summary>
           <p className="small" style={{ margin: '10px 0 2px' }}>
@@ -560,6 +566,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         <form action={saveAdvancedPredictionSettings} className="ap-saverow">
           <input type="hidden" name="category" value={part.category || ''} />
           <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
           <input type="hidden" name="base" value={dial.baseMonths} />
           <input type="hidden" name="pool" value={dial.poolFrac} />
           <input type="hidden" name="tmin" value={dial.trendMin} />
@@ -673,6 +680,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                           <form action={saveCalcOverride} style={{ display: 'inline' }}>
                             <input type="hidden" name="category" value={part.category || ''} />
                             <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
                             <input type="hidden" name="kind" value="knockout" />
                             <input type="hidden" name="target" value={v.part.id} />
                             <button className="ap-linkbtn" type="submit">{knockouts.indexOf(v.part.id) >= 0 ? 'put back' : 'knock out'}</button>
@@ -769,6 +777,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     <form action={saveCalcOverride} className="ap-saverow" style={{ marginTop: 8 }}>
                       <input type="hidden" name="category" value={part.category || ''} />
                       <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
                       <input type="hidden" name="kind" value="surge" />
                       <span className="ap-sm">
                         {c.surgeOvPct !== null
@@ -828,6 +837,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 <form action={saveCalcOverride} className="ap-saverow" style={{ marginTop: 8 }}>
                   <input type="hidden" name="category" value={part.category || ''} />
                   <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
                   <input type="hidden" name="kind" value="trend" />
                   <span className="ap-sm">
                     {trendOv === 'off'
@@ -902,6 +912,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                           <form action={saveSeasonDecision} style={{ display: 'inline' }}>
                             <input type="hidden" name="category" value={part.category || ''} />
                             <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
                             <input type="hidden" name="month" value={r.mo} />
                             <input type="hidden" name="decision" value="approved" />
                             <button className="button" type="submit">Approve</button>
@@ -909,6 +920,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                           <form action={saveSeasonDecision} style={{ display: 'inline', marginLeft: 8 }}>
                             <input type="hidden" name="category" value={part.category || ''} />
                             <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
                             <input type="hidden" name="month" value={r.mo} />
                             <input type="hidden" name="decision" value="dismissed" />
                             <button className="button" type="submit">Dismiss</button>
@@ -927,6 +939,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         <form action={saveSeasonDecision} style={{ display: 'inline', marginLeft: 4 }}>
                           <input type="hidden" name="category" value={part.category || ''} />
                           <input type="hidden" name="part" value={part.id} />
+        {asOfParam && <input type="hidden" name="as_of" value={asOfParam} />}
                           <input type="hidden" name="month" value={mk} />
                           <input type="hidden" name="decision" value="clear" />
                           <button className="ap-linkbtn" type="submit">undo</button>
