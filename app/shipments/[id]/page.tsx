@@ -7,7 +7,7 @@ import { ActionButton } from '@/components/action-button'
 import { SearchSelect } from '@/components/search-select'
 import { StickySelect } from '@/components/sticky-select'
 import { ShipmentTimeline } from '@/components/shipment-timeline'
-import { addShipmentSupplier, removeShipmentSupplier, setShipmentTracking } from '@/lib/shipment-actions'
+import { addShipmentSupplier, removeShipmentSupplier, setShipmentTracking, updateShipmentLogistics } from '@/lib/shipment-actions'
 import { getPermissions } from '@/lib/permissions'
 
 /** Defaults to today, so a shipment checked in late still books into the week
@@ -73,7 +73,33 @@ const { data: receives } = await supabase.from('receiving_events').select('*, pa
 </div>
       )}
 <div className="grid two">
-        {!perms.canManagePurchasing && (
+        {!perms.canManagePurchasing && perms.canEditShipmentLogistics && (
+          <div className="card">
+            <h2>Shipment details</h2>
+            <p className="muted small">Where this shipment is, when it is due, and who is carrying it. What was bought and from whom is set by a manager.</p>
+            <form className="stack" action={updateShipmentLogistics}>
+              <input type="hidden" name="id" value={id} />
+              <div className="form-row">
+                <label>Status<StickySelect name="status" value={po.status}>
+                  <option value="ordered">Ordered</option>
+                  <option value="in_production">In production</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="receiving_check">Receiving check</option>
+                  <option value="partially_received">Partially received</option>
+                </StickySelect></label>
+                <label>Expected date<input name="expected_date" type="date" defaultValue={po.expected_date || ''} /></label>
+              </div>
+              <div className="form-row">
+                <label>Carrier<input name="carrier_name" defaultValue={po.carrier_name || ''} placeholder="DHL, Maersk, UPS" /></label>
+                <label>Tracking<input name="tracking_number" defaultValue={po.tracking_number || ''} placeholder="Carrier tracking number" /></label>
+              </div>
+              <label>Notes<textarea name="notes" defaultValue={po.notes || ''} placeholder="Anything worth knowing about this shipment" /></label>
+              <ActionButton busyLabel="Saving…" doneLabel="Saved">Save shipment details</ActionButton>
+            </form>
+          </div>
+        )}
+        {!perms.canManagePurchasing && !perms.canEditShipmentLogistics && (
           <div className="card">
             <h2>Tracking number</h2>
             <p className="muted small">Add or correct the tracking number for this shipment. Everything else on the shipment is set by a manager.</p>
