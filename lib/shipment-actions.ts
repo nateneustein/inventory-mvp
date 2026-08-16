@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getPermissions } from '@/lib/permissions'
 import { trackingEnabled, registerNumbers, getTrackInfo, readEvents, readSummary, isAlreadyRegistered } from '@/lib/tracking'
 
 function value(formData: FormData, key: string) {
@@ -56,6 +57,38 @@ export async function setShipmentTracking(formData: FormData) {
   revalidatePath('/shipments')
   revalidatePath('/shipments/' + id)
   redirect('/shipments/' + id + '?notice=' + encodeURIComponent('Tracking number saved.'))
+}
+
+/**
+ * The logistics of a shipment already booked.
+ *
+ * A shipping lead owns where a shipment is, when it is due, who is carrying it
+ * and what its tracking number says - so they get a form with exactly those
+ * fields. What was bought, from whom and for how much is purchasing's, and the
+ * database pins those columns for anyone under manager, so this stays honest
+ * even if someone posts the form by hand.
+ */
+export async function updateShipmentLogistics(formData: FormData) {
+  const { supabase } = await currentUser()
+  const perms = await getPermissions()
+  const id = value(formData, 'id')
+  if (!perms.canEditShipmentLogistics) {
+    redirect('/shipments/' + id + '?error=' + encodeURIComponent('Your role cannot change shipment details.'))
+  }
+  const patch: Record<string, any> = {
+    status: value(formData, 'status') || undefined,
+    expected_date: value(formData, 'expected_date') || null,
+    tracking_number: value(formData, 'tracking_number') || null,
+    carrier_name: value(formData, 'carrier_name') || null,
+    notes: value(formData, 'notes') || null,
+  }
+  for (const k of Object.keys(patch)) if (patch[k] === undefined) delete patch[k]
+  const { error } = await supabase.from('purchase_orders').update(patch).eq('id', id)
+  if (error) redirect('/shipments/' + id + '?error=' + encodeURIComponent(error.message))
+  revalidatePath('/shipments')
+  revalidatePath('/shipments/' + id)
+  revalidatePath('/receiving')
+  redirect('/shipments/' + id + '?notice=' + encodeURIComponent('Shipment details saved.'))
 }
 
 export async function addShipmentUpdate(formData: FormData) {
