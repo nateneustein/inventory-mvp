@@ -63,6 +63,12 @@ export function permissionsFor(role: Role) {
     canCreateShipments: signedIn,
     canLogShipmentProgress: signedIn,
 
+    // A shipping lead runs the logistics of a shipment already booked: where it
+    // is, when it is due, who is carrying it, its tracking number and notes.
+    // What was bought, from whom and for how much stays with purchasing, and
+    // the database pins those columns for anyone under manager.
+    canEditShipmentLogistics: isManagerUp || role === 'shipping_lead',
+
     // Who we buy from - names, contacts, phone numbers, prices per supplier.
     // The database refuses this data outright to anyone without it, so this
     // flag only decides whether the page bothers to draw the column.
