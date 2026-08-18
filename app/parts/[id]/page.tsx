@@ -130,13 +130,18 @@ function SupplierRow({
   )
 }
 
-export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PartDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ all?: string }> }) {
   /* The floor gets stock and shipments. Everything else on this page -
      the reorder window, the prediction, suppliers, files, history - belongs
      to whoever plans the ordering, so it is not rendered at all for them. */
   const perms = await getPermissions()
 
   const { id } = await params
+  const query = searchParams ? await searchParams : {}
+  /* The newest 75 is what this page is for. The rest of the ledger still
+     exists, so a button re-loads the page with all of it rather than a slice. */
+  const showAllMovements = query.all === '1'
+  const MOVEMENT_PAGE = 75
   const { supabase } = await requireUser()
 
   const { data: part } = await supabase.from('inventory_status').select('*').eq('part_id', id).single()
@@ -150,12 +155,16 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
     .order('is_primary', { ascending: false }).order('sort_order').order('created_at')
   const { data: partLinks } = await supabase.from('part_links').select('*').eq('part_id', id)
     .order('sort_order').order('created_at')
-  const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null).order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(75)
+  const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null).order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(showAllMovements ? 20000 : MOVEMENT_PAGE)
+  const { count: movementTotal } = await supabase.from('inventory_movements').select('id', { count: 'exact', head: true }).eq('part_id', id).is('archived_at', null)
   const { data: incoming } = await supabase.from('open_po_items').select('*').eq('part_id', id)
   const { data: recentReceipts } = await supabase.from('receiving_events').select('created_at, quantity_received, quantity_damaged, quantity_missing, purchase_orders(po_number)').eq('part_id', id).order('created_at', { ascending: false }).limit(8)
   const { data: zeroReports } = await supabase.from('zero_stock_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
   const { data: damageReports } = await supabase.from('damage_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
   const { data: partFiles } = await supabase.from('part_files').select('*').eq('part_id', id).order('created_at', { ascending: false })
+
+  const totalMovements = movementTotal ?? (movements || []).length
+  const moreMovements = !showAllMovements && totalMovements > (movements || []).length
 
   if (!part || !details) return <div className="card"><h1>Part not found</h1><Link className="button" href="/parts">Back to parts</Link></div>
 
@@ -581,7 +590,16 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="card table-card">
-        <div className="table-head"><h2>Recent movements</h2></div>
+        <div className="table-head">
+          <div>
+            <h2>{showAllMovements ? 'All movements' : 'Recent movements'}</h2>
+            <p className="muted small">{showAllMovements ? 'The whole history for this part - ' + num(totalMovements) + ' movements.' : 'The newest ' + num(Math.min(MOVEMENT_PAGE, totalMovements)) + ' of ' + num(totalMovements) + '.'}</p>
+          </div>
+          <div className="action-row">
+            {moreMovements && <Link className="button secondary small-btn" href={'/parts/' + id + '?all=1'}>Show all {num(totalMovements)} movements</Link>}
+            {showAllMovements && <Link className="button secondary small-btn" href={'/parts/' + id}>Show recent only</Link>}
+          </div>
+        </div>
         <div className="wide-table"><table><thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(movements || []).map((m: any) => <tr key={m.id}><td>{date(m.created_at)}</td><td>{m.movement_type}</td><td>{num(m.quantity)}</td><td>{m.reason}</td><td>{m.notes}</td></tr>)}{(movements || []).length === 0 && <tr><td colSpan={5}><div className="empty-state">No movement history yet.</div></td></tr>}</tbody></table></div>
       </div>
       </>
