@@ -25,6 +25,44 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
   const { data: parts } = await supabase.from('parts').select('id, name, sku, tracked').eq('active', true).order('name')
   const { data: rows } = await supabase.from('stock_report_board').select('*').order('created_at', { ascending: false }).limit(200)
 
+  /* What arrived last, and how much. A shipment that landed and was not put
+     away looks exactly like no stock at all to the person on the floor, so the
+     alarm page has to say so too - not just the reorder list. */
+  const reportedPartIds = Array.from(new Set((rows || []).map((r: any) => r.part_id).filter(Boolean)))
+  const { data: arrivals } = reportedPartIds.length
+    ? await supabase
+        .from('inventory_movements')
+        .select('part_id, quantity, movement_date')
+        .in('part_id', reportedPartIds)
+        .eq('movement_type', 'supplier_received')
+        .is('archived_at', null)
+        .order('movement_date', { ascending: false })
+    : { data: [] as any[] }
+
+  const lastArrival = new Map<string, any>()
+  for (const row of (arrivals || []) as any[]) {
+    if (!lastArrival.has(row.part_id)) lastArrival.set(row.part_id, row)
+  }
+
+  function daysSince(stamp: string) {
+    const then = Date.parse(stamp + 'T00:00:00Z')
+    if (Number.isNaN(then)) return null
+    return Math.floor((Date.now() - then) / 86400000)
+  }
+
+  function LastArrival({ partId }: { partId: string }) {
+    const arrival = lastArrival.get(partId)
+    if (!arrival) return <span className="sku-under">never booked in</span>
+    const ago = daysSince(arrival.movement_date)
+    const recent = ago !== null && ago <= 21
+    return (
+      <span className={recent ? 'sku-under last-arrival recent' : 'sku-under'}>
+        Last arrived: {num(arrival.quantity)} on {date(arrival.movement_date)}
+        {ago !== null && <> ({ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + ' days ago'})</>}
+      </span>
+    )
+  }
+
   const tracked = (rows || []).filter((r: any) => r.tracked)
   const shown = tracked.filter((r: any) => rowMatches(q, r.part_name, r.part_sku, r.notes, r.order_reference))
   const zeros = shown.filter((r: any) => r.report_type === 'zero')
@@ -47,13 +85,18 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td className="name-cell">
           {r.part_id ? <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link> : <span className="row-name">{r.part_name}</span>}
           <span className="sku-under">{r.part_sku}</span>
+          {r.part_id && <LastArrival partId={r.part_id} />}
         </td>
         <td>
           <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>
             {r.report_type === 'zero' ? 'at zero' : 'running low'}
           </span>
         </td>
-        <td>{num(r.system_quantity_at_report)}</td>
+        <td>
+          {r.warehouse_quantity_reported != null
+            ? <><strong>{num(r.warehouse_quantity_reported)}</strong> counted<span className="sku-under">system said {num(r.system_quantity_at_report)}</span></>
+            : <><span className="muted">not counted</span><span className="sku-under">system said {num(r.system_quantity_at_report)}</span></>}
+        </td>
         <td>
           {r.awaiting_receipt ? (
             <ShipmentWaiting
@@ -164,7 +207,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           <span className="badge out">{zeros.length}</span>
         </div>
         <div className="wide-table"><table>
-          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>System said</th><th>Incoming</th><th>Notes</th><th>Reported by</th><th className="actions-cell">Actions</th></tr></thead>
+          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>Counted / system</th><th>Incoming</th><th>Notes</th><th>Reported by</th><th className="actions-cell">Actions</th></tr></thead>
           <tbody>
             {zeros.map((r: any) => <Row key={r.id} r={r} />)}
             {zeros.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing has been reported at zero.</div></td></tr>}
@@ -187,7 +230,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           </form>
         </div>
         <div className="wide-table"><table>
-          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>System said</th><th>Incoming</th><th>Notes</th><th>Reported by</th><th className="actions-cell">Actions</th></tr></thead>
+          <thead><tr><th>Reported</th><th>Part</th><th>Type</th><th>Counted / system</th><th>Incoming</th><th>Notes</th><th>Reported by</th><th className="actions-cell">Actions</th></tr></thead>
           <tbody>
             {lows.map((r: any) => <Row key={r.id} r={r} />)}
             {lows.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing reported as running low.</div></td></tr>}
