@@ -155,7 +155,21 @@ export default async function PartDetailPage({ params, searchParams }: { params:
     .order('is_primary', { ascending: false }).order('sort_order').order('created_at')
   const { data: partLinks } = await supabase.from('part_links').select('*').eq('part_id', id)
     .order('sort_order').order('created_at')
-  const { data: movements } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null).order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(showAllMovements ? 20000 : MOVEMENT_PAGE)
+  /* A thousand rows is all the database will return in one request, so the full
+     history is fetched a thousand at a time. No part is near that today, but a
+     silent truncation would look exactly like a complete list. */
+  const wantMovements = showAllMovements ? 100000 : MOVEMENT_PAGE
+  const movements: any[] = []
+  while (movements.length < wantMovements) {
+    const from = movements.length
+    const to = Math.min(from + 1000, wantMovements) - 1
+    const { data: page } = await supabase.from('inventory_movements').select('*').eq('part_id', id).is('archived_at', null)
+      .order('movement_date', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(from, to)
+    if (!page || page.length === 0) break
+    movements.push(...page)
+    if (page.length < to - from + 1) break
+  }
   const { count: movementTotal } = await supabase.from('inventory_movements').select('id', { count: 'exact', head: true }).eq('part_id', id).is('archived_at', null)
   const { data: incoming } = await supabase.from('open_po_items').select('*').eq('part_id', id)
   const { data: recentReceipts } = await supabase.from('receiving_events').select('created_at, quantity_received, quantity_damaged, quantity_missing, purchase_orders(po_number)').eq('part_id', id).order('created_at', { ascending: false }).limit(8)
