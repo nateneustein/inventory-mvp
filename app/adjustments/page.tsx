@@ -22,7 +22,25 @@ export default async function AdjustmentsPage({ searchParams }: { searchParams?:
   const MOVEMENT_PAGE = 50
   const { supabase } = await requireUser()
   const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
-  const { data: movements } = await supabase.from('inventory_movements').select('*, parts(name, sku)').is('archived_at', null).order('created_at', { ascending: false }).limit(showAll ? 20000 : MOVEMENT_PAGE)
+  /* The database refuses to hand back more than a thousand rows in one request,
+     so "show all" asks for them a thousand at a time until it runs out. Asking
+     for 6899 in one go silently returned 1000 and called it the whole history.
+     The id is a second sort key so the pages line up: two movements saved in the
+     same instant would otherwise be free to swap places between requests, and
+     one of them would come back twice while the other was skipped. */
+  const wantMovements = showAll ? 100000 : MOVEMENT_PAGE
+  const movements: any[] = []
+  while (movements.length < wantMovements) {
+    const from = movements.length
+    const to = Math.min(from + 1000, wantMovements) - 1
+    const { data: page } = await supabase.from('inventory_movements')
+      .select('*, parts(name, sku)').is('archived_at', null)
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(from, to)
+    if (!page || page.length === 0) break
+    movements.push(...page)
+    if (page.length < to - from + 1) break
+  }
   const { data: switches } = await supabase.from('inventory_switches').select('*, to_part:parts!inventory_switches_to_part_id_fkey(name, sku), from_part:parts!inventory_switches_from_part_id_fkey(name, sku)').order('created_at', { ascending: false }).limit(30)
 
   /* How many there are in total, so the button can say what it will show and
