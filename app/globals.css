@@ -163,6 +163,14 @@ p { line-height: 1.5; margin: 0 0 10px; }
 .card.alert { border-color: var(--warning-line); background: var(--warning-soft); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
+/* Cards stacked down a page are separated by a top margin on every card after
+   the first. Inside a grid they sit side by side instead, and that margin ate
+   12px off the height of every box except the first one - which is why the
+   first box on every page looked taller. The grid gap already spaces them. */
+.grid > .card + .card,
+.grid > .card + .table-card,
+.grid > .table-card + .card,
+.grid > .table-card + .table-card { margin-top: 0; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
 /* Six dashboard boxes read as two rows of three. Left to auto-fit they string
    out five-and-one, which makes the last one look like an afterthought. */
@@ -662,6 +670,11 @@ button.is-busy, .button.is-busy { opacity: .6; cursor: progress; pointer-events:
 .mini-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .mini-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .mini-list li .push-right { margin-left: auto; }
+/* The supplier's person, phone, email and site sit on one line beside the
+   company name, separated by a hairline so they read as one contact rather
+   than four stray links. */
+.contact-line { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.contact-line > * + * { border-left: 1px solid var(--border); padding-left: 8px; }
 .mini-add { display: inline-block; }
 .mini-add > summary { list-style: none; cursor: pointer; display: inline-block; }
 .mini-add > summary::-webkit-details-marker { display: none; }
