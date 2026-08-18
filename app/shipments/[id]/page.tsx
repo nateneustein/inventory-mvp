@@ -17,14 +17,31 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   const { id } = await params
   const { supabase } = await requireUser()
   const perms = await getPermissions()
-  const { data: po } = await supabase.from('purchase_orders').select('*, suppliers(name)').eq('id', id).single()
+  const { data: po } = await supabase.from('purchase_orders').select('*, suppliers(id, name, contact_name, phone, email, website)').eq('id', id).single()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name, contact_name, email, phone').order('name')
   const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sku')
   const { data: items } = await supabase.from('purchase_order_items').select('*, parts(name, sku)').eq('purchase_order_id', id).order('created_at')
-  const { data: alsoFrom } = await supabase.from('purchase_order_suppliers').select('id, supplier_id, suppliers(name, contact_name, phone, email)').eq('purchase_order_id', id)
+  const { data: alsoFrom } = await supabase.from('purchase_order_suppliers').select('id, supplier_id, suppliers(id, name, contact_name, phone, email, website)').eq('purchase_order_id', id)
 const { data: receives } = await supabase.from('receiving_events').select('*, parts(name, sku)').eq('purchase_order_id', id).order('created_at', { ascending: false })
 
   if (!po) return <div className="card"><h1>Shipment not found</h1><Link className="button" href="/shipments">Back</Link></div>
+
+  /* Who to actually call when a shipment is late.
+     Having only the company name here meant opening a second tab and searching
+     the supplier list, so the person and the ways to reach them travel with the
+     name. The phone and email are real links, so on a phone it dials. */
+  function SupplierContact({ s }: { s: any }) {
+    if (!s) return null
+    const bits = [
+      s.contact_name ? <span key="c" className="muted small">{s.contact_name}</span> : null,
+      s.phone ? <a key="p" className="link small" href={'tel:' + String(s.phone).replace(/[^+0-9]/g, '')}>{s.phone}</a> : null,
+      s.email ? <a key="e" className="link small" href={'mailto:' + s.email}>{s.email}</a> : null,
+      s.website ? <a key="w" className="link small" href={s.website} target="_blank" rel="noreferrer">website</a> : null,
+      s.id ? <Link key="s" className="link small" href={'/suppliers/' + s.id}>supplier page</Link> : null,
+    ].filter(Boolean)
+    if (bits.length === 0) return <span className="muted small">no contact details saved</span>
+    return <span className="contact-line">{bits}</span>
+  }
 
   return (
     <>
@@ -45,12 +62,11 @@ const { data: receives } = await supabase.from('receiving_events').select('*, pa
 <div className="table-head"><h2>Suppliers on this shipment</h2><span className="badge info">{1 + (alsoFrom || []).length}</span></div>
 <p className="muted small">The main supplier is the one on the shipment itself, set in the edit form below. Add the others here when a container is packed at more than one factory.</p>
 <ul className="mini-list">
-<li><strong>{po.suppliers?.name || 'No supplier set'}</strong><span className="muted small">main supplier</span></li>
+<li><strong>{po.suppliers?.name || 'No supplier set'}</strong><span className="muted small">main supplier</span><SupplierContact s={po.suppliers} /></li>
 {(alsoFrom || []).map((row: any) => (
 <li key={row.id} data-confirm-label={row.suppliers?.name || 'this supplier'}>
 <span>{row.suppliers?.name}</span>
-{row.suppliers?.contact_name && <span className="muted small">{row.suppliers.contact_name}</span>}
-{row.suppliers?.phone && <span className="muted small">{row.suppliers.phone}</span>}
+<SupplierContact s={row.suppliers} />
 {perms.canManagePurchasing && <form className="inline-form push-right" action={removeShipmentSupplier}>
 <input type="hidden" name="purchase_order_id" value={id} />
 <input type="hidden" name="row_id" value={row.id} />
