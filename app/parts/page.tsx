@@ -13,7 +13,7 @@ function matches(row: any, q: string) {
   return hay.includes(q.toLowerCase())
 }
 
-export default async function PartsPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string, category?: string, tracked?: string, error?: string, notice?: string, unlisted?: string }> }) {
+export default async function PartsPage({ searchParams }: { searchParams?: Promise<{ q?: string, status?: string, category?: string, tracked?: string, alerts?: string, error?: string, notice?: string, unlisted?: string }> }) {
   /* The floor works from stock and shipments. The planning columns - when to
      reorder, how much cover is left - and the row menu are for whoever plans
      the ordering, so they are not put on the page at all for anyone else. */
@@ -25,13 +25,20 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
   const status = params.status || ''
   const category = params.category || ''
   const tracked = params.tracked || ''
+  /* The dashboard's "13 ignored" badge links straight here. It is a link, not a
+     dropdown, because the filter bar deliberately has no permanent Alerts
+     control any more - but arriving on an unexplained short list would be
+     worse than no link at all, so the page says out loud that it is filtered
+     and offers one click back. */
+  const alertsOff = params.alerts === 'off'
   const { supabase } = await requireUser()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name, contact_name, email, phone').order('name')
   const { data: allParts } = await supabase.from('inventory_status').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
 
   const categories = Array.from(new Set((allParts || []).map((p: any) => p.category).filter(Boolean))).sort()
   const parts = (allParts || []).filter((p: any) => (!q || matches(p, q)) && (!status || p.stock_status === status) && (!category || p.category === category)
-    && (!tracked || (tracked === 'no' ? p.tracked === false : p.tracked !== false)))
+    && (!tracked || (tracked === 'no' ? p.tracked === false : p.tracked !== false))
+    && (!alertsOff || p.ignore_alerts === true))
 
   return (
     <>
@@ -45,8 +52,18 @@ export default async function PartsPage({ searchParams }: { searchParams?: Promi
       {params.error && <div className="card danger-soft"><strong>Part change failed:</strong> {params.error}</div>}
       {params.notice && <div className="card success-soft"><strong>{params.notice}</strong></div>}
 
+      {alertsOff && (
+        <div className="card alert">
+          <strong>Showing only the parts with alerts turned off.</strong> These are still stocked and
+          still counted everywhere else - they just do not raise alerts, so they never appear in the
+          dashboard numbers or on Needs attention. Use the <strong>⋯</strong> menu on a row to turn its
+          alerts back on. <Link className="link" href="/parts">Show every part</Link>
+        </div>
+      )}
+
       <div className="card">
         <form className="filter-bar" action="/parts">
+          {alertsOff && <input type="hidden" name="alerts" value="off" />}
           <label>Search<input name="q" defaultValue={q} placeholder="Search name, SKU, category" /></label>
           <label className="compact">Status<select name="status" defaultValue={status}><option value="">All</option><option value="out">Out</option><option value="reorder_now">Reorder now</option><option value="getting_low">Getting low</option><option value="ok">OK</option></select></label>
           <label className="compact">Category<select name="category" defaultValue={category}><option value="">All</option>{categories.map((c: any) => <option key={c} value={c}>{c}</option>)}</select></label>
