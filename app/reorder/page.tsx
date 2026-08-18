@@ -80,6 +80,16 @@ export default async function ReorderPage({ searchParams }: { searchParams?: Pro
 
         <p className="muted small">{r.part_sku}{r.category && <> · {r.category}</>} · reported {date(r.created_at)}{r.reporter_name && <> · by <strong>{r.reporter_name}</strong></>}</p>
 
+        {/* What the person actually counted, next to what the app believed at
+            the time. Showing only the system number hid the whole point of
+            someone walking to the shelf. */}
+        <p className="small">
+          {r.warehouse_quantity_reported != null
+            ? <>Counted on the shelf: <strong>{num(r.warehouse_quantity_reported)}</strong></>
+            : <span className="muted">Not counted</span>}
+          <span className="muted"> · system said {num(r.system_quantity_at_report)}</span>
+        </p>
+
         {(() => {
           const arrival = lastArrival.get(r.part_id)
           if (!arrival) {
