@@ -173,7 +173,11 @@ export default async function PartDetailPage({ params, searchParams }: { params:
   const { count: movementTotal } = await supabase.from('inventory_movements').select('id', { count: 'exact', head: true }).eq('part_id', id).is('archived_at', null)
   const { data: incoming } = await supabase.from('open_po_items').select('*').eq('part_id', id)
   const { data: recentReceipts } = await supabase.from('receiving_events').select('created_at, quantity_received, quantity_damaged, quantity_missing, purchase_orders(po_number)').eq('part_id', id).order('created_at', { ascending: false }).limit(8)
-  const { data: zeroReports } = await supabase.from('zero_stock_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
+  /* Read from the board rather than the raw table: the raw row knows a uuid
+     filed it and a uuid closed it, and this page has to show names, what was
+     counted against what the app believed, and whether anyone has looked at it.
+     Reviewed reports stay - this is the part's history, not a to-do list. */
+  const { data: zeroReports } = await supabase.from('stock_report_board').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(20)
   const { data: damageReports } = await supabase.from('damage_reports').select('*').eq('part_id', id).order('created_at', { ascending: false }).limit(10)
   const { data: partFiles } = await supabase.from('part_files').select('*').eq('part_id', id).order('created_at', { ascending: false })
 
@@ -599,7 +603,35 @@ export default async function PartDetailPage({ params, searchParams }: { params:
       </div>
 
       <div className="grid two">
-        <div className="card table-card"><div className="table-head"><h2>Zero reports</h2></div><table><thead><tr><th>Date</th><th>System qty</th><th>Notes</th></tr></thead><tbody>{(zeroReports || []).map((z:any) => <tr key={z.id}><td>{date(z.created_at)}</td><td>{num(z.system_quantity_at_report)}</td><td>{z.notes}</td></tr>)}{(zeroReports || []).length === 0 && <tr><td colSpan={3}><div className="empty-state">No zero reports for this part.</div></td></tr>}</tbody></table></div>
+        <div className="card table-card">
+          <div className="table-head">
+            <div>
+              <h2>Zero / running-low reports</h2>
+              <p className="muted small">Every time the shelf disagreed with these numbers. Reviewed ones stay here - the history is the point.</p>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Date</th><th>What</th><th>Counted</th><th>System said</th><th>Reported by</th><th>Status</th><th>Notes</th></tr></thead>
+            <tbody>
+              {(zeroReports || []).map((z: any) => (
+                <tr key={z.id} className={z.is_done ? 'done-row' : undefined}>
+                  <td>{date(z.created_at)}</td>
+                  <td><span className={'badge ' + (z.report_type === 'zero' ? 'out' : 'warning')}>{z.report_type === 'zero' ? 'at zero' : 'running low'}</span></td>
+                  <td>{z.warehouse_quantity_reported != null ? <strong>{num(z.warehouse_quantity_reported)}</strong> : <span className="muted">not counted</span>}</td>
+                  <td>{num(z.system_quantity_at_report)}</td>
+                  <td className="ap-reporter">{z.reporter_name}</td>
+                  <td>
+                    {z.is_done
+                      ? <><span className="badge ok">reviewed</span><span className="sku-under">{date(z.resolved_at)}{z.reviewer_name ? ' · ' + z.reviewer_name : ''}</span>{z.resolution_note && <span className="sku-under">{z.resolution_note}</span>}</>
+                      : <><span className="badge warning">still open</span>{(z.covered_by_incoming || z.awaiting_receipt) && <span className="sku-under">a shipment was already on the way</span>}</>}
+                  </td>
+                  <td style={{ whiteSpace: 'normal' }}>{z.notes}{z.order_reference && <span className="sku-under">order {z.order_reference}</span>}</td>
+                </tr>
+              ))}
+              {(zeroReports || []).length === 0 && <tr><td colSpan={7}><div className="empty-state">No zero or running-low reports for this part.</div></td></tr>}
+            </tbody>
+          </table>
+        </div>
         <div className="card table-card"><div className="table-head"><h2>Damage reports</h2></div><table><thead><tr><th>Date</th><th>Qty</th><th>Reason</th><th>Notes</th></tr></thead><tbody>{(damageReports || []).map((d:any) => <tr key={d.id}><td>{date(d.created_at)}</td><td>{num(d.quantity)}</td><td>{d.reason}</td><td>{d.notes}</td></tr>)}{(damageReports || []).length === 0 && <tr><td colSpan={4}><div className="empty-state">No damage reports for this part.</div></td></tr>}</tbody></table></div>
       </div>
 
