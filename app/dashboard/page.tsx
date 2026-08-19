@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/require-user'
 import { acknowledgeNotification } from '@/lib/actions'
 import { num, date } from '@/lib/format'
 import { CoverCell } from '@/components/cover-cell'
+import { DeadStockBadge } from '@/components/dead-stock-badge'
 
 function statusBadge(status: string) {
   const cls = status === 'out' ? 'danger' : status === 'ok' ? 'ok' : 'warning'
@@ -192,8 +193,8 @@ export default async function DashboardPage() {
           <table><thead><tr><th>Source</th><th>Account</th><th>Rows</th><th>Unmapped</th></tr></thead><tbody>{(importedSummary || []).map((s:any) => <tr key={`${s.platform}-${s.account_name}`}><td>{s.platform}</td><td>{s.account_name}</td><td>{s.imported_rows}</td><td><span className={`badge ${s.unmapped_rows > 0 ? 'warning' : 'ok'}`}>{s.unmapped_rows}</span></td></tr>)}{(importedSummary || []).length === 0 && <tr><td colSpan={4}><div className="empty-state">No order imports yet.</div></td></tr>}</tbody></table>
         </div>
         <div className="card table-card">
-          <div className="table-head"><h2>Dead stock watch</h2><Link className="button small-btn secondary" href="/reports">Full report</Link></div>
-          <table><thead><tr><th>Part</th><th>On hand</th><th>Status</th></tr></thead><tbody>{(deadStock || []).map((d:any) => <tr key={d.part_id}><td><Link className="link" href={`/parts/${d.part_id}`}>{d.sku} · {d.name}</Link></td><td>{num(d.on_hand)}</td><td><span className="badge warning">{d.dead_stock_status}</span></td></tr>)}{(deadStock || []).length === 0 && <tr><td colSpan={3}><div className="empty-state">No dead stock warnings yet.</div></td></tr>}</tbody></table>
+          <div className="table-head"><h2>Overstocked and not moving</h2><Link className="button small-btn secondary" href="/reports">Full report</Link></div>
+          <table><thead><tr><th>Part</th><th>On hand</th><th>Status</th></tr></thead><tbody>{(deadStock || []).map((d:any) => <tr key={d.part_id}><td><Link className="link" href={`/parts/${d.part_id}`}>{d.sku} · {d.name}</Link></td><td>{num(d.on_hand)}</td><td><DeadStockBadge status={d.dead_stock_status} /></td></tr>)}{(deadStock || []).length === 0 && <tr><td colSpan={3}><div className="empty-state">Nothing overstocked or sitting still.</div></td></tr>}</tbody></table>
         </div>
       </div>
     </>
