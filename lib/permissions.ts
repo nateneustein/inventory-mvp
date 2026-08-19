@@ -51,6 +51,12 @@ export function permissionsFor(role: Role) {
     canReportZero: signedIn,
 
     // Stock-moving work that is not floor work.
+    /* Marking a tracked alarm as reviewed is a judgement call about whether the
+       forecast really failed, so it belongs to whoever plans the ordering. The
+       floor files reports; it does not close them. The database enforces the
+       same rule independently, so hiding the button is only honesty. */
+    canReviewStockReports: isManagerUp,
+
     canRecordCycleCount: isManagerUp,
     canRecordManualUsage: isManagerUp,
     canRecordSwitch: isManagerUp,
