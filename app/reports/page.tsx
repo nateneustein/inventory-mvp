@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/require-user'
 import { requirePageAccess } from '@/lib/permissions'
 import { date, num } from '@/lib/format'
+import { DeadStockBadge } from '@/components/dead-stock-badge'
 
 export default async function ReportsPage() {
   /* Closed to the floor. Checked here, on the server, on every render. */
@@ -26,7 +27,7 @@ export default async function ReportsPage() {
 
       <div className="grid">
         <div className="card"><div className="muted">Alarms - tracked, nothing coming</div><div className="kpi">{zeroReports.length}</div><p className="muted small">{zeroReports.filter((r: any) => !r.is_done).length} not yet reviewed</p></div>
-        <div className="card"><div className="muted">Dead stock candidates</div><div className="kpi">{deadStock?.length || 0}</div></div>
+        <div className="card"><div className="muted">Overstocked / not moving / dead</div><div className="kpi">{deadStock?.length || 0}</div></div>
         <div className="card"><div className="muted">Overdue shipment items</div><div className="kpi">{overdue?.length || 0}</div></div>
         <div className="card"><div className="muted">Forced switches</div><div className="kpi">{switches?.length || 0}</div></div>
       </div>
@@ -41,11 +42,16 @@ export default async function ReportsPage() {
       </div>
 
       <div className="card">
-        <h2>Dead stock / slow stock</h2>
-        <p className="muted small">Tracked parts sitting on more than <strong>365 days of cover</strong> (far more stock than they sell), or not used in a while. <strong>Slow</strong> means nothing has consumed it in over 120 days, or there is over a year of cover; <strong>dead</strong> means over 270 days untouched. A part with no recent usage at all shows no cover figure, because there is no rate to divide by. These are candidates to stop reordering or run down.</p>
+        <h2>Overstocked, not moving, and dead</h2>
+        <p className="muted small">
+          Two different problems, so two different words.
+          {' '}<strong>Overstocked</strong> means it is still selling but there is more than a year of cover on the shelf - buy less next time.
+          {' '}<strong>Not moving</strong> means nothing has consumed it in over 120 days, and <strong>dead</strong> means over 270 days, or never - those have stopped selling, which is a different decision entirely.
+          {' '}A part with no recent usage shows no cover figure, because there is no rate to divide by.
+        </p>
         <table>
           <thead><tr><th>Part</th><th>SKU</th><th>On hand</th><th>Months of cover</th><th>Last used</th><th>Status</th></tr></thead>
-          <tbody>{(deadStock || []).map((r: any) => <tr key={r.part_id}><td>{r.name}</td><td>{r.sku}</td><td>{num(r.on_hand)}</td><td>{r.months_of_cover != null ? r.months_of_cover + ' mo' : '—'}</td><td>{date(r.last_used_at)}</td><td>{r.dead_stock_status}</td></tr>)}</tbody>
+          <tbody>{(deadStock || []).map((r: any) => <tr key={r.part_id}><td>{r.name}</td><td>{r.sku}</td><td>{num(r.on_hand)}</td><td>{r.months_of_cover != null ? r.months_of_cover + ' mo' : '—'}</td><td>{date(r.last_used_at)}</td><td><DeadStockBadge status={r.dead_stock_status} /></td></tr>)}</tbody>
         </table>
       </div>
 
