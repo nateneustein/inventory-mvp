@@ -213,8 +213,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
        these numbers disagreed once, and hiding it the moment somebody ticked it
        off made the section look calmer than the history actually was. A deleted
        report is gone from the table entirely, so it cannot show up here. */
-    const { data: reps } = await supabase.from('zero_stock_reports')
-      .select('id, part_id, report_type, created_at, resolved_at')
+    const { data: reps } = await supabase.from('stock_report_board')
+      .select('id, part_id, part_name, report_type, created_at, resolved_at, resolution_note, reporter_name, reviewer_name, warehouse_quantity_reported, system_quantity_at_report, notes, covered_by_incoming, awaiting_receipt, is_done')
       .in('part_id', ids).order('created_at', { ascending: false }).limit(50)
     openReports = reps || []
 
@@ -639,9 +639,29 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <strong style={{ fontSize: 14 }}>Reports on this group</strong>
               {openReports.length === 0
                 ? <div className="ap-ok">None on record. A zero or running-low report on any {part.category} part would show here - it means the shelf disagreed with these numbers.</div>
-                : <ul className="ap-replist">{openReports.map((r) => {
+                : <ul className="ap-replist">{openReports.map((r: any) => {
                     const p = parts.find((x) => x.id === r.part_id)
-                    return <li key={r.id}><span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>{r.report_type === 'zero' ? 'at zero' : 'running low'}</span> {p ? p.name : r.part_id} - {date(r.created_at)}{r.resolved_at ? <span className="badge ok" style={{ marginLeft: 6 }}>sorted out {date(r.resolved_at)}</span> : <span className="badge warning" style={{ marginLeft: 6 }}>still open</span>}</li>
+                    return (
+                      <li key={r.id} className="ap-rep">
+                        <div>
+                          <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>{r.report_type === 'zero' ? 'at zero' : 'running low'}</span>
+                          {' '}<strong>{p ? p.name : r.part_name || r.part_id}</strong> - {date(r.created_at)} by {r.reporter_name || 'Unknown'}
+                          {r.resolved_at
+                            ? <span className="badge ok" style={{ marginLeft: 6 }}>reviewed {date(r.resolved_at)}{r.reviewer_name ? ' · ' + r.reviewer_name : ''}</span>
+                            : <span className="badge warning" style={{ marginLeft: 6 }}>still open</span>}
+                        </div>
+                        {/* What the shelf said against what the app believed, because
+                            that gap is the whole reason this section exists. */}
+                        <div className="ap-sm muted">
+                          {r.warehouse_quantity_reported != null
+                            ? <>Counted <strong>{num(r.warehouse_quantity_reported)}</strong> · the app said {num(r.system_quantity_at_report)}</>
+                            : <>Not counted · the app said {num(r.system_quantity_at_report)}</>}
+                          {(r.covered_by_incoming || r.awaiting_receipt) && <> · a shipment was already on the way</>}
+                        </div>
+                        {r.notes && <div className="ap-sm">&ldquo;{r.notes}&rdquo;</div>}
+                        {r.resolution_note && <div className="ap-sm muted">Reviewed: {r.resolution_note}</div>}
+                      </li>
+                    )
                   })}</ul>}
             </div>
 
