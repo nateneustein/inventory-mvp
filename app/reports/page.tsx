@@ -25,7 +25,7 @@ export default async function ReportsPage() {
       <p className="muted">Reports for actual zero events, dead stock, overdue shipments, and prediction/system failures.</p>
 
       <div className="grid">
-        <div className="card"><div className="muted">Alarms - tracked, nothing coming</div><div className="kpi">{zeroReports.length}</div></div>
+        <div className="card"><div className="muted">Alarms - tracked, nothing coming</div><div className="kpi">{zeroReports.length}</div><p className="muted small">{zeroReports.filter((r: any) => !r.is_done).length} not yet reviewed</p></div>
         <div className="card"><div className="muted">Dead stock candidates</div><div className="kpi">{deadStock?.length || 0}</div></div>
         <div className="card"><div className="muted">Overdue shipment items</div><div className="kpi">{overdue?.length || 0}</div></div>
         <div className="card"><div className="muted">Forced switches</div><div className="kpi">{switches?.length || 0}</div></div>
@@ -33,10 +33,10 @@ export default async function ReportsPage() {
 
       <div className="card">
         <h2>Alarms - the forecast missed</h2>
-        <p className="muted small">Tracked parts the warehouse reported at zero or running low with <strong>no shipment already on the way</strong>. Untracked supplies and reports already covered by a shipment are on the reorder list instead.</p>
+        <p className="muted small">Tracked parts the warehouse reported at zero or running low with <strong>no shipment already on the way</strong>. Untracked supplies and reports already covered by a shipment are on the reorder list instead. This is the history, so a report stays here after it has been reviewed - the forecast still missed, whether or not somebody has since looked at it.</p>
         <table>
-          <thead><tr><th>Date</th><th>Part</th><th>Type</th><th>Counted</th><th>System said</th><th>Reported by</th><th>Notes</th></tr></thead>
-          <tbody>{zeroReports.map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td>{r.part_sku} · {r.part_name}</td><td>{r.report_type}</td><td>{r.warehouse_quantity_reported != null ? <strong>{num(r.warehouse_quantity_reported)}</strong> : <span className="muted">not counted</span>}</td><td>{num(r.system_quantity_at_report)}</td><td className="ap-reporter">{r.reporter_name}</td><td>{r.notes}</td></tr>)}{zeroReports.length === 0 && <tr><td colSpan={7}><div className="empty-state">No alarms. Every open report is either on an untracked supply or already covered by a shipment.</div></td></tr>}</tbody>
+          <thead><tr><th>Date</th><th>Part</th><th>Type</th><th>Counted</th><th>System said</th><th>Reported by</th><th>Reviewed</th><th>Notes</th></tr></thead>
+          <tbody>{zeroReports.map((r: any) => <tr key={r.id}><td>{date(r.created_at)}</td><td>{r.part_sku} · {r.part_name}</td><td>{r.report_type}</td><td>{r.warehouse_quantity_reported != null ? <strong>{num(r.warehouse_quantity_reported)}</strong> : <span className="muted">not counted</span>}</td><td>{num(r.system_quantity_at_report)}</td><td className="ap-reporter">{r.reporter_name}</td><td>{r.is_done ? <><span className="badge ok">reviewed</span><span className="sku-under">{date(r.resolved_at)}{r.reviewer_name ? ' · ' + r.reviewer_name : ''}</span>{r.resolution_note && <span className="sku-under">{r.resolution_note}</span>}</> : <span className="badge warning">still open</span>}</td><td>{r.notes}</td></tr>)}{zeroReports.length === 0 && <tr><td colSpan={8}><div className="empty-state">No alarms. Every open report is either on an untracked supply or already covered by a shipment.</div></td></tr>}</tbody>
         </table>
       </div>
 
