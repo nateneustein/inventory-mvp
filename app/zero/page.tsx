@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/require-user'
-import { reportZeroStock } from '@/lib/actions'
+import { reportZeroStock, reviewStockReport, unreviewStockReport } from '@/lib/actions'
 import { deleteZeroStockReport } from '@/lib/record-actions'
+import { getPermissions } from '@/lib/permissions'
 import { date, num } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
 import { ActionButton } from '@/components/action-button'
@@ -21,9 +22,10 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const { supabase } = await requireUser()
+  const perms = await getPermissions()
 
   const { data: parts } = await supabase.from('parts').select('id, name, sku, tracked').eq('active', true).order('name')
-  const { data: rows } = await supabase.from('stock_report_board').select('*').order('created_at', { ascending: false }).limit(200)
+  const { data: rows } = await supabase.from('stock_report_board').select('*').order('created_at', { ascending: false }).limit(500)
 
   /* What arrived last, and how much. A shipment that landed and was not put
      away looks exactly like no stock at all to the person on the floor, so the
@@ -63,8 +65,14 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
     )
   }
 
+  /* An alarm stays on the open list until somebody who plans the ordering says
+     they have looked at it. Before this existed the only way to clear one was to
+     delete it, which threw the evidence away to quieten a number - so reviewing
+     is the honest version of the same act: the report stops nagging, and every
+     history page still has it. */
   const tracked = (rows || []).filter((r: any) => r.tracked)
-  const shown = tracked.filter((r: any) => rowMatches(q, r.part_name, r.part_sku, r.notes, r.order_reference))
+  const shown = tracked.filter((r: any) => rowMatches(q, r.part_name, r.part_sku, r.notes, r.order_reference) && !r.is_done)
+  const reviewed = tracked.filter((r: any) => rowMatches(q, r.part_name, r.part_sku, r.notes, r.order_reference) && r.is_done)
   const zeros = shown.filter((r: any) => r.report_type === 'zero')
   const lows = shown.filter((r: any) => r.report_type === 'running_low')
   const untrackedCount = (rows || []).filter((r: any) => !r.tracked && !r.is_done).length
@@ -124,15 +132,37 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <td style={{ whiteSpace: 'normal' }}>{r.notes}</td>
         <td className="ap-reporter">{r.reporter_name}</td>
         <td className="actions-cell" data-confirm-label={r.part_name}>
-          {/* can_delete comes from the database, not from guesswork here: a manager
-              or admin any time, or the person who filed the report, on the same day.
-              Anyone else is not shown a button that would only refuse them. */}
-          {r.can_delete && (
-          <form className="inline-form" action={deleteZeroStockReport}>
-            <input type="hidden" name="id" value={r.id} />
-            <ActionButton className="small-btn danger" busyLabel="…" doneLabel="Deleted">Delete</ActionButton>
-          </form>
-          )}
+          <div className="action-row wrap">
+            {/* Reviewing is what takes an alarm off the dashboard. Deleting also
+                would, but it destroys the record, so the review button comes
+                first and reads as the normal thing to do. */}
+            {perms.canReviewStockReports && (
+              <details className="mini-add">
+                <summary className="button small-btn">Mark reviewed</summary>
+                <form className="stack card flat" action={reviewStockReport}>
+                  <input type="hidden" name="report_id" value={r.id} />
+                  <p className="muted small">
+                    Takes it off the dashboard and off this list. It stays on the reports page, the
+                    part page and the prediction pages as history.
+                  </p>
+                  <label>What did you find?<input name="resolution_note" placeholder="Miscount - 3 boxes were on the overflow rack" /></label>
+                  <div className="action-row">
+                    <ActionButton className="small-btn" busyLabel="Saving…" doneLabel="Reviewed">Mark reviewed</ActionButton>
+                    <button type="button" className="button secondary cancel-btn">Cancel</button>
+                  </div>
+                </form>
+              </details>
+            )}
+            {/* can_delete comes from the database, not from guesswork here: a manager
+                or admin any time, or the person who filed the report, on the same day.
+                Anyone else is not shown a button that would only refuse them. */}
+            {r.can_delete && (
+            <form className="inline-form" action={deleteZeroStockReport}>
+              <input type="hidden" name="id" value={r.id} />
+              <ActionButton className="small-btn danger" confirm="Delete this report for good? Marking it reviewed keeps the history." busyLabel="…" doneLabel="Deleted">Delete</ActionButton>
+            </form>
+            )}
+          </div>
         </td>
       </tr>
     )
@@ -155,6 +185,7 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
         <div className="card kpi-card"><div className="muted">At zero</div><div className="kpi">{zeros.length}</div></div>
         <div className="card kpi-card"><div className="muted">Running low</div><div className="kpi">{lows.length}</div></div>
         <div className="card kpi-card"><div className="muted">Covered by a shipment</div><div className="kpi">{shown.filter((r: any) => r.covered_by_incoming || r.awaiting_receipt).length}</div></div>
+        <div className="card kpi-card"><div className="muted">Reviewed</div><div className="kpi">{reviewed.length}</div></div>
       </div>
 
       <div className="card">
@@ -234,6 +265,58 @@ export default async function ZeroPage({ searchParams }: { searchParams?: Promis
           <tbody>
             {lows.map((r: any) => <Row key={r.id} r={r} />)}
             {lows.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing reported as running low.</div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+
+      {/* Reviewed alarms. Not hidden, not deleted - moved. Somebody has to be
+          able to see what was closed, when, by whom and why, or "reviewed" is
+          just a quieter way of losing the report. */}
+      <div className="card table-card">
+        <div className="table-head">
+          <div>
+            <h2>Reviewed</h2>
+            <p className="muted small">
+              Alarms a manager has looked at. They no longer count on the dashboard or sit on the
+              lists above, but they are still on the reports page and on each part&apos;s own history,
+              because the forecast still missed. Reopen one if it was closed too early.
+            </p>
+          </div>
+          <span className="badge ok">{reviewed.length}</span>
+        </div>
+        <div className="wide-table"><table>
+          <thead><tr><th>Reviewed</th><th>Part</th><th>Type</th><th>Counted / system</th><th>What was found</th><th>Reported</th><th className="actions-cell">Actions</th></tr></thead>
+          <tbody>
+            {reviewed.map((r: any) => (
+              <tr key={r.id} className="done-row">
+                <td>{date(r.resolved_at)}<span className="sku-under">by {r.reviewer_name || 'Unknown'}</span></td>
+                <td className="name-cell">
+                  {r.part_id ? <Link className="link" href={'/parts/' + r.part_id}>{r.part_name}</Link> : <span className="row-name">{r.part_name}</span>}
+                  <span className="sku-under">{r.part_sku}</span>
+                </td>
+                <td>
+                  <span className={'badge ' + (r.report_type === 'zero' ? 'out' : 'warning')}>
+                    {r.report_type === 'zero' ? 'at zero' : 'running low'}
+                  </span>
+                </td>
+                <td>
+                  {r.warehouse_quantity_reported != null
+                    ? <><strong>{num(r.warehouse_quantity_reported)}</strong> counted<span className="sku-under">system said {num(r.system_quantity_at_report)}</span></>
+                    : <><span className="muted">not counted</span><span className="sku-under">system said {num(r.system_quantity_at_report)}</span></>}
+                </td>
+                <td style={{ whiteSpace: 'normal' }}>{r.resolution_note || <span className="muted">no note left</span>}</td>
+                <td>{date(r.created_at)}<span className="sku-under">by {r.reporter_name}</span></td>
+                <td className="actions-cell">
+                  {perms.canReviewStockReports && (
+                    <form className="inline-form" action={unreviewStockReport}>
+                      <input type="hidden" name="report_id" value={r.id} />
+                      <ActionButton className="small-btn secondary" busyLabel="…" doneLabel="Reopened">Reopen</ActionButton>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {reviewed.length === 0 && <tr><td colSpan={7}><div className="empty-state">Nothing has been marked reviewed yet.</div></td></tr>}
           </tbody>
         </table></div>
       </div>
