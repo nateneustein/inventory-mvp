@@ -1831,6 +1831,57 @@ export async function reopenStockReport(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+/**
+ * Mark a tracked alarm as reviewed.
+ *
+ * Separate from resolveStockReport on purpose. That one is the reorder list's
+ * "I ordered it", and the person who asked for the supply is allowed to tick
+ * off their own request the same day. This one is a manager saying the alarm
+ * has been looked at and understood, which is why it is restricted and why it
+ * carries its own wording.
+ *
+ * It writes the same three columns, so a reviewed report is "done" everywhere
+ * the app already understood done - it drops off the dashboard count and out of
+ * the open lists - while staying visible in every history: the reports page,
+ * the part page, and the prediction pages.
+ */
+export async function reviewStockReport(formData: FormData) {
+  const { supabase, userId } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canReviewStockReports) redirect(deniedUrl('/zero', 'mark a report as reviewed'))
+  const id = value(formData, 'report_id')
+  const { error } = await supabase.from('zero_stock_reports').update({
+    resolved_at: new Date().toISOString(),
+    resolved_by: userId,
+    resolution_note: value(formData, 'resolution_note') || null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/zero')
+  revalidatePath('/reports')
+  revalidatePath('/dashboard')
+  revalidatePath('/parts')
+  revalidatePath('/predictions/advanced')
+}
+
+/** Put a reviewed alarm back on the open list - it was closed too early. */
+export async function unreviewStockReport(formData: FormData) {
+  const { supabase } = await currentUserId()
+  const perms = await getPermissions()
+  if (!perms.canReviewStockReports) redirect(deniedUrl('/zero', 'reopen a report'))
+  const id = value(formData, 'report_id')
+  const { error } = await supabase.from('zero_stock_reports').update({
+    resolved_at: null,
+    resolved_by: null,
+    resolution_note: null,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/zero')
+  revalidatePath('/reports')
+  revalidatePath('/dashboard')
+  revalidatePath('/parts')
+  revalidatePath('/predictions/advanced')
+}
+
 /** Tracked parts are reordered from the forecast; untracked ones when the warehouse asks. */
 export async function setPartTracked(formData: FormData) {
   const { supabase } = await currentUserId()
