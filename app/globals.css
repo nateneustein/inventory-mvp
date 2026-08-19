@@ -785,6 +785,11 @@ form.is-dirty > .form-row > label { --unsaved: 1; }
 .ap-flag { background: var(--danger-soft); border: 1px solid #f0d4d4; border-radius: 8px; padding: 11px 14px; font-size: 13.5px; margin: 10px 0; }
 .ap-ok { background: var(--ok-soft); border: 1px solid #d3e8d6; color: var(--ok); border-radius: 7px; padding: 9px 12px; font-size: 13px; margin-top: 8px; }
 .ap-replist { margin: 8px 0 0; padding-left: 18px; font-size: 13.5px; }
+/* A report is now several lines rather than one, so the entries need air
+   between them or the block reads as one paragraph of run-together text. */
+.ap-replist .ap-rep { margin-bottom: 10px; }
+.ap-replist .ap-rep:last-child { margin-bottom: 0; }
+.ap-replist .ap-rep .ap-sm { margin-top: 2px; }
 .ap-step { background: #fff; border: 1px solid var(--line, #d5d9df); border-radius: 10px; margin: 14px 0; overflow: hidden; }
 .ap-step-h { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line, #eef0f3); background: #fafbfc; flex-wrap: wrap; }
 .ap-step-h strong { font-size: 14.5px; }
