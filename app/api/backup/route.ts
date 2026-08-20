@@ -60,11 +60,19 @@ export async function GET(request: NextRequest) {
       const name = request.nextUrl.searchParams.get('table') || ''
       const offset = Number(request.nextUrl.searchParams.get('offset') || 0)
       const limit = Number(request.nextUrl.searchParams.get('limit') || 5000)
+      /* An append-only table (the audit log) does not need copying from the
+         beginning every week, so the caller may say "only rows newer than
+         this". The database checks the column name against the real column
+         list, so nothing can be smuggled in through it. */
+      const sinceColumn = request.nextUrl.searchParams.get('since_column')
+      const since = request.nextUrl.searchParams.get('since')
       result = await rpc('backup_rows', {
         p_secret: token,
         p_table: name,
         p_offset: Number.isFinite(offset) ? offset : 0,
         p_limit: Number.isFinite(limit) ? limit : 5000,
+        p_since_column: sinceColumn || null,
+        p_since: since || null,
       })
     } else {
       return NextResponse.json({ error: 'unknown request' }, { status: 400 })
