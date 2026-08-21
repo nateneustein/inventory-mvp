@@ -231,6 +231,22 @@ export function renderSlack(
       return { text: [head('⚠️', 'Running out before shipment arrives - ' + p.part_name), ...body].join('\n') }
     }
 
+    /* 11 - the part photos are backed up by hand, so something has to say when
+       enough has changed to be worth doing again. Not an emergency: no photo
+       is lost, it just is not off-site yet. */
+    case 'photo_backup_due': {
+      const bits: string[] = []
+      if (Number(p.new) > 0) bits.push('*' + p.new + '* new')
+      if (Number(p.changed) > 0) bits.push('*' + p.changed + '* changed')
+      if (Number(p.deleted) > 0) bits.push('*' + p.deleted + '* deleted')
+      const body: string[] = []
+      body.push(bits.join(' · ') + ' — *' + p.mb + ' MB* in total')
+      body.push('On: ' + p.parts)
+      body.push('<https://supabase.com/dashboard/project/gaqhebnpkkgseizdpsug/storage/files/buckets/part-files|Open the photo bucket →>')
+      body.push('_Download each folder, drop it in the Drive backup folder, then tell Claude the export is done so the count starts again._')
+      return { text: [head('📷', p.total + ' part ' + plural(Number(p.total), 'photo', 'photos') + ' are not backed up yet'), ...body].join('\n') }
+    }
+
     default:
       return null
   }
