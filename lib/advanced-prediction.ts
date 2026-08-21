@@ -322,8 +322,9 @@ export function seasonCheck(monthMap, year, mo) {
  * Multi-year season scan for one calendar month: EVERY prior year with data
  * is checked against its own Feb-Sep baseline, so with 2+ years of history a
  * repeated spike becomes a confident pattern instead of a maybe-one-off.
- * `repeated` is the stricter test the page leans on: the newest year AND the
- * one before it both cleared the bar.
+ * `contradicted` is the veto the page leans on: an older year cleared the bar
+ * but the newest year with data did not. `repeated` (2+ years cleared) only
+ * changes how confidently the suggestion is worded.
  */
 export function seasonScan(monthMap, targetYear, mo, threshold) {
   const th = threshold || 1.3
@@ -338,16 +339,20 @@ export function seasonScan(monthMap, targetYear, mo, threshold) {
   const factor = hits.length
     ? median(hits.map(function (r) { return r.factor }))
     : (years.length ? median(years.map(function (r) { return r.factor })) : 1)
-  /* One year on its own is a story, not a pattern. A month only counts as a
-     REPEATED season when the most recent year that has data cleared the
-     threshold AND the year before it cleared it too. years[0] is the newest,
-     because the loop above counts backwards. Without this a spike that
-     happened once and never came back could still put itself forward every
-     year afterwards, because a single hit was enough and the quiet years that
-     followed were dropped from the median instead of contradicting it. */
-  const repeated = years.length >= 2 && years[0].factor >= th && years[1].factor >= th
+  /* A newer year gets a veto. The hits above are medianed on their own, so a
+     year that looked and DISAGREED is otherwise dropped from the maths instead
+     of counting against the spike - which let one old loud year keep proposing
+     itself forever. `contradicted` is that case and only that case: the most
+     recent year with data did NOT clear the bar while an older one did.
+     years[0] is the newest, because the loop above counts backwards.
+     A month with only one year behind it is NOT contradicted - nothing has
+     disagreed with it, there simply has not been a second year yet. That is a
+     confidence question, not a veto, so `repeated` is reported separately and
+     used for wording rather than for blocking. */
   const latest = years.length ? years[0] : null
-  return { hasHistory: years.length > 0, years, hits: hits.length, factor, repeated, latest }
+  const contradicted = hits.length > 0 && latest !== null && latest.factor < th
+  const repeated = hits.length >= 2
+  return { hasHistory: years.length > 0, years, hits: hits.length, factor, repeated, contradicted, latest }
 }
 
 /** The calendar months a run of weeks touches, with how many weeks land in each. */
