@@ -132,9 +132,9 @@ export default async function AdvancedPredictionPage({ searchParams }) {
        than the page appeared to say. Now the page shows what it would add and
        waits to be told. */
     npApply: params.npaset != null ? params.npa === '1' : savedSettings.npa == null ? false : Number(savedSettings.npa) === 1,
-    /* A season has to happen twice before the page will offer it. On by
-       default: one loud year followed by a quiet one is not a season, and the
-       old rule let that single year keep suggesting itself forever. */
+    /* A newer year can veto a season. On by default: one loud year followed
+       by a quiet one is not a season. Having only ONE year of history is not a
+       veto - nothing has disagreed yet - it only changes the wording. */
     seasonRepeat: params.srepset != null ? params.srep === '1' : savedSettings.srep == null ? true : Number(savedSettings.srep) === 1,
   }
   // Trend horizon: left blank, it follows each part's own order window -
@@ -356,11 +356,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const decision = seasonDecisions[String(cm.mo)] || null
         // The GROUP decides seasonality: one variation's month cannot be
         // seasonal on its own - they sell as one listing.
-        /* With the repeat rule on, the most recent year with data has to have
-           done it too. A month that spiked once and then went quiet is kept
-           back and shown as such, rather than silently disappearing. */
-        const candidate = dial.seasonRepeat ? l.repeated : l.hits > 0
-        const onceOnly = dial.seasonRepeat && l.hits > 0 && !l.repeated
+        /* Held back only when a NEWER year actually looked and disagreed.
+           One year of history on its own still counts - it is unconfirmed,
+           not refuted - and the card says so. */
+        const onceOnly = dial.seasonRepeat && l.contradicted
+        const candidate = l.hits > 0 && !onceOnly
         let applied = 1
         if (decision === 'approved' && !onceOnly) {
           if (l.hits > 0) applied = Math.max(applied, l.factor)
@@ -375,7 +375,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const key = mid.getUTCFullYear() * 100 + (mid.getUTCMonth() + 1)
         return appliedByMonth[key] || 1
       }
-      const shopFlags = seasonRows.filter((r) => (dial.seasonRepeat ? r.s.repeated : r.s.hits > 0) && r.applied === 1 && !r.candidate)
+      const shopFlags = seasonRows.filter((r) => r.s.hits > 0 && !(dial.seasonRepeat && r.s.contradicted) && r.applied === 1 && !r.candidate)
 
       const np = newProductCheck(listingFirst, todayMs, dial.npMin, dial.npBump)
 
@@ -517,8 +517,8 @@ export default async function AdvancedPredictionPage({ searchParams }) {
               <span className="ap-dial-help">A calendar month counts as seasonal when a past year sold at least this x that year&apos;s normal (its own Feb-Sep median). Months this order covers get the multiplier applied once you approve them.</span>
             </label>
             <label className="ap-check">
-              <span><input type="hidden" name="srepset" value="1" /><input type="checkbox" name="srep" value="1" defaultChecked={dial.seasonRepeat} /> Season must repeat two years running</span>
-              <span className="ap-dial-help">On by default. A month is only offered as seasonal when the MOST RECENT year with data cleared the threshold and the year before it cleared it too. One big year followed by a quiet one is not a season - without this, a single old spike keeps suggesting itself every year, because one hit was enough and the quiet years that followed were dropped instead of counting against it. Held-back months are still listed under the table so nothing goes silently missing.</span>
+              <span><input type="hidden" name="srepset" value="1" /><input type="checkbox" name="srep" value="1" defaultChecked={dial.seasonRepeat} /> A newer year can cancel a season</span>
+              <span className="ap-dial-help">On by default. If an older year spiked but the MOST RECENT year with data looked at the same month and did not, the spike is held back - without this, one old loud year keeps suggesting itself every year, because the quiet years that followed were dropped from the median instead of counting against it. A month with only one year of history is NOT held back: nothing has disagreed with it, there simply has not been a second year yet, and the suggestion says so. Held-back months are listed under the table so nothing goes silently missing.</span>
             </label>
             <label>New product under (months)
               <input type="number" name="npmin" step="0.5" defaultValue={dial.npMin} />
@@ -911,7 +911,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                         <td title={yearsTip(r.v)}>{r.v.hasHistory ? f1(r.v.factor) + 'x' + (r.v.years.length > 1 ? ' (' + r.v.hits + ' of ' + r.v.years.length + ' yrs)' : '') : 'no history'}</td>
                         <td title={yearsTip(r.l)}>{r.l.hasHistory ? f1(r.l.factor) + 'x' + (r.l.years.length > 1 ? ' (' + r.l.hits + ' of ' + r.l.years.length + ' yrs)' : '') : 'no history'}</td>
                         <td title={yearsTip(r.s)}>{r.s.hasHistory ? f1(r.s.factor) + 'x' + (r.s.years.length > 1 ? ' (' + r.s.hits + ' of ' + r.s.years.length + ' yrs)' : '') : 'no history'}</td>
-                        <td>{r.decision === 'approved' ? (r.onceOnly ? 'approved - held' : 'approved') : r.decision === 'dismissed' ? 'dismissed' : r.candidate ? 'waiting' : r.onceOnly ? 'not repeated' : '-'}</td>
+                        <td>{r.decision === 'approved' ? (r.onceOnly ? 'approved - held' : 'approved') : r.decision === 'dismissed' ? 'dismissed' : r.candidate ? 'waiting' : r.onceOnly ? 'newer year says no' : '-'}</td>
                         <td>{r.applied > 1 ? <b>{f1(r.applied)}x</b> : '-'}</td>
                       </tr>
                     ))}
@@ -938,11 +938,14 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   return cards.map((r) => {
                     const ev = r.l
                     const level = 'the whole group'
-                    const conf = dial.seasonRepeat
-                      ? 'Repeated: ' + ev.hits + ' of ' + ev.years.length + ' years with data cleared ' + f1(dial.seasonTh) + 'x, including the most recent one (' + ev.latest.y + ' at ' + f1(ev.latest.factor) + 'x). ' + yearsTip(ev) + '.'
-                      : ev.years.length >= 2 && ev.hits >= 2
-                        ? 'Very confident: it spiked in ' + ev.hits + ' of ' + ev.years.length + ' years with data. ' + yearsTip(ev) + '.'
-                        : 'Based on ' + ev.years.length + ' year of data - it could be a one-off.'
+                    /* Confidence is stated, never used to hide the suggestion.
+                       Two years agreeing and one year unopposed are both worth
+                       showing; they are not worth showing in the same words. */
+                    const conf = ev.repeated
+                      ? 'Repeated: ' + ev.hits + ' of ' + ev.years.length + ' years with data cleared ' + f1(dial.seasonTh) + 'x. ' + yearsTip(ev) + '.'
+                      : ev.years.length <= 1
+                        ? 'Only one year of history so far (' + ev.latest.y + '), so nothing has confirmed it yet - it could be a one-off. ' + yearsTip(ev) + '.'
+                        : 'Newest year only - the earlier year(s) did not clear ' + f1(dial.seasonTh) + 'x, so this may be a season that is only now starting. ' + yearsTip(ev) + '.'
                     return (
                       <div key={r.mo} className="ap-season-card">
                         <div>
@@ -985,9 +988,9 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   if (!held.length) return null
                   return (
                     <div className="ap-sm muted" style={{ margin: '8px 0 0' }}>
-                      <b>Held back - spiked once, did not repeat:</b>{' '}
+                      <b>Held back - a newer year did not repeat it:</b>{' '}
                       {held.map((r) => MONTH_NAMES[r.mo] + ' (' + yearsTip(r.l) + ')').join('; ')}.
-                      {' '}The most recent year with data has to clear {f1(dial.seasonTh)}x as well before a month is offered. Untick <i>Season must repeat two years running</i> in the dials to go back to one year being enough.
+                      {' '}An older year cleared {f1(dial.seasonTh)}x but the most recent year with data looked and did not, so the spike is not offered. Untick <i>A newer year can cancel a season</i> in the dials to let the old year suggest itself anyway.
                     </div>
                   )
                 })()}
@@ -1012,7 +1015,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 {c.shopFlags.length > 0 && (
                   <div className="ap-warn"><b>Seasonal months are inside this order&apos;s window and this listing has no history for them.</b> Shop-wide last year: {c.shopFlags.map((r) => MONTH_NAMES[r.mo] + ' ran ' + f1(r.s.factor) + 'x').join(', ')}. Per your rule a shop-wide signal is never added automatically - if this listing follows the shop, raise the order by hand.</div>
                 )}
-                <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. Nothing is applied automatically: a month at {f1(dial.seasonTh)}x or more becomes a suggestion with the likely holiday or season named, and only your Approve applies it. The whole shop column only ever flags. {dial.seasonRepeat ? 'The repeat rule is ON: a month is only offered when the most recent year with data cleared ' + f1(dial.seasonTh) + 'x AND the year before it did too, so one loud year on its own is never enough - and a month already approved stops applying if it stops repeating. Hover any factor to see the year-by-year numbers behind it.' : 'The repeat rule is OFF: a single year clearing ' + f1(dial.seasonTh) + 'x is enough to offer the month, even if the year after it was quiet.'}</div>
+                <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. Nothing is applied automatically: a month at {f1(dial.seasonTh)}x or more becomes a suggestion with the likely holiday or season named, and only your Approve applies it. The whole shop column only ever flags. {dial.seasonRepeat ? 'A newer year can cancel a season: if an older year cleared ' + f1(dial.seasonTh) + 'x but the most recent year with data did not, the month is held back, and an already-approved month stops applying. One year of history on its own is still offered - nothing has disagreed with it yet - and the card says how much backing it has. Hover any factor to see the year-by-year numbers behind it.' : 'The newer-year veto is OFF: any year clearing ' + f1(dial.seasonTh) + 'x offers the month, even if a later year was quiet.'}</div>
               </div>
             </div>
 
