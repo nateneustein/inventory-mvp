@@ -44,6 +44,9 @@ export async function saveAdvancedPredictionSettings(formData) {
   settings.wait = formData.get('wait') === '1' ? 1 : 0
   // Whether the new-listing bump is actually added, rather than only suggested.
   settings.npa = formData.get('npa') === '1' ? 1 : 0
+  /* Whether a seasonal month has to repeat two years running before the page
+     will offer it. Defaults to on when the group has never been saved. */
+  settings.srep = formData.get('srep') === '1' ? 1 : 0
   for (const mk of ['sx', 'tx', 'rx']) {
     const raw = formData.get(mk)
     if (raw !== null) {
