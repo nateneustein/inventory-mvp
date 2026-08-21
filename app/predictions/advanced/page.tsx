@@ -29,6 +29,13 @@ const f2 = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2)
 const pctOf = (n) => Math.round(Number(n) || 0)
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** "2024: 2.2x, 2025: 1.26x" - the years behind a factor, on the row itself,
+ *  so nobody has to ask which year a multiplier came from. */
+function yearsTip(ev) {
+  if (!ev || !ev.years || !ev.years.length) return 'no history'
+  return ev.years.map((r) => r.y + ': ' + (Math.round(r.factor * 100) / 100) + 'x').join(',  ')
+}
+
 /** Why a month may spike: holidays and seasons, INCLUDING the run-up months -
  *  personalized gifts get ordered one to two months before the day itself. */
 const OCCASIONS = {
@@ -125,6 +132,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
        than the page appeared to say. Now the page shows what it would add and
        waits to be told. */
     npApply: params.npaset != null ? params.npa === '1' : savedSettings.npa == null ? false : Number(savedSettings.npa) === 1,
+    /* A season has to happen twice before the page will offer it. On by
+       default: one loud year followed by a quiet one is not a season, and the
+       old rule let that single year keep suggesting itself forever. */
+    seasonRepeat: params.srepset != null ? params.srep === '1' : savedSettings.srep == null ? true : Number(savedSettings.srep) === 1,
   }
   // Trend horizon: left blank, it follows each part's own order window -
   // base cover months plus the shipping wait. A 90-day lead gives 3 + 3 = 6
@@ -345,13 +356,17 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const decision = seasonDecisions[String(cm.mo)] || null
         // The GROUP decides seasonality: one variation's month cannot be
         // seasonal on its own - they sell as one listing.
-        const candidate = l.hits > 0
+        /* With the repeat rule on, the most recent year with data has to have
+           done it too. A month that spiked once and then went quiet is kept
+           back and shown as such, rather than silently disappearing. */
+        const candidate = dial.seasonRepeat ? l.repeated : l.hits > 0
+        const onceOnly = dial.seasonRepeat && l.hits > 0 && !l.repeated
         let applied = 1
-        if (decision === 'approved') {
+        if (decision === 'approved' && !onceOnly) {
           if (l.hits > 0) applied = Math.max(applied, l.factor)
           else if (l.hasHistory && l.factor > 1) applied = Math.max(applied, l.factor)
         }
-        return { ...cm, v, l, s, decision, candidate, applied }
+        return { ...cm, v, l, s, decision, candidate, onceOnly, applied }
       })
       const appliedByMonth = {}
       for (const r of seasonRows) appliedByMonth[r.y * 100 + r.mo] = r.applied
@@ -360,7 +375,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const key = mid.getUTCFullYear() * 100 + (mid.getUTCMonth() + 1)
         return appliedByMonth[key] || 1
       }
-      const shopFlags = seasonRows.filter((r) => r.s.hits > 0 && r.applied === 1 && !r.candidate)
+      const shopFlags = seasonRows.filter((r) => (dial.seasonRepeat ? r.s.repeated : r.s.hits > 0) && r.applied === 1 && !r.candidate)
 
       const np = newProductCheck(listingFirst, todayMs, dial.npMin, dial.npBump)
 
@@ -499,7 +514,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             </label>
             <label>Season fires from (x)
               <input type="number" name="sth" step="0.1" defaultValue={dial.seasonTh} />
-              <span className="ap-dial-help">A calendar month counts as seasonal when last year it sold at least this x its year&apos;s normal. Months this order covers get last year&apos;s multiplier applied.</span>
+              <span className="ap-dial-help">A calendar month counts as seasonal when a past year sold at least this x that year&apos;s normal (its own Feb-Sep median). Months this order covers get the multiplier applied once you approve them.</span>
+            </label>
+            <label className="ap-check">
+              <span><input type="hidden" name="srepset" value="1" /><input type="checkbox" name="srep" value="1" defaultChecked={dial.seasonRepeat} /> Season must repeat two years running</span>
+              <span className="ap-dial-help">On by default. A month is only offered as seasonal when the MOST RECENT year with data cleared the threshold and the year before it cleared it too. One big year followed by a quiet one is not a season - without this, a single old spike keeps suggesting itself every year, because one hit was enough and the quiet years that followed were dropped instead of counting against it. Held-back months are still listed under the table so nothing goes silently missing.</span>
             </label>
             <label>New product under (months)
               <input type="number" name="npmin" step="0.5" defaultValue={dial.npMin} />
@@ -583,6 +602,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
           <input type="hidden" name="slook" value={dial.surgeLook} />
           <input type="hidden" name="wait" value={dial.surgeOnWait ? '1' : '0'} />
           <input type="hidden" name="npa" value={dial.npApply ? '1' : '0'} />
+          <input type="hidden" name="srep" value={dial.seasonRepeat ? '1' : '0'} />
           <input type="hidden" name="sx" value={surgeExclude.join(',')} />
           <input type="hidden" name="tx" value={trendExclude.join(',')} />
           <input type="hidden" name="rx" value={rateExclude.join(',')} />
@@ -888,10 +908,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     {c.seasonRows.map((r) => (
                       <tr key={r.y * 100 + r.mo}>
                         <td>{MONTH_NAMES[r.mo]} {r.y}</td><td>{r.weeksIn}</td>
-                        <td>{r.v.hasHistory ? f1(r.v.factor) + 'x' + (r.v.years.length > 1 ? ' (' + r.v.hits + ' of ' + r.v.years.length + ' yrs)' : '') : 'no history'}</td>
-                        <td>{r.l.hasHistory ? f1(r.l.factor) + 'x' + (r.l.years.length > 1 ? ' (' + r.l.hits + ' of ' + r.l.years.length + ' yrs)' : '') : 'no history'}</td>
-                        <td>{r.s.hasHistory ? f1(r.s.factor) + 'x' + (r.s.years.length > 1 ? ' (' + r.s.hits + ' of ' + r.s.years.length + ' yrs)' : '') : 'no history'}</td>
-                        <td>{r.decision === 'approved' ? 'approved' : r.decision === 'dismissed' ? 'dismissed' : r.candidate ? 'waiting' : '-'}</td>
+                        <td title={yearsTip(r.v)}>{r.v.hasHistory ? f1(r.v.factor) + 'x' + (r.v.years.length > 1 ? ' (' + r.v.hits + ' of ' + r.v.years.length + ' yrs)' : '') : 'no history'}</td>
+                        <td title={yearsTip(r.l)}>{r.l.hasHistory ? f1(r.l.factor) + 'x' + (r.l.years.length > 1 ? ' (' + r.l.hits + ' of ' + r.l.years.length + ' yrs)' : '') : 'no history'}</td>
+                        <td title={yearsTip(r.s)}>{r.s.hasHistory ? f1(r.s.factor) + 'x' + (r.s.years.length > 1 ? ' (' + r.s.hits + ' of ' + r.s.years.length + ' yrs)' : '') : 'no history'}</td>
+                        <td>{r.decision === 'approved' ? (r.onceOnly ? 'approved - held' : 'approved') : r.decision === 'dismissed' ? 'dismissed' : r.candidate ? 'waiting' : r.onceOnly ? 'not repeated' : '-'}</td>
                         <td>{r.applied > 1 ? <b>{f1(r.applied)}x</b> : '-'}</td>
                       </tr>
                     ))}
@@ -918,9 +938,11 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   return cards.map((r) => {
                     const ev = r.l
                     const level = 'the whole group'
-                    const conf = ev.years.length >= 2 && ev.hits >= 2
-                      ? 'Very confident: it spiked in ' + ev.hits + ' of ' + ev.years.length + ' years with data.'
-                      : 'Based on ' + ev.years.length + ' year of data - it could be a one-off.'
+                    const conf = dial.seasonRepeat
+                      ? 'Repeated: ' + ev.hits + ' of ' + ev.years.length + ' years with data cleared ' + f1(dial.seasonTh) + 'x, including the most recent one (' + ev.latest.y + ' at ' + f1(ev.latest.factor) + 'x). ' + yearsTip(ev) + '.'
+                      : ev.years.length >= 2 && ev.hits >= 2
+                        ? 'Very confident: it spiked in ' + ev.hits + ' of ' + ev.years.length + ' years with data. ' + yearsTip(ev) + '.'
+                        : 'Based on ' + ev.years.length + ' year of data - it could be a one-off.'
                     return (
                       <div key={r.mo} className="ap-season-card">
                         <div>
@@ -950,6 +972,25 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                     )
                   })
                 })()}
+                {(() => {
+                  /* Kept back by the repeat rule. Shown, not hidden: the spike
+                     really happened, it just did not happen again, and that is
+                     a different thing from "nothing found". */
+                  const seen = []
+                  const held = c.seasonRows.filter((r) => {
+                    if (!r.onceOnly || seen.indexOf(r.mo) >= 0) return false
+                    seen.push(r.mo)
+                    return true
+                  })
+                  if (!held.length) return null
+                  return (
+                    <div className="ap-sm muted" style={{ margin: '8px 0 0' }}>
+                      <b>Held back - spiked once, did not repeat:</b>{' '}
+                      {held.map((r) => MONTH_NAMES[r.mo] + ' (' + yearsTip(r.l) + ')').join('; ')}.
+                      {' '}The most recent year with data has to clear {f1(dial.seasonTh)}x as well before a month is offered. Untick <i>Season must repeat two years running</i> in the dials to go back to one year being enough.
+                    </div>
+                  )
+                })()}
                 {Object.keys(seasonDecisions).length > 0 && (
                   <div className="ap-sm muted" style={{ margin: '8px 0 0' }}>
                     Decided months:{' '}
@@ -971,7 +1012,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                 {c.shopFlags.length > 0 && (
                   <div className="ap-warn"><b>Seasonal months are inside this order&apos;s window and this listing has no history for them.</b> Shop-wide last year: {c.shopFlags.map((r) => MONTH_NAMES[r.mo] + ' ran ' + f1(r.s.factor) + 'x').join(', ')}. Per your rule a shop-wide signal is never added automatically - if this listing follows the shop, raise the order by hand.</div>
                 )}
-                <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. Nothing is applied automatically: a month at {f1(dial.seasonTh)}x or more becomes a suggestion with the likely holiday or season named, and only your Approve applies it. The whole shop column only ever flags. With 2+ years of data a repeated spike is called out as very confident.</div>
+                <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. Nothing is applied automatically: a month at {f1(dial.seasonTh)}x or more becomes a suggestion with the likely holiday or season named, and only your Approve applies it. The whole shop column only ever flags. {dial.seasonRepeat ? 'The repeat rule is ON: a month is only offered when the most recent year with data cleared ' + f1(dial.seasonTh) + 'x AND the year before it did too, so one loud year on its own is never enough - and a month already approved stops applying if it stops repeating. Hover any factor to see the year-by-year numbers behind it.' : 'The repeat rule is OFF: a single year clearing ' + f1(dial.seasonTh) + 'x is enough to offer the month, even if the year after it was quiet.'}</div>
               </div>
             </div>
 
