@@ -375,7 +375,15 @@ export default async function AdvancedPredictionPage({ searchParams }) {
         const key = mid.getUTCFullYear() * 100 + (mid.getUTCMonth() + 1)
         return appliedByMonth[key] || 1
       }
-      const shopFlags = seasonRows.filter((r) => r.s.hits > 0 && !(dial.seasonRepeat && r.s.contradicted) && r.applied === 1 && !r.candidate)
+      /* Months where the SHOP has a season, this listing is not offering one,
+         and nothing is applied. Two very different reasons land here and they
+         must not share a sentence: either this listing has never traded that
+         month at all, or it has and it simply did not spike. Saying "no
+         history" for the second one contradicts the table directly above,
+         which is showing that listing's own numbers for the same month. */
+      const shopSeasonal = seasonRows.filter((r) => r.s.hits > 0 && !(dial.seasonRepeat && r.s.contradicted) && r.applied === 1 && !r.candidate)
+      const shopFlags = shopSeasonal.filter((r) => !r.l.hasHistory)
+      const shopDiffers = shopSeasonal.filter((r) => r.l.hasHistory)
 
       const np = newProductCheck(listingFirst, todayMs, dial.npMin, dial.npBump)
 
@@ -434,7 +442,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
 
       calc = { perVariation, noData, group, months, poolNames, mine, ownPct, effPct, effWeeks,
                effAuto, surgeOvPct, trendAuto, inGroupCount: groupBase.length, knockedCount: perVariation.length - inGroup.length,
-               rate, trend, leadDays, leadWeeks, alertMonths, horizMonths, arrivalMs, coveredToMs, seasonRows, shopFlags,
+               rate, trend, leadDays, leadWeeks, alertMonths, horizMonths, arrivalMs, coveredToMs, seasonRows, shopFlags, shopDiffers,
                np, available, q, plain3mo, flagged, stepPcs, actualRecent, coverWeeksNow, staleWeeks, selEnd, stRow }
     }
   }
@@ -900,7 +908,7 @@ export default async function AdvancedPredictionPage({ searchParams }) {
             <div className="ap-step">
               <div className="ap-step-h"><span className="ap-n">5</span><strong>Seasonality - from today until the order is used up</strong>
                 <span className={'ap-out' + (c.seasonRows.some((r) => r.applied > 1) ? '' : ' off')}>
-                  {c.seasonRows.some((r) => r.applied > 1) ? 'applied  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.season)) : '0') + ' pcs' : c.seasonRows.some((r) => r.candidate && !r.decision) ? 'needs your decision' : c.shopFlags.length ? 'flag only' : 'nothing found'}</span></div>
+                  {c.seasonRows.some((r) => r.applied > 1) ? 'applied  =  +' + (c.stepPcs ? f0(Math.max(0, c.stepPcs.season)) : '0') + ' pcs' : c.seasonRows.some((r) => r.candidate && !r.decision) ? 'needs your decision' : (c.shopFlags.length || c.shopDiffers.length) ? 'flag only' : 'nothing found'}</span></div>
               <div className="ap-step-b">
                 <table>
                   <thead><tr><th>Month (wait + 3 mo)</th><th>Weeks in it</th><th>This part, past years</th><th>The listing, past years</th><th>Whole shop, past years</th><th>Decision</th><th>Applied</th></tr></thead>
@@ -1013,7 +1021,10 @@ export default async function AdvancedPredictionPage({ searchParams }) {
                   </div>
                 )}
                 {c.shopFlags.length > 0 && (
-                  <div className="ap-warn"><b>Seasonal months are inside this order&apos;s window and this listing has no history for them.</b> Shop-wide last year: {c.shopFlags.map((r) => MONTH_NAMES[r.mo] + ' ran ' + f1(r.s.factor) + 'x').join(', ')}. Per your rule a shop-wide signal is never added automatically - if this listing follows the shop, raise the order by hand.</div>
+                  <div className="ap-warn"><b>Seasonal months are inside this order&apos;s window and this listing has never traded them.</b> Shop-wide: {c.shopFlags.map((r) => MONTH_NAMES[r.mo] + ' ran ' + f1(r.s.factor) + 'x').join(', ')}. There is nothing of this listing&apos;s own to judge, so nothing is suggested. Per your rule a shop-wide signal is never added automatically - if you think this listing will follow the shop, raise the order by hand.</div>
+                )}
+                {c.shopDiffers.length > 0 && (
+                  <div className="ap-warn"><b>The shop spikes in these months. This listing was checked and did not.</b> {c.shopDiffers.map((r) => MONTH_NAMES[r.mo] + ': shop ' + f1(r.s.factor) + 'x, this listing ' + f1(r.l.factor) + 'x' + (r.onceOnly ? ' (held back - a newer year did not repeat it)' : '')).join(' · ')}. This listing has its own history for these months and it does not follow the shop, so nothing is suggested. Raise the order by hand only if you know something the numbers do not.</div>
                 )}
                 <div className="ap-why">&quot;No history&quot; and &quot;checked, all clear&quot; would otherwise look identical on screen. They are opposite situations. Nothing is applied automatically: a month at {f1(dial.seasonTh)}x or more becomes a suggestion with the likely holiday or season named, and only your Approve applies it. The whole shop column only ever flags. {dial.seasonRepeat ? 'A newer year can cancel a season: if an older year cleared ' + f1(dial.seasonTh) + 'x but the most recent year with data did not, the month is held back, and an already-approved month stops applying. One year of history on its own is still offered - nothing has disagreed with it yet - and the card says how much backing it has. Hover any factor to see the year-by-year numbers behind it.' : 'The newer-year veto is OFF: any year clearing ' + f1(dial.seasonTh) + 'x offers the month, even if a later year was quiet.'}</div>
               </div>
