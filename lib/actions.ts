@@ -800,9 +800,24 @@ export async function addPurchaseOrderItem(formData: FormData) {
   const perms = await getPermissions()
   if (!perms.canCreateShipments) redirect(deniedUrl('/shipments', 'add a part to a shipment'))
 
+  const poId = value(formData, 'purchase_order_id')
+  const partId = value(formData, 'part_id')
+  /* Something being sent that is not in the parts list at all - a one-off, a
+     sample, a tool. The sender types the name instead of picking a part, and
+     the line carries no part id, so receiving it never claims any stock. */
+  const customName = value(formData, 'custom_item_name')
+  const unlisted = !partId && !!customName
+  if (!partId && !customName) {
+    redirect(deniedUrl('/shipments/' + poId, 'add a line without a part or a typed name'))
+  }
+  if (unlisted && !perms.canAddUnlistedShipmentItem) {
+    redirect(deniedUrl('/shipments/' + poId, 'add an item that is not in the parts list'))
+  }
+
   const { error } = await supabase.from('purchase_order_items').insert({
-    purchase_order_id: value(formData, 'purchase_order_id'),
-    part_id: value(formData, 'part_id'),
+    purchase_order_id: poId,
+    part_id: unlisted ? null : partId,
+    custom_item_name: unlisted ? customName : null,
     quantity_ordered: num(formData, 'quantity_ordered', 0),
     unit_cost: num(formData, 'unit_cost', 0),
     notes: value(formData, 'notes') || null,
@@ -1757,8 +1772,15 @@ export async function updatePurchaseOrderItem(formData: FormData) {
   if (!perms.canManagePurchasing) redirect(deniedUrl('/shipments', 'edit a shipment line'))
   const id = value(formData, 'id')
   const poId = value(formData, 'purchase_order_id')
+  /* An unlisted line stays unlisted here: the edit form for one offers the
+     typed name, not the part picker, so a line never silently changes from a
+     typed name into a real part (or back) behind someone's back. */
+  const partId = value(formData, 'part_id')
+  const customName = value(formData, 'custom_item_name')
+  const unlisted = !partId && !!customName
   const { error } = await supabase.from('purchase_order_items').update({
-    part_id: value(formData, 'part_id'),
+    part_id: unlisted ? null : partId,
+    custom_item_name: unlisted ? customName : null,
     quantity_ordered: num(formData, 'quantity_ordered', 0),
     unit_cost: num(formData, 'unit_cost', 0),
     notes: value(formData, 'notes') || null,
