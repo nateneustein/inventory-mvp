@@ -69,7 +69,7 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
 
   const { data: events } = await supabase
     .from('receiving_events')
-    .select('*, parts(name, sku), purchase_orders(po_number, id)')
+    .select('*, parts(name, sku), purchase_orders(po_number, id), purchase_order_items(custom_item_name)')
     .order('created_at', { ascending: false })
     .limit(50)
 
@@ -246,8 +246,13 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
                     <tr key={line.id}>
                       <td className="name-cell">
                         <input type="hidden" name="item_id" value={line.id} />
+                        {line.part_id ? (<>
                         <Link className="link" href={'/parts/' + line.part_id}>{line.parts?.name}</Link>
                         <span className="sku-under">{line.parts?.sku}</span>
+                        </>) : (<>
+                        {line.custom_item_name} <span className="badge warning">not a part</span>
+                        <span className="sku-under">ticking this off changes no stock</span>
+                        </>)}
                       </td>
                       <td>{num(line.quantity_ordered)}</td>
                       <td>{num(line.quantity_received)}</td>
@@ -323,12 +328,12 @@ export default async function ReceivingPage({ searchParams }: { searchParams?: P
               <tr key={e.id}>
                 <td>{date(e.created_at)}</td>
                 <td>{e.purchase_orders?.po_number}</td>
-                <td className="name-cell">{e.parts?.name}<span className="sku-under">{e.parts?.sku}</span></td>
+                <td className="name-cell">{e.part_id ? <>{e.parts?.name}<span className="sku-under">{e.parts?.sku}</span></> : <>{e.purchase_order_items?.custom_item_name || 'Not in the parts list'} <span className="badge warning">not a part</span></>}</td>
                 <td>{num(e.quantity_received)}</td>
                 <td>{num(e.quantity_damaged)}</td>
                 <td>{num(e.quantity_missing)}</td>
                 <td>{e.notes}</td>
-                <td className="actions-cell" data-confirm-label={(e.parts?.name || 'this line') + ' on ' + (e.purchase_orders?.po_number || 'this shipment')}>
+                <td className="actions-cell" data-confirm-label={(e.parts?.name || e.purchase_order_items?.custom_item_name || 'this line') + ' on ' + (e.purchase_orders?.po_number || 'this shipment')}>
                   <div className="action-row">
                     <details className="mini-add">
                       <summary className="button small-btn secondary">Edit</summary>
