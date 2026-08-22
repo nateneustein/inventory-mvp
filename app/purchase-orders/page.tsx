@@ -1,4 +1,5 @@
 import { requireUser } from '@/lib/require-user'
+import { getPermissions } from '@/lib/permissions'
 import { addPurchaseOrderItem, createPurchaseOrder, updatePurchaseOrderStatus } from '@/lib/actions'
 import { date, num, supplierHint } from '@/lib/format'
 import { SearchSelect } from '@/components/search-select'
@@ -9,6 +10,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
   const params = searchParams ? await searchParams : {}
   const q = params.q || ''
   const { supabase } = await requireUser()
+  const perms = await getPermissions()
   const { data: suppliers } = await supabase.from('suppliers').select('id, name, contact_name, email, phone').order('name')
   const { data: parts } = await supabase.from('parts').select('id, name, sku').order('sort_order', { ascending: true, nullsFirst: false }).order('name')
   const { data: purchaseOrders } = await supabase
@@ -72,8 +74,15 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
               <SearchSelect name="purchase_order_id" required placeholder="Type a PO number or supplier" options={shownPos.map((po: any) => ({ value: po.id, label: `${po.po_number} - ${po.suppliers?.name}` }))} />
             </label>
             <label>Part
-              <SearchSelect name="part_id" required placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} />
+              <SearchSelect name="part_id" placeholder="Type a part name or SKU" options={(parts || []).map((p: any) => ({ value: p.id, label: p.name, hint: p.sku }))} />
             </label>
+            {perms.canAddUnlistedShipmentItem && (
+              <details className="ap-custom-part">
+                <summary>+ Sending something that is not a part?</summary>
+                <label>Type what it is instead<input name="custom_item_name" placeholder="e.g. replacement laser lens" /></label>
+                <p className="muted small">Only for something that is not in the parts list at all - a sample, a tool, a one-off. Leave the part box above empty. It rides on the shipment and can be ticked off when it arrives, but it never counts as stock, because there is no part to count it against.</p>
+              </details>
+            )}
             <div className="form-row">
               <label>Qty ordered<input name="quantity_ordered" type="number" step="0.01" required /></label>
               <label>Unit cost<input name="unit_cost" type="number" step="0.0001" defaultValue="0" /></label>
