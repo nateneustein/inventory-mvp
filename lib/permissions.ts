@@ -75,6 +75,13 @@ export function permissionsFor(role: Role) {
     // the database pins those columns for anyone under manager.
     canEditShipmentLogistics: isManagerUp || role === 'shipping_lead',
 
+    /* Putting a free-typed name on a shipment - something being sent that is
+       not in the parts list at all. A typed name is a small piece of master
+       data: it shows up on the shipment forever and nobody can count it, so it
+       belongs to the people who own shipments rather than to everyone who can
+       add a normal line. The database enforces the same three roles. */
+    canAddUnlistedShipmentItem: isManagerUp || role === 'shipping_lead',
+
     // Who we buy from - names, contacts, phone numbers, prices per supplier.
     // The database refuses this data outright to anyone without it, so this
     // flag only decides whether the page bothers to draw the column.
